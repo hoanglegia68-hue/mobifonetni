@@ -1,6 +1,6 @@
 // --- CẤU HÌNH KẾT NỐI GOOGLE SHEET ---
 // ⚠️ HÃY DÁN LINK APP SCRIPT CỦA BẠN VÀO GIỮA DẤU NGOẶC KÉP DƯỚI ĐÂY:
-const API_URL = "https://script.google.com/macros/s/AKfycby......./exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbxX9HJ9adOFtCB2Q9HlihFY3mP9ETP7FGxE_5fnWfC-L_UyZDqvv_eYRmoGvaXwuQ0wxg/exec"; 
 
 const DataService = {
     
