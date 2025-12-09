@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - MBF-TNI System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #0f172a; 
+            font-family: sans-serif; 
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen overflow-hidden relative">
+
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+        <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600 rounded-full blur-[150px] opacity-20"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600 rounded-full blur-[150px] opacity-20"></div>
+    </div>
+
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm z-10 relative">
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-blue-700 rounded-xl mx-auto flex items-center justify-center text-white font-bold text-3xl shadow-lg mb-4">M</div>
+            <h1 class="text-2xl font-bold text-slate-800">Chào mừng trở lại</h1>
+            <p class="text-slate-500 text-sm mt-1">Hệ thống Quản trị MobiFone TNI</p>
+        </div>
+
+        <form id="loginForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tài khoản</label>
+                <input type="text" id="username" class="w-full border border-slate-300 bg-slate-50 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all" placeholder="Ví dụ: admin">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Mật khẩu</label>
+                <input type="password" id="password" class="w-full border border-slate-300 bg-slate-50 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all" placeholder="••••••••">
+            </div>
+            
+            <div id="errorMsg" class="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 hidden flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="errorText">Sai thông tin!</span>
+            </div>
+
+            <button type="submit" id="btnLogin" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-blue-700/30 flex justify-center items-center gap-2">
+                <span>Đăng Nhập</span>
+            </button>
+        </form>
+        
+        <p class="text-center text-xs text-slate-400 mt-6">&copy; 2025 MBF-TNI SYSTEM | Ver 01.26</p>
+    </div>
+
+    <script src="js/data-service.js"></script>
+    <script>
+        // Xóa sạch session cũ khi vào trang Login
+        localStorage.removeItem('MIS_USER');
+
+        const loginForm = document.getElementById('loginForm');
+        const btnLogin = document.getElementById('btnLogin');
+        const errorMsg = document.getElementById('errorMsg');
+        const errorText = document.getElementById('errorText');
+
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // UI Loading State
+            btnLogin.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Đang kiểm tra...`;
+            btnLogin.disabled = true;
+            errorMsg.classList.add('hidden');
+
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+
+            try {
+                // Tải dữ liệu toàn bộ hệ thống (bao gồm cả sheet 'users')
+                await DataService.ensureData(); 
+                
+                // Lấy danh sách user từ cache
+                const users = DataService._cache.users || [];
+                
+                // Tìm user khớp (So sánh chuỗi, bỏ qua khoảng trắng)
+                const foundUser = users.find(user => 
+                    String(user.username).trim() === u && 
+                    String(user.password).trim() === p
+                );
+
+                if (foundUser) {
+                    // Đăng nhập thành công -> Lưu session vào localStorage
+                    const sessionUser = {
+                        name: foundUser.fullname,
+                        role: foundUser.role,   
+                        // Scope là Mã Liên Cụm (VD: LC_TANCHAU), hoặc 'all'
+                        scope: foundUser.scope  
+                    };
+                    localStorage.setItem('MIS_USER', JSON.stringify(sessionUser));
+                    
+                    // Chuyển hướng vào trang chính
+                    setTimeout(() => { window.location.href = 'index.html'; }, 500);
+                } else {
+                    throw new Error("Tên đăng nhập hoặc mật khẩu không đúng.");
+                }
+            } catch (err) {
+                console.error("Lỗi đăng nhập:", err);
+                
+                // Hiển thị lỗi
+                btnLogin.innerHTML = `<span>Đăng Nhập</span>`;
+                btnLogin.disabled = false;
+                errorMsg.classList.remove('hidden');
+                errorText.textContent = err.message || "Lỗi kết nối Server! Vui lòng thử lại.";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+/* =========================================
+   1. VARIABLES & THEME SETUP
+   ========================================= */
+:root {
+    /* Theme: Professional Corporate Blue */
+    --primary-color: #1e40af; /* blue-800: Màu chủ đạo */
+    --primary-hover: #1e3a8a; /* blue-900: Khi hover */
+    --secondary-color: #ef4444; /* red-500: Màu cảnh báo/xoá */
+    --accent-color: #3b82f6; /* blue-500: Màu điểm nhấn */
+    
+    --bg-sidebar: #0f172a; /* slate-900: Nền menu trái */
+    --bg-body: #f8fafc; /* slate-50: Nền nội dung chính */
+    
+    --text-main: #1e293b; /* slate-800: Chữ chính */
+    --text-muted: #64748b; /* slate-500: Chữ phụ */
+    --border-color: #e2e8f0; /* slate-200: Đường viền */
+}
+
+body { 
+    font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+    background-color: var(--bg-body); 
+    color: var(--text-main); 
+}
+
+/* Tùy chỉnh thanh cuộn (Scrollbar) tinh tế */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* =========================================
+   2. SIDEBAR NAVIGATION
+   ========================================= */
+.nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; color: #94a3b8; /* slate-400 */
+    border-radius: 8px; transition: all 0.2s ease;
+    font-size: 0.9rem; font-weight: 500; text-decoration: none;
+    margin-bottom: 4px; cursor: pointer; 
+    border-left: 3px solid transparent; /* Thanh active bên trái */
+}
+
+.nav-item:hover { 
+    background-color: rgba(255, 255, 255, 0.05); 
+    color: #f1f5f9; 
+}
+
+.nav-item.active { 
+    background-color: rgba(59, 130, 246, 0.15); /* blue tint */
+    color: #60a5fa; /* blue-400 */
+    border-left-color: #60a5fa; 
+    font-weight: 600;
+}
+
+/* Cập nhật style cho khu vực User Info mới (Đã loại bỏ click demo) */
+.sidebar-user-area {
+    cursor: default !important;
+}
+
+/* =========================================
+   3. BUTTONS & INPUTS
+   ========================================= */
+/* Button Chính */
+.btn-primary {
+    background-color: var(--primary-color); color: white; padding: 8px 16px;
+    border-radius: 6px; font-weight: 500; display: inline-flex; align-items: center;
+    transition: all 0.2s; border: 1px solid transparent; 
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.btn-primary:hover { 
+    background-color: var(--primary-hover); 
+    transform: translateY(-1px); 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Phụ */
+.btn-secondary {
+    background-color: #fff; color: var(--text-main); 
+    border: 1px solid var(--border-color);
+    padding: 8px 16px; border-radius: 6px; font-weight: 500; 
+    display: inline-flex; align-items: center; transition: 0.2s;
+}
+.btn-secondary:hover { 
+    background-color: #f8fafc; 
+    border-color: #cbd5e1; 
+    color: var(--primary-color);
+}
+
+/* Inputs Form */
+input[type="text"], input[type="number"], input[type="date"], input[type="month"], select, textarea {
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+/* =========================================
+   4. TABLES (HIỆN ĐẠI HÓA)
+   ========================================= */
+.modern-table { 
+    width: 100%; border-collapse: separate; border-spacing: 0; 
+}
+
+/* Header Bảng */
+.modern-table th { 
+    background-color: #f8fafc; color: #64748b; 
+    border-bottom: 2px solid #e2e8f0; padding: 12px 16px;
+    font-size: 0.75rem; text-transform: uppercase; font-weight: 700; text-align: left;
+    white-space: nowrap; 
+    position: sticky; top: 0; z-index: 10; /* Cố định header khi scroll */
+}
+
+/* Dòng dữ liệu */
+.modern-table td { 
+    border-bottom: 1px solid #f1f5f9; 
+    padding: 12px 16px; 
+    vertical-align: top;
+    font-size: 0.875rem;
+}
+
+/* Hiệu ứng hover dòng */
+.modern-table tr:hover td { 
+    background-color: #f8fafc; 
+}
+
+/* Helper: Kẻ vạch dọc mờ (Dùng cho các cột gộp ô như Liên Cụm) */
+.border-r-light { border-right: 1px solid #e2e8f0; }
+
+/* =========================================
+   5. BADGES & STATUS INDICATORS
+   ========================================= */
+/* Role Badge (Lãnh đạo) */
+.role-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 99px;
+    font-size: 0.75rem; font-weight: 600;
+    margin-bottom: 4px; width: fit-content; border: 1px solid transparent;
+}
+.role-badge.primary { background-color: #eff6ff; color: #1e40af; border-color: #dbeafe; } /* Chủ tịch */
+.role-badge.secondary { background-color: #fef2f2; color: #991b1b; border-color: #fee2e2; } /* Công an */
+.role-badge.default { background-color: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+
+/* Region Badge (Vùng) */
+.badge-region {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.7rem; font-weight: 700;
+    color: #4f46e5; background-color: #e0e7ff; border: 1px solid #c7d2fe;
+}
+
+/* =========================================
+   6. TABS & PANELS
+   ========================================= */
+.tab-btn {
+    padding: 12px 20px; font-size: 0.9rem; font-weight: 500;
+    color: var(--text-muted); background: transparent;
+    border-bottom: 2px solid transparent; margin-right: 4px; transition: 0.2s;
+}
+.tab-btn:hover { color: var(--primary-color); background-color: #eff6ff; border-radius: 6px 6px 0 0; }
+.tab-btn.active { 
+    color: var(--primary-color); border-bottom-color: var(--primary-color);
+    background-color: #eff6ff; font-weight: 600; border-radius: 6px 6px 0 0;
+}
+
+/* Panel chi tiết (Drill-down) */
+#commune-detail-panel {
+    transition: all 0.3s ease;
+}
+
+/* =========================================
+   7. MODALS & OVERLAYS
+   ========================================= */
+.modal-overlay {
+    position: fixed; inset: 0; background-color: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; opacity: 0; pointer-events: none; transition: 0.2s;
+    backdrop-filter: blur(2px);
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+.modal-content {
+    background: white; width: 600px; max-width: 90%;
+    border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    transform: translateY(20px); transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 90vh; overflow-y: auto;
+}
+.modal-overlay.open .modal-content { transform: translateY(0); }
+
+/* =========================================
+   8. UPLOAD ZONE & PROGRESS
+   ========================================= */
+.upload-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px; padding: 32px;
+    text-align: center; background-color: #f8fafc;
+    transition: 0.2s; cursor: pointer; position: relative;
+}
+.upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--primary-color);
+    background-color: #eff6ff;
+}
+.upload-zone input[type="file"] {
+    position: absolute; width: 100%; height: 100%; 
+    top: 0; left: 0; opacity: 0; cursor: pointer;
+}
+
+.progress-container {
+    height: 6px; background-color: #e2e8f0; border-radius: 4px;
+    overflow: hidden; margin-top: 16px; display: none;
+}
+.progress-bar {
+    height: 100%; background-color: var(--primary-color);
+    width: 0%; transition: width 0.3s;
+}
+
+/* =========================================
+   9. PHÂN QUYỀN (RBAC VISUALIZATION)
+   ========================================= */
+
+/* Class .admin-only: Mặc định ẩn */
+.admin-only { display: none !important; }
+
+/* Nếu Body có class is-admin => Hiện các nút .admin-only */
+body.is-admin .admin-only { display: inline-flex !important; }
+
+/* Menu Hệ thống: Chỉ Admin thấy */
+.system-menu-only { display: none !important; }
+body.is-admin .system-menu-only { display: flex !important; }
+
+/* Nếu là View Only hoặc Manager => Đảm bảo ẩn (Phòng hờ) */
+body.is-view .admin-only, 
+body.is-manager .admin-only { display: none !important; }
+
+/* =========================================
+   10. UTILITIES & ANIMATIONS
+   ========================================= */
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+.animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Ẩn hiện helper */
+.hidden { display: none !important; }
+
+/* Thêm mới: Style cho Footer bản quyền */
+#app-footer {
+    font-size: 0.625rem; /* 10px */
+    color: #94a3b8; /* slate-400 */
+    opacity: 0.7;
+}
