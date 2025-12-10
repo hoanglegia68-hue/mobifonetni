@@ -1,13 +1,19 @@
 const UIRenderer = {
     // --- 1. CÁC HÀM HELPER DÙNG CHUNG ---
     
+    // Format số liệu (Dùng chung cho toàn hệ thống: 1.000.000)
+    formatNumber(num) {
+        if (num === null || num === undefined) return '0';
+        return new Intl.NumberFormat('vi-VN').format(num);
+    },
+
     // Tạo Link Google Map
     getMapLink(lat, lng, address) {
         if (!lat || !lng) return `<span class="text-slate-500 text-xs">${address}</span>`;
         return `
             <div class="flex flex-col">
                 <span class="text-xs font-medium text-slate-700 truncate max-w-[200px]" title="${address}">${address}</span>
-                <a href="http://googleusercontent.com/maps.google.com/?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
                     <i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ
                 </a>
             </div>
@@ -53,7 +59,6 @@ const UIRenderer = {
 
     // --- 2. QUẢN LÝ HẠ TẦNG (CLUSTERS) ---
 
-    // Hàm này giữ nguyên vì dữ liệu đã có sẵn Tên (tenLienCum/tenCum)
     renderClusterTable(data) {
         const tbody = document.getElementById('cluster-table-body');
         if (!tbody) return;
@@ -118,8 +123,8 @@ const UIRenderer = {
                         <td class="font-medium text-slate-800">${px.ten}</td>
                         <td class="text-sm">
                             <div class="flex flex-col gap-1">
-                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">VLR:</span> <span class="font-mono font-bold text-blue-600">${px.vlr.toLocaleString()}</span></div>
-                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">Dân:</span> <span class="font-mono text-slate-600">${px.danSo.toLocaleString()}</span></div>
+                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">VLR:</span> <span class="font-mono font-bold text-blue-600">${this.formatNumber(px.vlr)}</span></div>
+                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">Dân:</span> <span class="font-mono text-slate-600">${this.formatNumber(px.danSo)}</span></div>
                                 <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">Trạm:</span> <span class="font-mono text-emerald-600 font-bold">${px.tram}</span></div>
                             </div>
                         </td>
@@ -136,9 +141,8 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    // --- 3. KÊNH TRỰC TIẾP (SỬ DỤNG MAPPING ID -> TÊN) ---
+    // --- 3. KÊNH TRỰC TIẾP ---
 
-    // Tab Cửa hàng (Stores)
     renderStoresTable(data) {
         const tbody = document.getElementById('store-list-body');
         if (!tbody) return;
@@ -190,9 +194,9 @@ const UIRenderer = {
             </tr>
             `;
         }).join('');
+        lucide.createIcons();
     },
 
-    // Tab Giao dịch viên
     renderGDVTable(data) {
         const tbody = document.getElementById('gdv-list-body');
         if (!tbody) return;
@@ -215,10 +219,9 @@ const UIRenderer = {
                 </td>
             </tr>
         `).join('');
+        lucide.createIcons();
     },
 
-    // Tab NVBH
-   // Tab NVBH
     renderSalesTable(data) {
         const tbody = document.getElementById('sales-list-body');
         if (!tbody) return;
@@ -240,8 +243,9 @@ const UIRenderer = {
                 </td>
             </tr>
         `).join('');
+        lucide.createIcons();
     },
-    // Tab KHDN
+
     renderB2BTable(data) {
         const tbody = document.getElementById('b2b-list-body');
         if (!tbody) return;
@@ -260,9 +264,8 @@ const UIRenderer = {
                 </td>
             </tr>
         `).join('');
+        lucide.createIcons();
     },
-
-    // --- 4. KÊNH GIÁN TIẾP ---
 
     renderIndirectTable(data) {
         const tbody = document.getElementById('indirect-list-body');
@@ -300,8 +303,6 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    // --- 5. TRẠM BTS ---
-
     renderBTSTable(data) {
         const tbody = document.getElementById('bts-list-body');
         if (!tbody) return;
@@ -330,72 +331,121 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    // --- 6. SỐ LIỆU KINH DOANH (KPI) ---
-    // (Giữ nguyên, chỉ cần đảm bảo Apps Script trả về đúng cột 'maLienCum' để lọc KPI Actulal ở main.js)
+    // --- 6. SỐ LIỆU KINH DOANH (KPI) - ĐÃ CẬP NHẬT "CHUẨN CHỈ" ---
 
-    renderKPIStructureTable(data) {
+    renderKPIStructureTable(structure) {
+        // 1. Render Header Động cho bảng Thực hiện
+        const thead = document.getElementById('kpi-header');
+        if (thead) {
+            let headerHtml = `
+                <tr>
+                    <th class="w-12 text-center p-3 border font-bold text-slate-700 bg-slate-100 sticky top-0 shadow-sm z-20">STT</th>
+                    <th class="p-3 border font-bold text-slate-700 bg-slate-100 min-w-[200px] sticky top-0 shadow-sm z-20">Đơn vị</th>
+            `;
+            
+            structure.forEach(item => {
+                if(item.active) {
+                    headerHtml += `<th class="p-3 border font-bold text-slate-700 bg-slate-100 text-right min-w-[120px] sticky top-0 shadow-sm z-20">${item.tenHienThi}<br><span class="text-[10px] font-normal text-slate-500">(${item.dvt})</span></th>`;
+                }
+            });
+            headerHtml += `</tr>`;
+            thead.innerHTML = headerHtml;
+        }
+
+        // 2. Render nội dung cho tab "Cấu trúc"
         const tbody = document.getElementById('body-cautruc');
-        if (!tbody) return;
-        tbody.innerHTML = data.map(item => `
-            <tr class="bg-white border-b hover:bg-slate-50">
-                <td class="p-3 text-center">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-blue-600">${item.ma}</td>
-                <td class="p-3 font-semibold">${item.ten}</td>
-                <td class="p-3 text-sm text-slate-500">${item.dvt}</td>
-                <td class="p-3 text-sm">${item.ngayApDung}</td>
-                <td class="p-3 text-center">
-                    <span class="px-2 py-1 rounded text-[10px] font-bold ${item.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
-                        ${item.active ? 'Đang áp dụng' : 'Ngưng'}
-                    </span>
-                </td>
-                <td class="p-3 text-center">
-                    <button onclick="app.openEditModal()" class="admin-only text-slate-400 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                </td>
-            </tr>
-        `).join('');
+        if (tbody) {
+            tbody.innerHTML = structure.map((item, i) => `
+                <tr class="bg-white border-b hover:bg-slate-50">
+                    <td class="p-3 text-center">${i+1}</td>
+                    <td class="p-3 font-mono font-bold text-blue-600">${item.ma}</td>
+                    <td class="p-3 font-semibold">${item.tenHienThi}</td>
+                    <td class="p-3 text-sm text-slate-500">${item.dvt}</td>
+                    <td class="p-3 text-sm">${item.ngayApDung || '-'}</td>
+                    <td class="p-3 text-center">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold ${item.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+                            ${item.active ? 'Đang áp dụng' : 'Ngưng'}
+                        </span>
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="app.openEditModal()" class="admin-only text-slate-400 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
         lucide.createIcons();
     },
 
+    // Render Bảng Dữ liệu thực tế
     renderKPIActualTable(data, structure) {
-        const table = document.getElementById('table-thuchien');
-        if (!table) return;
+        // CƠ CHẾ FALLBACK ID: Tìm ID mới trước, nếu không thấy thì tìm ID cũ
+        const tbody = document.getElementById('kpi-actual-tbody') || document.getElementById('body-thuchien');
 
-        let headerHtml = `<tr><th class="p-3 text-left w-32">Liên Cụm</th><th class="p-3 text-left w-32">Cụm</th><th class="p-3 text-left w-40">Phường/Xã</th>`;
-        structure.forEach(kpi => {
-            if (kpi.active) headerHtml += `<th class="p-3 text-right bg-blue-50/50 min-w-[100px]">${kpi.ten}<br><span class="text-[10px] font-normal text-slate-500">(${kpi.dvt})</span></th>`;
-        });
-        headerHtml += `</tr>`;
-        table.querySelector('thead').innerHTML = headerHtml;
+        if (!tbody) {
+            console.error("Critical UI Error: Không tìm thấy <tbody> cho bảng KPI. Vui lòng kiểm tra lại file index.html");
+            return;
+        }
+        
+        // Reset nội dung
+        tbody.innerHTML = '';
 
-        const tbody = document.getElementById('body-thuchien');
-        if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${3 + structure.length}" class="text-center p-8 text-slate-400">Không có dữ liệu thực hiện</td></tr>`;
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="100" class="text-center py-8 text-slate-400 italic">Không có dữ liệu phù hợp với bộ lọc</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = data.map(row => {
-            // Hiển thị tên (dịch từ mã ID nếu có)
-            const dispLC = app.getNameLienCum(row.maLienCum || row.lienCum);
-            const dispCum = app.getNameCum(row.maCum || row.cum);
+        const fragment = document.createDocumentFragment();
 
-            let rowHtml = `<tr class="bg-white border-b hover:bg-slate-50"><td class="p-3 font-bold text-slate-600">${dispLC}</td><td class="p-3 text-sm">${dispCum}</td><td class="p-3 font-medium text-blue-700">${row.phuong}</td>`;
+        data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            if (item.isTotal) {
+                // Style đặc biệt cho dòng Tổng
+                tr.className = "bg-blue-100 font-bold border-t-2 border-blue-300 text-blue-900 sticky bottom-0 z-10 shadow-lg";
+            } else {
+                tr.className = "bg-white border-b hover:bg-slate-50 cursor-pointer transition-colors";
+                tr.onclick = () => app.handleRowClick(item.hienThi); 
+            }
+
+            let sttHtml = item.isTotal ? '' : `<span class="text-slate-400">${index + 1}</span>`;
+            
+            // Xây dựng nội dung hàng
+            let html = `
+                <td class="p-3 text-center border-r border-slate-200">${sttHtml}</td>
+                <td class="p-3 text-left border-r border-slate-200 ${item.isTotal ? 'uppercase' : 'font-medium'}">
+                    ${item.hienThi}
+                    ${item.phuong && item.phuong !== '-' ? `<div class="text-[10px] text-slate-400 font-normal ml-2 inline-block">(${item.phuong})</div>` : ''}
+                </td>
+            `;
+
+            // Vòng lặp tạo cột động dựa trên Structure
             structure.forEach(kpi => {
                 if (kpi.active) {
-                    const val = row[kpi.ma] !== undefined ? row[kpi.ma].toLocaleString() : '-';
-                    rowHtml += `<td class="p-3 text-right font-mono text-slate-700">${val}</td>`;
+                    const cleanKey = app.cleanCode(kpi.ma); // Sử dụng hàm cleanCode của app để khớp key
+                    const val = item[cleanKey] || 0;
+                    
+                    // Style: Tô đậm nếu giá trị > 0
+                    const valClass = val > 0 ? (item.isTotal ? 'text-blue-800' : 'text-slate-800') : 'text-slate-300';
+                    
+                    html += `<td class="p-3 text-right border-r border-slate-200 ${valClass}">
+                        ${this.formatNumber(val)}
+                    </td>`;
                 }
             });
-            rowHtml += `</tr>`;
-            return rowHtml;
-        }).join('');
+
+            tr.innerHTML = html;
+            fragment.appendChild(tr);
+        });
+
+        tbody.appendChild(fragment);
     },
 
     renderKPIUserLogs(data) {
         const tbody = document.getElementById('body-user-ghinhan');
         if (!tbody) return;
-        tbody.innerHTML = data.map(item => `
+        tbody.innerHTML = data.map((item, i) => `
             <tr class="bg-white border-b hover:bg-slate-50">
-                <td class="p-3 text-center">${item.stt}</td>
+                <td class="p-3 text-center">${i+1}</td>
                 <td class="p-3 text-sm" title="${item.maLienCum || ''}">${app.getNameLienCum(item.maLienCum || item.lienCum)}</td>
                 <td class="p-3 text-sm" title="${item.maCum || ''}">${app.getNameCum(item.maCum || item.cum)}</td>
                 <td class="p-3 font-medium text-blue-600">${item.user}</td>
@@ -429,13 +479,11 @@ const UIRenderer = {
         if (!tbody) return;
 
         const summaryData = clusters.map(lc => {
-            const lcMa = lc.maLienCum; // Lấy Mã để dùng cho filter
-            
+            const lcMa = lc.maLienCum; 
             return { 
-                lcName: lc.tenLienCum, // Hiển thị Tên
-                lcMa: lcMa, // Giữ Mã để so sánh
+                lcName: lc.tenLienCum, 
+                lcMa: lcMa, 
                 countCum: lc.cums.length,
-                // Lọc theo Mã Liên Cụm
                 countStore: stores.filter(i => i.maLienCum === lcMa).length,
                 countGDV: gdvs.filter(i => i.maLienCum === lcMa).length,
                 countSale: sales.filter(i => i.maLienCum === lcMa).length,
@@ -483,8 +531,8 @@ const UIRenderer = {
                         <td class="p-2 font-medium text-slate-700">${cum.tenCum}</td>
                         <td class="p-2 text-blue-600">${px.ten}</td>
                         <td class="p-2 text-xs italic text-slate-500">${leaders || 'Chưa cập nhật'}</td>
-                        <td class="p-2 text-right font-mono text-xs">${px.danSo.toLocaleString()}</td>
-                        <td class="p-2 text-right font-mono text-xs font-bold">${px.vlr.toLocaleString()}</td>
+                        <td class="p-2 text-right font-mono text-xs">${this.formatNumber(px.danSo)}</td>
+                        <td class="p-2 text-right font-mono text-xs font-bold">${this.formatNumber(px.vlr)}</td>
                     </tr>
                 `;
             });
@@ -496,43 +544,44 @@ const UIRenderer = {
         if (instances.revenueChart) instances.revenueChart.destroy();
         if (instances.subChart) instances.subChart.destroy();
 
-        // Lấy danh sách Mã Liên Cụm (hoặc tên) để làm labels
         const labels = [...new Set(kpiData.map(d => d.maLienCum || d.lienCum))];
-        
-        // Dịch Mã sang Tên để hiển thị trên trục X
         const displayLabels = labels.map(code => app.getNameLienCum(code));
         
-        // Tính toán lại dữ liệu dựa trên Mã
-        const dataPlan = labels.map(l => 600); // Mock Plan
-        const dataActual = labels.map(code => kpiData.filter(d => (d.maLienCum || d.lienCum) === code).reduce((sum, item) => sum + (item.KPI_DT || 0), 0));
+        // Mock Plan vs Actual Logic
+        const dataPlan = labels.map(l => 600); 
+        const dataActual = labels.map(code => kpiData.filter(d => (d.maLienCum || d.lienCum) === code).reduce((sum, item) => sum + (Number(item.KPI_DT) || 0), 0));
 
-        const ctxRev = document.getElementById('chartRevenue').getContext('2d');
-        instances.revenueChart = new Chart(ctxRev, {
-            type: 'bar',
-            data: {
-                labels: displayLabels,
-                datasets: [
-                    { label: 'Kế hoạch', data: dataPlan, backgroundColor: '#cbd5e1' },
-                    { label: 'Thực hiện', data: dataActual, backgroundColor: '#2563eb' }
-                ]
-            },
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
+        const ctxRev = document.getElementById('chartRevenue');
+        if (ctxRev) {
+            instances.revenueChart = new Chart(ctxRev.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: displayLabels,
+                    datasets: [
+                        { label: 'Kế hoạch', data: dataPlan, backgroundColor: '#cbd5e1' },
+                        { label: 'Thực hiện', data: dataActual, backgroundColor: '#2563eb' }
+                    ]
+                },
+                options: { responsive: true, scales: { y: { beginAtZero: true } }, maintainAspectRatio: false }
+            });
+        }
 
-        const totalNewSub = kpiData.reduce((sum, item) => sum + (item.KPI_TB_MOI || 0), 0);
-        const total4G = kpiData.reduce((sum, item) => sum + (item.KPI_4G || 0), 0);
+        const totalNewSub = kpiData.reduce((sum, item) => sum + (Number(item.KPI_TB_MOI) || 0), 0);
+        const total4G = kpiData.reduce((sum, item) => sum + (Number(item.KPI_4G) || 0), 0);
 
-        const ctxSub = document.getElementById('chartSubscriber').getContext('2d');
-        instances.subChart = new Chart(ctxSub, {
-            type: 'doughnut',
-            data: {
-                labels: ['Thuê bao mới', 'Gói cước 4G'],
-                datasets: [{
-                    data: [totalNewSub, total4G],
-                    backgroundColor: ['#10b981', '#f59e0b']
-                }]
-            },
-            options: { responsive: true }
-        });
+        const ctxSub = document.getElementById('chartSubscriber');
+        if (ctxSub) {
+            instances.subChart = new Chart(ctxSub.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Thuê bao mới', 'Gói cước 4G'],
+                    datasets: [{
+                        data: [totalNewSub, total4G],
+                        backgroundColor: ['#10b981', '#f59e0b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
     }
 };
