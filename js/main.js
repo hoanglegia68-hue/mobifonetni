@@ -18,7 +18,7 @@ const app = {
 
     // --- 2. KHỞI TẠO ỨNG DỤNG (INIT) ---
     async init() {
-        console.log("App Starting... Version 01.26");
+        console.log("App Starting... Version 01.31 (Final Perfect Logic)");
 
         // A. KIỂM TRA ĐĂNG NHẬP (Bảo mật)
         const savedUser = localStorage.getItem('MIS_USER');
@@ -36,7 +36,7 @@ const app = {
 
         // D. Cập nhật giao diện User
         this.updateUserInterface();
-        this.renderFooter(); // Hiển thị bản quyền
+        this.renderFooter();
         lucide.createIcons();
 
         // E. Vào trang Dashboard mặc định
@@ -58,9 +58,13 @@ const app = {
         });
     },
 
-    // Hàm Helper để UI gọi: Dịch Mã -> Tên
     getNameLienCum(code) { return this.mapLienCum[code] || code || ''; },
     getNameCum(code) { return this.mapCum[code] || code || ''; },
+
+    // Hàm chuẩn hóa mã: Xóa khoảng trắng, về chữ hoa (QUAN TRỌNG ĐỂ LINK DATA)
+    cleanCode(code) {
+        return String(code || '').trim().toUpperCase();
+    },
 
     // --- 4. LOGIC PHÂN QUYỀN & GIAO DIỆN ---
 
@@ -98,19 +102,17 @@ const app = {
     },
 
     renderFooter() {
-        // Footer bản quyền cố định góc dưới
         if (!document.getElementById('app-footer')) {
             const footerHTML = `
                 <div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">
-                    Bản quyền <span class="font-bold">hoang.lehuu</span> | Ver <span class="font-mono">01.26</span>
+                    Bản quyền <span class="font-bold">MBF TNI</span> | Ver <span class="font-mono">01.31</span>
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', footerHTML);
         }
     },
 
-    // --- 5. LOGIC LỌC DỮ LIỆU (SCOPE FILTER - THEO ID) ---
-    // Mặc định lọc theo cột 'maLienCum'
+    // --- 5. LOGIC LỌC DỮ LIỆU (SCOPE FILTER) ---
     filterDataByScope(data, fieldId = 'maLienCum') {
         const user = this.currentUser;
         
@@ -119,9 +121,7 @@ const app = {
         
         // Manager -> Lọc đúng Mã ID
         return data.filter(item => {
-            // Check theo Mã (Ưu tiên)
             if (item[fieldId] === user.scope) return true;
-            // Check fallback theo Tên (Phòng khi data cũ chưa có mã)
             if (item.tenLienCum === user.scope || item.lienCum === user.scope) return true;
             return false;
         });
@@ -164,24 +164,20 @@ const app = {
 
     // --- 7. LOAD DỮ LIỆU TỪNG TRANG ---
     async loadDataForPage(pageId) {
-        // A. DASHBOARD
         if (pageId === 'dashboard') {
             this.loadDashboard();
         }
-        // B. HẠ TẦNG (CLUSTERS)
         else if (pageId === 'clusters') {
-            // Lọc theo scope (dùng tenLienCum hoặc maLienCum đều được vì object cluster có cả 2)
             let data = this.filterDataByScope(this.fullClusterData, 'maLienCum');
             UIRenderer.renderClusterTable(data);
         }
-        // C. KÊNH TRỰC TIẾP (STORES, GDV, SALES, B2B)
         else if (pageId === 'direct_channel') {
             let [stores, gdvs, sales, b2b] = await Promise.all([
                 DataService.getStores(), DataService.getGDVs(),
                 DataService.getSalesStaff(), DataService.getB2BStaff()
             ]);
             
-            // Lọc dữ liệu theo Mã Liên Cụm
+            // Lọc dữ liệu
             stores = this.filterDataByScope(stores, 'maLienCum');
             gdvs = this.filterDataByScope(gdvs, 'maLienCum');
             sales = this.filterDataByScope(sales, 'maLienCum');
@@ -193,19 +189,14 @@ const app = {
             UIRenderer.renderB2BTable(b2b);
             lucide.createIcons();
         }
-        // D. KÊNH GIÁN TIẾP
         else if (pageId === 'indirect_channel') {
             let data = await DataService.getIndirectChannels();
-            data = this.filterDataByScope(data, 'maLienCum');
-            UIRenderer.renderIndirectTable(data);
+            UIRenderer.renderIndirectTable(this.filterDataByScope(data, 'maLienCum'));
         }
-        // E. TRẠM BTS
         else if (pageId === 'bts') {
             let data = await DataService.getBTS();
-            data = this.filterDataByScope(data, 'maLienCum');
-            UIRenderer.renderBTSTable(data);
+            UIRenderer.renderBTSTable(this.filterDataByScope(data, 'maLienCum'));
         }
-        // F. SỐ LIỆU KINH DOANH
         else if (pageId === 'business_data') {
             await this.loadBusinessDataPage();
         }
@@ -213,12 +204,11 @@ const app = {
 
     // --- 8. DASHBOARD LOGIC ---
     async loadDashboard() {
-        let clusters = this.fullClusterData;
-        let stores = await DataService.getStores();
-        let gdvs = await DataService.getGDVs();
-        let sales = await DataService.getSalesStaff();
-        let indirect = await DataService.getIndirectChannels();
-        let bts = await DataService.getBTS();
+        let [clusters, stores, gdvs, sales, indirect, bts] = await Promise.all([
+            Promise.resolve(this.fullClusterData),
+            DataService.getStores(), DataService.getGDVs(),
+            DataService.getSalesStaff(), DataService.getIndirectChannels(), DataService.getBTS()
+        ]);
 
         // Lọc quyền
         clusters = this.filterDataByScope(clusters, 'maLienCum');
@@ -231,15 +221,13 @@ const app = {
         // Render Summary Cards
         UIRenderer.renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts);
 
-        // Setup Dropdown Scope (Hiển thị Tên thay vì Mã)
+        // Setup Dropdown Scope
         const scopeSelect = document.getElementById('chart-scope');
         if(scopeSelect) {
             let options = '<option value="all">Toàn công ty</option>';
             if (this.currentUser.role === 'manager') {
-                // Nếu là Manager, chỉ hiện 1 option là scope của họ
                 options = `<option value="${this.currentUser.scope}">${this.getNameLienCum(this.currentUser.scope)}</option>`;
             } else {
-                // Admin hiện list tất cả Liên Cụm
                 options += clusters.map(c => `<option value="${c.maLienCum}">${c.tenLienCum}</option>`).join('');
             }
             scopeSelect.innerHTML = options;
@@ -253,40 +241,170 @@ const app = {
         const to = document.getElementById('chart-to').value;
         const scope = document.getElementById('chart-scope').value;
 
-        // Lấy dữ liệu KPI
         const kpiData = await DataService.getKPIActual(from, to, '');
-        let filteredKPI = kpiData;
-
-        // Lọc biểu đồ
-        if (scope !== 'all') {
-            // Lọc theo Mã Liên Cụm (hoặc Tên nếu data cũ)
-            filteredKPI = kpiData.filter(d => d.maLienCum === scope || d.lienCum === scope);
-        }
+        let filteredKPI = scope !== 'all' ? kpiData.filter(d => d.maLienCum === scope || d.lienCum === scope) : kpiData;
         UIRenderer.renderDashboardCharts(filteredKPI, this.chartInstances);
     },
 
-    // --- 9. BUSINESS DATA & SEARCH ---
-    
+    // --- 9. BUSINESS DATA & SEARCH (PHẦN QUAN TRỌNG NHẤT) ---
+
     async loadBusinessDataPage() {
+        console.log("--> Đang tải dữ liệu kinh doanh...");
         const structure = await DataService.getKPIStructure();
-        // ... (Logic cũ)
         const mFrom = document.getElementById('filter-month-from').value;
         const mTo = document.getElementById('filter-month-to').value;
         const keyword = document.getElementById('business-search').value;
+        
+        // Lấy chế độ xem (có fallback nếu chưa có element)
+        const viewModeEl = document.getElementById('view-mode');
+        const viewMode = viewModeEl ? viewModeEl.value : 'cluster';
 
-        let actualData = await DataService.getKPIActual(mFrom, mTo, keyword);
-        actualData = this.filterDataByScope(actualData, 'maLienCum');
+        let rawData = await DataService.getKPIActual(mFrom, mTo, keyword);
+        console.log(`--> Đã lấy được ${rawData.length} dòng dữ liệu thô.`);
+
+        // 1. CHUẨN BỊ MAP ĐƠN VỊ TÍNH
+        const kpiUnitMap = {};
+        const listKpiKeys = []; 
         
-        UIRenderer.renderKPIStructureTable(structure);
-        UIRenderer.renderKPIActualTable(actualData, structure);
+        structure.forEach(item => {
+            if(item.active) {
+                // Chuẩn hóa mã KPI trong Cấu trúc (VD: "KPI_DT " -> "KPI_DT")
+                const code = this.cleanCode(item.ma);
+                // Lưu đơn vị tính để quyết định cộng hay đếm
+                kpiUnitMap[code] = (item.dvt || '').toLowerCase();
+                listKpiKeys.push(code); // Lưu key đã chuẩn hóa
+            }
+        });
+
+        // 2. GOM NHÓM DỮ LIỆU (AGGREGATION)
+        const aggregatedData = {};
+
+        rawData.forEach(row => {
+            // Lọc Scope (Quyền xem dữ liệu)
+            if (!this.checkScope(row)) return;
+
+            // Tạo Key gom nhóm dựa trên View Mode (Cụm hoặc Liên Cụm)
+            let key = '', tenHienThi = '';
+            
+            if (viewMode === 'liencum') {
+                key = row.maLienCum; 
+                tenHienThi = this.getNameLienCum(row.maLienCum);
+            } else {
+                key = `${row.maLienCum}_${row.maCum}`;
+                tenHienThi = this.getNameCum(row.maCum);
+            }
+
+            // Init Object nếu chưa có
+            if (!aggregatedData[key]) {
+                aggregatedData[key] = {
+                    id: key,                  
+                    hienThi: tenHienThi || `Mã: ${row.maCum}`,      
+                    maLienCum: row.maLienCum, 
+                    phuong: viewMode === 'liencum' ? '-' : (row.phuong || ''), // Ẩn cột Phường nếu xem Liên Cụm
+                    viewMode: viewMode,
+                    detailRows: [],           
+                    ...listKpiKeys.reduce((acc, k) => ({...acc, [k]: 0}), {}) 
+                };
+                
+                // Init các biến đệm cho cộng gộp (Dù có trong structure hay không vẫn cần đệm để tính)
+                aggregatedData[key]['FWAP'] = 0;
+                aggregatedData[key]['SAYMEE'] = 0;
+                aggregatedData[key]['TBPTM_GOC'] = 0; 
+            }
+
+            aggregatedData[key].detailRows.push(row);
+
+            // 3. LOGIC TÍNH TOÁN: ĐẾM (COUNT) HAY CỘNG (SUM)?
+            const rawKpiCode = this.cleanCode(row.maKpi);
+            const rawValue = Number(row.giaTri) || 0;
+            
+            // A. Xử lý nhóm Thuê bao đặc biệt (TBPTM, FWAP, SAYMEE) -> LUÔN ĐẾM = 1
+            if (['FWAP', 'SAYMEE'].includes(rawKpiCode)) {
+                aggregatedData[key][rawKpiCode] += 1; // Luôn đếm dòng
+            }
+            else if (rawKpiCode.includes('TBPTM')) {
+                 aggregatedData[key]['TBPTM_GOC'] += 1; // Đếm dòng TBPTM gốc
+            }
+            // B. Xử lý các KPI khác theo Đơn vị tính
+            else if (kpiUnitMap.hasOwnProperty(rawKpiCode)) {
+                const unit = kpiUnitMap[rawKpiCode];
+                
+                if (unit.includes('đồng') || unit.includes('doanh thu') || unit.includes('tiền')) {
+                    // Nếu là TIỀN -> CỘNG giá trị
+                    aggregatedData[key][rawKpiCode] += rawValue;
+                } else {
+                    // Nếu là THUÊ BAO (hoặc cái khác) -> ĐẾM dòng
+                    // (Lưu ý: Logic này áp dụng nếu file log là từng dòng giao dịch. 
+                    // Nếu file log đã là dòng tổng hợp thì cần sửa lại chỗ này thành += rawValue)
+                    // Theo yêu cầu của bạn: Thuê bao thì ĐẾM.
+                    aggregatedData[key][rawKpiCode] += 1;
+                }
+            }
+        });
+
+        let processedData = Object.values(aggregatedData);
+
+        // 4. LOGIC CỘNG GỘP: TBPTM HIỂN THỊ = GỐC + FWAP + SAYMEE
+        const KEY_TBPTM = 'TBPTM'; 
+        processedData.forEach(item => {
+            const valFWAP = item['FWAP'] || 0;
+            const valSAYMEE = item['SAYMEE'] || 0;
+            const valTBPTM_Goc = item['TBPTM_GOC'] || 0; 
+
+            // Ghi đè giá trị hiển thị
+            item[KEY_TBPTM] = valTBPTM_Goc + valFWAP + valSAYMEE;
+        });
+
+        // 5. TÍNH DÒNG TỔNG CỘNG (GRAND TOTAL)
+        if (processedData.length > 0) {
+            const totalRow = {
+                id: 'TOTAL',
+                hienThi: 'TỔNG CỘNG TOÀN CÔNG TY',
+                phuong: '',
+                isTotal: true, 
+                ...listKpiKeys.reduce((acc, k) => ({...acc, [k]: 0}), {})
+            };
+
+            processedData.forEach(item => {
+                listKpiKeys.forEach(key => {
+                    totalRow[key] += (item[key] || 0);
+                });
+            });
+
+            // Đưa dòng tổng xuống cuối cùng
+            processedData.push(totalRow);
+        }
+
+        // 6. RENDER RA MÀN HÌNH
+        // Truyền Structure gốc để lấy Tên hiển thị đúng (vì cleanCode ở trên đã UpperCase mã)
+        const cleanStructure = structure.map(s => ({
+            ...s, 
+            ma: this.cleanCode(s.ma),
+            // Giữ lại tên hiển thị tiếng Việt, nếu không có thì fallback
+            tenHienThi: s.tenHienThi || s.ten || s.ma 
+        }));
         
-        // Tab Planning
+        UIRenderer.renderKPIStructureTable(cleanStructure);
+        UIRenderer.renderKPIActualTable(processedData, cleanStructure);
+        
         this.renderPlanningTab();
         lucide.createIcons();
     },
 
+    // Hàm phụ trợ check scope (Tách ra cho gọn)
+    checkScope(item) {
+        const user = this.currentUser;
+        if (user.role === 'admin' || user.scope === 'all') return true;
+        if (item.maLienCum === user.scope || item.lienCum === user.scope) return true;
+        return false;
+    },
+
+    // Hàm xử lý khi Click vào dòng (Drill-down)
+    handleRowClick(id) {
+        alert(`Bạn đang xem chi tiết: ${id}. \nChức năng hiển thị popup chi tiết đang được xây dựng!`);
+    },
+
     async renderPlanningTab() {
-        // Gom nhân sự từ các nguồn khác nhau để hiển thị bảng Planning
         const type = document.getElementById('filter-staff-type').value;
         let staffList = [];
 
@@ -317,7 +435,7 @@ const app = {
         
         if (!keyword) { UIRenderer.renderClusterTable(data); return; }
 
-        // Logic tìm kiếm đệ quy (Tìm cả trong Cụm/Xã)
+        // Logic tìm kiếm đệ quy
         const filtered = data.map(lc => {
             const matchLC = (lc.tenLienCum || '').toLowerCase().includes(keyword);
             
@@ -360,7 +478,7 @@ const app = {
     },
 
     // --- 11. CÁC TÍNH NĂNG KHÁC (UPLOAD, MODAL...) ---
-    // Giữ nguyên các hàm bổ trợ
+    
     switchTab(tabId, btnElement) {
         const parent = btnElement.closest('.view-section');
         parent.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -370,7 +488,7 @@ const app = {
         if(tabId === 'dash-charts') this.updateCharts();
     },
     
-    // Mở Modal Upload (Demo)
+    // Mở Modal Upload
     openUploadModal(type = 'cluster') {
         document.getElementById('upload-type').value = type;
         document.getElementById('file-input').value = '';
@@ -427,7 +545,11 @@ const app = {
     // Các hàm placeholder
     openEditModal() { if(this.currentUser.role === 'admin') document.getElementById('modal-edit-ward').classList.add('open'); else alert('Quyền hạn chế!'); },
     saveWardData() { alert('Chức năng đang phát triển!'); this.closeModal(); },
-    downloadTemplate(type) { alert(`Đang tải mẫu cho: ${type}...`); }
+    downloadTemplate(type) { alert(`Đang tải mẫu cho: ${type}...`); },
+    
+    // Alias quan trọng để HTML gọi được
+    loadBusinessData: () => app.loadBusinessDataPage(),
+    addKPIStructure: () => alert("Chức năng thêm KPI đang phát triển")
 };
 
 // Khởi chạy App khi trang tải xong
