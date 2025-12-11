@@ -331,7 +331,7 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    // --- 6. SỐ LIỆU KINH DOANH (KPI) - ĐÃ CẬP NHẬT "CHUẨN CHỈ" ---
+    // --- 6. SỐ LIỆU KINH DOANH (KPI) ---
 
     renderKPIStructureTable(structure) {
         // 1. Render Header Động cho bảng Thực hiện
@@ -421,10 +421,9 @@ const UIRenderer = {
             // Vòng lặp tạo cột động dựa trên Structure
             structure.forEach(kpi => {
                 if (kpi.active) {
-                    const cleanKey = app.cleanCode(kpi.ma); // Sử dụng hàm cleanCode của app để khớp key
+                    const cleanKey = app.cleanCode(kpi.ma); 
                     const val = item[cleanKey] || 0;
                     
-                    // Style: Tô đậm nếu giá trị > 0
                     const valClass = val > 0 ? (item.isTotal ? 'text-blue-800' : 'text-slate-800') : 'text-slate-300';
                     
                     html += `<td class="p-3 text-right border-r border-slate-200 ${valClass}">
@@ -455,24 +454,84 @@ const UIRenderer = {
         `).join('');
     },
 
-    renderPlanningTable(staffList) {
+// --- TÌM ĐẾN ĐOẠN renderPlanningTable TRONG UI-RENDERER.JS VÀ THAY THẾ TOÀN BỘ ---
+
+    // --- 7. BẢNG GIAO KẾ HOẠCH (MA TRẬN: CỤM x KPI) ---
+    renderPlanningTable(rows, kpiStructure) {
+        const table = document.getElementById('table-kehoach'); 
+        if (!table) return;
+
+        // 1. Render Header (Cột động theo KPI Structure)
+        // Sticky Header: Giúp tiêu đề luôn nổi khi cuộn xuống
+        let theadHtml = `
+            <tr>
+                <th class="w-12 text-center p-3 border font-bold text-slate-700 bg-slate-100 sticky top-0 left-0 z-30 shadow-sm">STT</th>
+                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[200px] sticky top-0 left-12 z-30 shadow-sm">Đơn vị (Cụm)</th>
+                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[120px] sticky top-0 z-20 shadow-sm">Liên Cụm</th>
+        `;
+
+        kpiStructure.forEach(kpi => {
+            theadHtml += `
+                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-right min-w-[140px] sticky top-0 z-20 shadow-sm">
+                    ${kpi.tenHienThi} <br> 
+                    <span class="text-[10px] font-normal text-slate-500 italic">(${kpi.dvt})</span>
+                </th>`;
+        });
+        theadHtml += `</tr>`;
+        
+        // Gắn Header vào bảng
+        let thead = table.querySelector('thead');
+        if(!thead) { 
+            thead = document.createElement('thead'); 
+            table.appendChild(thead); 
+        }
+        thead.innerHTML = theadHtml;
+
+        // 2. Render Body (Các dòng Cụm + Ô Input)
         const tbody = document.getElementById('body-kehoach');
         if (!tbody) return;
-        tbody.innerHTML = staffList.map((nv, idx) => `
-            <tr class="bg-white border-b hover:bg-slate-50">
-                <td class="p-3 text-center">${idx + 1}</td>
-                <td class="p-3 font-mono text-xs font-bold text-slate-500">${nv.ma || nv.id}</td>
-                <td class="p-3 font-medium">${nv.ten}</td>
-                <td class="p-3 text-xs italic">${nv.chucVu || 'Nhân viên'}</td>
-                <td class="p-3 text-xs text-slate-500" title="${nv.maCum || nv.maLienCum}">${app.getNameCum(nv.maCum || nv.maLienCum)}</td>
-                <td class="p-2"><input type="number" class="w-full border border-slate-200 rounded px-2 py-1 text-right text-sm focus:border-blue-500 outline-none" placeholder="0"></td>
-                <td class="p-2"><input type="number" class="w-full border border-slate-200 rounded px-2 py-1 text-right text-sm focus:border-blue-500 outline-none" placeholder="0"></td>
-                <td class="p-2"><input type="number" class="w-full border border-slate-200 rounded px-2 py-1 text-right text-sm focus:border-blue-500 outline-none" placeholder="100"></td>
-            </tr>
-        `).join('');
-    },
+        
+        if (rows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${3 + kpiStructure.length}" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu Cụm</td></tr>`;
+            return;
+        }
 
-    // --- 7. DASHBOARD ---
+        tbody.innerHTML = rows.map((row, index) => {
+            // Sticky Column: Cột Tên Cụm sẽ dính bên trái khi cuộn ngang
+            let rowHtml = `
+                <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
+                    <td class="p-3 text-center border-r bg-slate-50 sticky left-0 font-medium text-slate-500 z-10">${index + 1}</td>
+                    <td class="p-3 font-medium text-blue-700 border-r bg-white sticky left-12 whitespace-nowrap z-10 shadow-sm" title="${row.maCum}">
+                        ${row.tenCum}
+                    </td>
+                    <td class="p-3 text-sm text-slate-500 border-r text-xs">
+                        ${app.getNameLienCum(row.maLienCum)}
+                    </td>
+            `;
+
+            // Tạo ô input cho từng KPI
+            kpiStructure.forEach(kpi => {
+                // Thêm data-cum và data-kpi để lúc Save dễ lấy dữ liệu
+                rowHtml += `
+                    <td class="p-2 border-r">
+                        <input type="text" 
+                            class="plan-input w-full text-right border border-slate-200 rounded px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition font-mono text-slate-800 font-medium"
+                            placeholder="0"
+                            data-cum="${row.maCum}"
+                            data-kpi="${kpi.ma}"
+                            onfocus="this.select()"
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.')"
+                        >
+                    </td>
+                `;
+            });
+
+            rowHtml += `</tr>`;
+            return rowHtml;
+        }).join('');
+    },
+    
+    // --- 8. DASHBOARD ---
 
     renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts) {
         const tbody = document.getElementById('dashboard-summary-body');
