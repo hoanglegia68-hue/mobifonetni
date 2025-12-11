@@ -1,6 +1,6 @@
 // --- CẤU HÌNH KẾT NỐI (VERSION 01.26) ---
 // Link API Web App của bạn
-const API_URL = "https://script.google.com/macros/s/AKfycbwmpbuaOTyVfutRrMiQTwvRT609UD52i2wsQItHqhc2vSa67syQ3opEWF1hauOcOXLaAg/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbwwe2T2MKC8w8ysx7X-eWMVheufgDj8leg4scTHe49eIuRJqN245zgny6qbGHgR2557Ww/exec"; 
 
 const DataService = {
     _cache: null, // Biến lưu trữ dữ liệu tạm thời (RAM)
@@ -141,6 +141,7 @@ const DataService = {
     async getIndirectChannels() { await this.ensureData(); return this._cache.indirect || []; },
     async getBTS() { await this.ensureData(); return this._cache.bts || []; },
     async getKPIStructure() { await this.ensureData(); return this._cache.kpi_structure || []; },
+    async getKPILogs() { await this.ensureData(); return this._cache.kpi_logs || []; },
     async getKPIActual(monthFrom, monthTo, keyword) { await this.ensureData(); return this._cache.kpi_data || []; },
     
     // Hàm lấy danh sách User (cho trang Login)
