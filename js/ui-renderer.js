@@ -1,3 +1,5 @@
+// ui-renderer.js (Đã được hoàn thiện)
+
 const UIRenderer = {
     // ============================================================
     // 1. CÁC HÀM HELPER DÙNG CHUNG
@@ -57,7 +59,7 @@ const UIRenderer = {
         if(!dateStr) return '';
         try {
             const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr; // Trả về nguyên gốc nếu không parse được
+            if (isNaN(date.getTime())) return dateStr; 
             const d = String(date.getDate()).padStart(2, '0');
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const y = date.getFullYear();
@@ -151,7 +153,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP
+    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP & BTS
     // ============================================================
 
     renderStoresTable(data) {
@@ -612,22 +614,57 @@ const UIRenderer = {
         const b2b = filterByScope(allB2B);
         const indirect = filterByScope(allIndirect);
         
-        // --- PHẦN A: VẼ CARD ---
+        // --- LOGIC TÍNH TOÁN VLR/DÂN SỐ ---
+        let communes = [];
+        if (filterScope === 'all') {
+            allClusters.forEach(lc => {
+                lc.cums.forEach(c => communes.push(...c.phuongXas));
+            });
+        } else {
+            const selectedLC = allClusters.find(c => c.maLienCum === filterScope);
+            if (selectedLC) selectedLC.cums.forEach(c => communes.push(...c.phuongXas));
+        }
+
+        const totalVLR = communes.reduce((sum, px) => sum + (Number(px.vlr) || 0), 0);
+        const totalPop = communes.reduce((sum, px) => sum + (Number(px.danSo) || 0), 0);
+        const totalCommunes = communes.length;
+        // ------------------------------------
+
+        // --- PHẦN A: VẼ CARD (ĐÃ CÓ VLR/DÂN SỐ/CLICK) ---
         const storesExpiring = stores.filter(s => {
             if(!s.ngayHetHan) return false;
             return this.getDaysRemaining(s.ngayHetHan) < 30; 
         }).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
+        // Vùng Hạ tầng Kênh
         document.getElementById('dashboard-infrastructure').innerHTML = `
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div onclick="app.showDashboardDetail('store', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
                 <div class="flex justify-between items-start">
                     <div><p class="text-slate-500 text-sm font-medium uppercase">Cửa Hàng</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(stores.length)}</h3></div>
                     <div class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="store" class="w-6 h-6"></i></div>
                 </div>
-                <div class="mt-4 pt-3 border-t border-slate-100 text-sm flex justify-between"><span class="text-slate-500">Sắp hết hạn:</span> <span class="font-bold ${storesExpiring > 0 ? 'text-red-500' : ''}">${storesExpiring}</span></div>
+                <div class="mt-4 pt-3 border-t border-slate-100 text-sm flex justify-between">
+                    <span class="text-slate-500">Sắp hết hạn:</span> 
+                    <span class="font-bold ${storesExpiring > 0 ? 'text-red-500' : ''}">${storesExpiring}</span>
+                </div>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-cyan-500 hover:shadow-md transition-shadow relative overflow-hidden group">
+
+            <div onclick="app.showDashboardDetail('geo', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-yellow-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-500 text-sm font-medium uppercase">Địa Lý & Dân Số</p>
+                        <h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(totalCommunes)}</h3>
+                    </div>
+                    <div class="p-2 bg-yellow-50 text-yellow-600 rounded-lg"><i data-lucide="map" class="w-6 h-6"></i></div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100 text-xs">
+                    <div class="flex justify-between items-center"><span class="text-slate-500">VLR:</span> <span class="font-bold text-blue-700">${this.formatNumber(totalVLR)}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">Dân số:</span> <span class="font-bold text-slate-700">${this.formatNumber(totalPop)}</span></div>
+                </div>
+            </div>
+
+            <div onclick="app.showDashboardDetail('indirect', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-cyan-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
                 <div class="flex justify-between items-start">
                     <div><p class="text-slate-500 text-sm font-medium uppercase">Điểm Bán/Đại Lý</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(indirect.length)}</h3></div>
                     <div class="p-2 bg-cyan-50 text-cyan-600 rounded-lg"><i data-lucide="shopping-bag" class="w-6 h-6"></i></div>
@@ -636,8 +673,9 @@ const UIRenderer = {
             </div>
         `;
 
+        // Vùng Mạng Lưới
         document.getElementById('dashboard-network').innerHTML = `
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 hover:shadow-md transition-shadow group col-span-1 md:col-span-2">
+            <div onclick="app.showDashboardDetail('bts', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 hover:shadow-md transition-shadow group col-span-1 md:col-span-2 cursor-pointer">
                 <div class="flex justify-between items-center mb-4">
                     <div><p class="text-slate-500 text-sm font-medium uppercase">Tổng Trạm BTS</p><h3 class="text-3xl font-bold text-slate-800">${this.formatNumber(bts.length)}</h3></div>
                     <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><i data-lucide="tower-control" class="w-6 h-6"></i></div>
@@ -646,31 +684,35 @@ const UIRenderer = {
             </div>
         `;
 
+        // Vùng Nhân Sự
         document.getElementById('dashboard-hr').innerHTML = `
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 hover:shadow-md transition-shadow group">
+            <div onclick="app.showDashboardDetail('gdv', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 hover:shadow-md transition-shadow group cursor-pointer">
                 <div class="flex justify-between items-start">
-                    <div><p class="text-slate-500 text-sm font-medium uppercase">GDV</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(gdvs))}</h3></div>
+                    <div><p class="text-slate-500 text-sm font-medium uppercase">Giao Dịch Viên</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(gdvs))}</h3></div>
                     <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><i data-lucide="users" class="w-6 h-6"></i></div>
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-100 text-sm flex justify-between"><span class="text-slate-500">Tổng số:</span> <b>${gdvs.length}</b></div>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-orange-500 hover:shadow-md transition-shadow group">
+
+            <div onclick="app.showDashboardDetail('sales', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-orange-500 hover:shadow-md transition-shadow group cursor-pointer">
                 <div class="flex justify-between items-start">
-                    <div><p class="text-slate-500 text-sm font-medium uppercase">NVBH</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(sales))}</h3></div>
+                    <div><p class="text-slate-500 text-sm font-medium uppercase">NV Bán Hàng</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(sales))}</h3></div>
                     <div class="p-2 bg-orange-50 text-orange-600 rounded-lg"><i data-lucide="briefcase" class="w-6 h-6"></i></div>
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-100 text-sm flex justify-between"><span class="text-slate-500">Nghỉ việc:</span> <b class="text-red-500">${sales.length - countActive(sales)}</b></div>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow group">
+
+            <div onclick="app.showDashboardDetail('b2b', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow group cursor-pointer">
                 <div class="flex justify-between items-start">
-                    <div><p class="text-slate-500 text-sm font-medium uppercase">KHDN</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(b2b))}</h3></div>
+                    <div><p class="text-slate-500 text-sm font-medium uppercase">Kênh KHDN</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(b2b))}</h3></div>
                     <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i data-lucide="building-2" class="w-6 h-6"></i></div>
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">Khách hàng doanh nghiệp</div>
             </div>
         `;
 
-        // --- PHẦN B: BẢNG CHI TIẾT INTERACTIVE ---
+
+        // --- PHẦN B: BẢNG CHI TIẾT INTERACTIVE (GIỮ NGUYÊN) ---
         let displayClusters = allClusters;
         if (filterScope !== 'all') {
             const selectedLC = allClusters.find(c => c.maLienCum === filterScope);
@@ -728,16 +770,17 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts) {
-        // Fallback function for compatibility if needed
-        this.renderDashboard('all');
-    },
+    // -------------------------------------------------------------------------------------
+    // Các hàm render khác (renderKPIStructureTable, renderKPIActualTable, renderPlanningTable, v.v.)
+    // ... (Giữ nguyên các hàm này) ...
+    // -------------------------------------------------------------------------------------
 
     // ============================================================
     // 7. MODAL CHI TIẾT (DRILL-DOWN)
     // ============================================================
 
     renderDetailModalContent(type, data) {
+        // ... (Giữ nguyên hàm này) ...
         const thead = document.getElementById('modal-detail-thead');
         const tbody = document.getElementById('modal-detail-tbody');
         if(!thead || !tbody) return;
@@ -745,7 +788,7 @@ const UIRenderer = {
         let headerHtml = '';
         let bodyHtml = '';
 
-        if (type === 'commune') {
+        if (type === 'commune' || type === 'geo') {
             headerHtml = `
                 <tr>
                     <th class="p-3 text-left border-b font-bold text-slate-700 w-12">STT</th>
