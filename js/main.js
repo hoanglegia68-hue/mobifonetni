@@ -1,3 +1,5 @@
+// main.js (Đã được hoàn thiện)
+
 const app = {
     // ============================================================
     // 1. QUẢN LÝ TRẠNG THÁI (STATE)
@@ -105,7 +107,7 @@ const app = {
         if (!document.getElementById('app-footer')) {
             const footerHTML = `
                 <div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">
-                    Bản quyền <span class="font-bold">hoang.lehuu</span> | Ver <span class="font-mono">02.01</span>
+                    Bản quyền <span class="font-bold">MBF TNI</span> | Ver <span class="font-mono">02.01</span>
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', footerHTML);
@@ -255,7 +257,7 @@ const app = {
             }
         });
 
-        // 2. GOM NHÓM DỮ LIỆU
+        // 2. GOM NHÓP DỮ LIỆU
         const aggregatedData = {};
 
         rawData.forEach(row => {
@@ -654,11 +656,19 @@ const app = {
     // 14. MODAL CHI TIẾT (DRILL-DOWN) - ĐÃ TÍCH HỢP
     // ============================================================
 
-    async showDetailModal(type, scopeCode, scopeType) {
-        // scopeType: 'liencum' hoặc 'cum'
-        // scopeCode: Mã (VD: 'LC_TANCHAU' hoặc 'CUM_ABC')
+    // Hàm xử lý click vào các CARD lớn trên Dashboard
+    async showDashboardDetail(type, scopeCode) {
+        // 'geo' card maps to 'commune' data type
+        let targetType = (type === 'geo') ? 'commune' : type;
 
-        console.log(`Open Detail: ${type} - ${scopeCode} (${scopeType})`);
+        // Dù là 'all' hay một mã Liên Cụm cụ thể, ta đều coi nó là lọc theo 'liencum' 
+        // để showDetailModal có thể lấy được toàn bộ dữ liệu (nếu scopeCode là 'all')
+        this.showDetailModal(targetType, scopeCode, 'liencum');
+    },
+
+    // Hàm xử lý click vào các CON SỐ trong bảng chi tiết (Breakdown)
+    async showDetailModal(type, scopeCode, scopeType) {
+        // scopeType: 'liencum' (từ Card) hoặc 'cum' (từ Breakdown Table)
         
         let title = '';
         let detailData = [];
@@ -675,11 +685,11 @@ const app = {
         if (type === 'commune') {
             title = 'Danh sách Phường/Xã & Thông tin Lãnh đạo';
             
-            // Logic lấy Xã hơi phức tạp vì nó nằm lồng trong Clusters
+            // Logic lấy Xã
             this.fullClusterData.forEach(lc => {
                 lc.cums.forEach(c => {
                     let match = false;
-                    if (scopeType === 'liencum' && lc.maLienCum === scopeCode) match = true;
+                    if (scopeCode === 'all' || (scopeType === 'liencum' && lc.maLienCum === scopeCode)) match = true;
                     if (scopeType === 'cum' && c.maCum === scopeCode) match = true;
 
                     if (match) {
@@ -690,19 +700,19 @@ const app = {
 
         } else if (type === 'store') {
             title = 'Danh sách Cửa hàng';
-            detailData = stores.filter(filterFn);
+            detailData = scopeCode === 'all' ? stores : stores.filter(filterFn);
         } else if (type === 'gdv') {
             title = 'Danh sách Giao dịch viên';
-            detailData = gdvs.filter(filterFn);
+            detailData = scopeCode === 'all' ? gdvs : gdvs.filter(filterFn);
         } else if (type === 'sales') {
             title = 'Danh sách NV Bán hàng';
-            detailData = sales.filter(filterFn);
+            detailData = scopeCode === 'all' ? sales : sales.filter(filterFn);
         } else if (type === 'bts') {
             title = 'Danh sách Trạm BTS';
-            detailData = bts.filter(filterFn);
+            detailData = scopeCode === 'all' ? bts : bts.filter(filterFn);
         } else if (type === 'indirect') {
             title = 'Danh sách Kênh Gián tiếp';
-            detailData = indirect.filter(filterFn);
+            detailData = scopeCode === 'all' ? indirect : indirect.filter(filterFn);
         }
 
         // 2. Cập nhật UI Modal
