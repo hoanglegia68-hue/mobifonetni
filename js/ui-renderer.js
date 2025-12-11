@@ -143,12 +143,14 @@ const UIRenderer = {
 
     // --- 3. KÊNH TRỰC TIẾP ---
 
+    // Trong file ui-renderer.js
+
     renderStoresTable(data) {
         const tbody = document.getElementById('store-list-body');
         if (!tbody) return;
         tbody.innerHTML = data.map((item, idx) => {
             
-            // LOGIC CẢNH BÁO HẾT HẠN
+            // LOGIC CẢNH BÁO HẾT HẠN (GIỮ NGUYÊN)
             const daysLeft = this.getDaysRemaining(item.ngayHetHan);
             let alertHtml = '';
             let rowClass = 'bg-white';
@@ -166,6 +168,12 @@ const UIRenderer = {
                 alertHtml = `<span class="text-slate-400 text-xs">Còn ${daysLeft} ngày</span>`;
             }
 
+            // XỬ LÝ HIỂN THỊ KÍCH THƯỚC
+            // Giả sử dữ liệu trả về có các trường: dai, rong, dienTich
+            const dai = item.dai || '-';
+            const rong = item.rong || '-';
+            const dt = item.dienTich || '-';
+
             return `
             <tr class="${rowClass} border-b hover:bg-slate-50">
                 <td class="p-3 border-b text-center">${idx + 1}</td>
@@ -177,6 +185,12 @@ const UIRenderer = {
                 
                 <td class="p-3 border-b">${this.getMapLink(item.lat, item.lng, item.diaChi)}</td>
                 
+                <td class="p-3 border-b text-xs">
+                    <div class="whitespace-nowrap"><span class="text-slate-500">Dài:</span> <b>${dai}</b>m</div>
+                    <div class="whitespace-nowrap"><span class="text-slate-500">Rộng:</span> <b>${rong}</b>m</div>
+                    <div class="mt-1 font-bold text-blue-700 bg-blue-50 px-1 rounded w-fit">DT: ${dt} m²</div>
+                </td>
+
                 <td class="p-3 border-b">
                     <div class="text-xs">
                         <div class="text-slate-500">BĐ: <span class="font-mono text-slate-700">${this.formatDateVN(item.ngayThue)}</span></div>
@@ -188,8 +202,8 @@ const UIRenderer = {
                     ${alertHtml}
                 </td>
 
-                <td class="p-3 border-b text-center">
-                    <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                <td class="p-3 border-b text-sm text-slate-500 italic max-w-[200px] truncate" title="${item.ghiChu || ''}">
+                    ${item.ghiChu || ''}
                 </td>
             </tr>
             `;
@@ -434,19 +448,14 @@ const UIRenderer = {
         tbody.appendChild(fragment);
     },
 
-    // --- 7. BẢNG GIAO KẾ HOẠCH (CẬP NHẬT: HIỂN THỊ DỮ LIỆU TỪ SERVER) ---
-    
-   // --- 7. BẢNG GIAO KẾ HOẠCH (HEADER & FOOTER CỐ ĐỊNH, CÓ DÒNG TỔNG) ---
+   // --- 7. BẢNG GIAO KẾ HOẠCH (FIXED HEADER & COLUMNS - SIÊU CỐ ĐỊNH) ---
     renderPlanningTable(rows, kpiStructure, planMap = {}) {
         const table = document.getElementById('table-kehoach'); 
         if (!table) return;
 
-        // --- BƯỚC 1: TÍNH TOÁN DÒNG TỔNG ---
+        // --- BƯỚC 1: TÍNH TOÁN TỔNG ---
         const colTotals = {};
-        // Khởi tạo tổng = 0 cho từng KPI
         kpiStructure.forEach(k => colTotals[k.ma] = 0);
-
-        // Duyệt qua từng dòng dữ liệu để cộng dồn
         rows.forEach(row => {
             kpiStructure.forEach(kpi => {
                 const key = `${row.maCum}_${kpi.ma}`;
@@ -455,12 +464,13 @@ const UIRenderer = {
             });
         });
 
-        // --- BƯỚC 2: RENDER HEADER (THEAD) - CỐ ĐỊNH TRÊN CÙNG ---
-        // z-index: 50 (Cao nhất để đè lên nội dung khi cuộn)
+        // --- BƯỚC 2: RENDER HEADER (THEAD) ---
+        // z-[60]: Góc trên cùng bên trái (STT + Tên Cụm) phải cao nhất
+        // z-50: Các tiêu đề còn lại thấp hơn góc, nhưng cao hơn nội dung
         let theadHtml = `
             <tr>
-                <th class="w-12 text-center p-3 border font-bold text-slate-800 bg-slate-200 sticky top-0 z-50 shadow-sm border-b-2 border-slate-300">STT</th>
-                <th class="p-3 border font-bold text-slate-800 bg-slate-200 text-left min-w-[200px] sticky top-0 z-50 shadow-sm border-b-2 border-slate-300 left-0">Đơn vị (Cụm)</th> 
+                <th class="w-12 text-center p-3 border font-bold text-slate-800 bg-slate-200 sticky top-0 left-0 z-[60] shadow-md border-b-2 border-slate-300">STT</th>
+                <th class="p-3 border font-bold text-slate-800 bg-slate-200 text-left min-w-[200px] sticky top-0 left-12 z-[60] shadow-md border-b-2 border-slate-300">Đơn vị (Cụm)</th> 
                 <th class="p-3 border font-bold text-slate-800 bg-slate-200 text-left min-w-[120px] sticky top-0 z-50 shadow-sm border-b-2 border-slate-300">Liên Cụm</th>
         `;
 
@@ -490,12 +500,12 @@ const UIRenderer = {
         }
 
         tbody.innerHTML = rows.map((row, index) => {
-            // Sticky Left: Cột STT và Tên Cụm sẽ trôi theo chiều dọc nhưng cố định chiều ngang
-            // z-index: 20 (Thấp hơn Header và Footer)
+            // z-30: Cột cố định bên trái (thấp hơn header z-50/60)
+            // z-0: Các ô nhập liệu bình thường
             let rowHtml = `
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors group">
-                    <td class="p-3 text-center border-r bg-slate-50 font-medium text-slate-500 sticky left-0 z-20">${index + 1}</td>
-                    <td class="p-3 font-medium text-blue-700 border-r whitespace-nowrap sticky left-12 z-20 bg-white group-hover:bg-slate-50" title="${row.maCum}">
+                    <td class="p-3 text-center border-r bg-slate-50 font-medium text-slate-500 sticky left-0 z-30 border-r-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">${index + 1}</td>
+                    <td class="p-3 font-medium text-blue-700 border-r whitespace-nowrap sticky left-12 z-30 bg-white group-hover:bg-slate-50 border-r-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title="${row.maCum}">
                         ${row.tenCum}
                     </td>
                     <td class="p-3 text-sm text-slate-500 border-r text-xs">
@@ -526,28 +536,28 @@ const UIRenderer = {
             return rowHtml;
         }).join('');
 
-        // --- BƯỚC 4: RENDER FOOTER (TFOOT) - DÒNG TỔNG CỐ ĐỊNH DƯỚI CÙNG ---
-        // Xóa tfoot cũ nếu có để tránh trùng lặp
+        // --- BƯỚC 4: RENDER FOOTER (TFOOT) ---
+        // z-50: Dòng tổng phải nổi lên trên body khi cuộn xuống dưới cùng
         let tfoot = table.querySelector('tfoot');
         if(tfoot) tfoot.remove();
         
         tfoot = document.createElement('tfoot');
         table.appendChild(tfoot);
 
-        // z-index: 40 (Cao hơn Body, Thấp hơn Header)
-        // bottom-0: Dính đáy bảng
+        // Góc trái dưới cùng cũng cần cố định (sticky left) và z-index cao
         let tfootHtml = `
-            <tr class="bg-yellow-100 font-bold text-slate-800 border-t-2 border-yellow-300 shadow-inner sticky bottom-0 z-40">
-                <td class="p-3 text-center sticky left-0 z-40 bg-yellow-100 border-r border-yellow-200">#</td>
-                <td class="p-3 text-left sticky left-12 z-40 bg-yellow-100 border-r border-yellow-200 uppercase tracking-wider text-xs">Tổng cộng</td>
-                <td class="p-3 border-r border-yellow-200"></td> `;
+            <tr class="bg-yellow-100 font-bold text-slate-800 border-t-2 border-yellow-300 shadow-inner sticky bottom-0 z-50">
+                <td class="p-3 text-center sticky left-0 z-[60] bg-yellow-100 border-r border-yellow-200 border-t-2 border-yellow-300">#</td>
+                <td class="p-3 text-left sticky left-12 z-[60] bg-yellow-100 border-r border-yellow-200 uppercase tracking-wider text-xs border-t-2 border-yellow-300">Tổng cộng</td>
+                <td class="p-3 border-r border-yellow-200 bg-yellow-100"></td> 
+        `;
 
         kpiStructure.forEach(kpi => {
             const totalVal = colTotals[kpi.ma] || 0;
             const displayTotal = totalVal > 0 ? new Intl.NumberFormat('vi-VN').format(totalVal) : '-';
             
             tfootHtml += `
-                <td class="p-3 text-right border-r border-yellow-200 text-blue-800 text-sm">
+                <td class="p-3 text-right border-r border-yellow-200 text-blue-800 text-sm bg-yellow-100">
                     ${displayTotal}
                 </td>
             `;
