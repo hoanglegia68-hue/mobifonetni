@@ -434,25 +434,41 @@ const UIRenderer = {
         tbody.appendChild(fragment);
     },
 
-    // --- 7. BẢNG GIAO KẾ HOẠCH (HEADER CỐ ĐỊNH, CỘT THẢ NỔI) ---
-    renderPlanningTable(rows, kpiStructure) {
+    // --- 7. BẢNG GIAO KẾ HOẠCH (CẬP NHẬT: HIỂN THỊ DỮ LIỆU TỪ SERVER) ---
+    
+   // --- 7. BẢNG GIAO KẾ HOẠCH (HEADER & FOOTER CỐ ĐỊNH, CÓ DÒNG TỔNG) ---
+    renderPlanningTable(rows, kpiStructure, planMap = {}) {
         const table = document.getElementById('table-kehoach'); 
         if (!table) return;
 
-        // 1. Render Header
-        // FIX: Sticky top-0 cho toàn bộ dòng tiêu đề, Z-Index 50 để luôn nổi trên cùng
+        // --- BƯỚC 1: TÍNH TOÁN DÒNG TỔNG ---
+        const colTotals = {};
+        // Khởi tạo tổng = 0 cho từng KPI
+        kpiStructure.forEach(k => colTotals[k.ma] = 0);
+
+        // Duyệt qua từng dòng dữ liệu để cộng dồn
+        rows.forEach(row => {
+            kpiStructure.forEach(kpi => {
+                const key = `${row.maCum}_${kpi.ma}`;
+                const val = Number(planMap[key]) || 0;
+                colTotals[kpi.ma] += val;
+            });
+        });
+
+        // --- BƯỚC 2: RENDER HEADER (THEAD) - CỐ ĐỊNH TRÊN CÙNG ---
+        // z-index: 50 (Cao nhất để đè lên nội dung khi cuộn)
         let theadHtml = `
             <tr>
-                <th class="w-12 text-center p-3 border font-bold text-slate-700 bg-slate-100 sticky top-0 z-50 shadow-sm">STT</th>
-                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[200px] sticky top-0 z-50 shadow-sm">Đơn vị (Cụm)</th> 
-                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[120px] sticky top-0 z-50 shadow-sm">Liên Cụm</th>
+                <th class="w-12 text-center p-3 border font-bold text-slate-800 bg-slate-200 sticky top-0 z-50 shadow-sm border-b-2 border-slate-300">STT</th>
+                <th class="p-3 border font-bold text-slate-800 bg-slate-200 text-left min-w-[200px] sticky top-0 z-50 shadow-sm border-b-2 border-slate-300 left-0">Đơn vị (Cụm)</th> 
+                <th class="p-3 border font-bold text-slate-800 bg-slate-200 text-left min-w-[120px] sticky top-0 z-50 shadow-sm border-b-2 border-slate-300">Liên Cụm</th>
         `;
 
         kpiStructure.forEach(kpi => {
             theadHtml += `
-                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-right min-w-[140px] sticky top-0 z-50 shadow-sm">
+                <th class="p-3 border font-bold text-slate-800 bg-slate-200 text-right min-w-[140px] sticky top-0 z-50 shadow-sm border-b-2 border-slate-300">
                     ${kpi.tenHienThi} <br> 
-                    <span class="text-[10px] font-normal text-slate-500 italic">(${kpi.dvt})</span>
+                    <span class="text-[10px] font-normal text-slate-600 italic">(${kpi.dvt})</span>
                 </th>`;
         });
         theadHtml += `</tr>`;
@@ -464,7 +480,7 @@ const UIRenderer = {
         }
         thead.innerHTML = theadHtml;
 
-        // 2. Render Body
+        // --- BƯỚC 3: RENDER BODY (TBODY) ---
         const tbody = document.getElementById('body-kehoach');
         if (!tbody) return;
         
@@ -474,11 +490,12 @@ const UIRenderer = {
         }
 
         tbody.innerHTML = rows.map((row, index) => {
-            // FIX: Bỏ 'sticky left-0' ở các thẻ td để cột Cụm trôi tự nhiên khi cuộn ngang
+            // Sticky Left: Cột STT và Tên Cụm sẽ trôi theo chiều dọc nhưng cố định chiều ngang
+            // z-index: 20 (Thấp hơn Header và Footer)
             let rowHtml = `
-                <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 text-center border-r bg-slate-50 font-medium text-slate-500">${index + 1}</td>
-                    <td class="p-3 font-medium text-blue-700 border-r whitespace-nowrap" title="${row.maCum}">
+                <tr class="bg-white border-b hover:bg-slate-50 transition-colors group">
+                    <td class="p-3 text-center border-r bg-slate-50 font-medium text-slate-500 sticky left-0 z-20">${index + 1}</td>
+                    <td class="p-3 font-medium text-blue-700 border-r whitespace-nowrap sticky left-12 z-20 bg-white group-hover:bg-slate-50" title="${row.maCum}">
                         ${row.tenCum}
                     </td>
                     <td class="p-3 text-sm text-slate-500 border-r text-xs">
@@ -487,13 +504,18 @@ const UIRenderer = {
             `;
 
             kpiStructure.forEach(kpi => {
+                const key = `${row.maCum}_${kpi.ma}`;
+                const rawVal = planMap[key];
+                const displayVal = rawVal !== undefined ? new Intl.NumberFormat('vi-VN').format(rawVal) : '';
+
                 rowHtml += `
                     <td class="p-2 border-r">
                         <input type="text" 
-                            class="plan-input w-full text-right border border-slate-200 rounded px-2 py-1.5 text-sm focus:border-blue-500 outline-none"
+                            class="plan-input w-full text-right border border-slate-200 rounded px-2 py-1.5 text-sm focus:border-blue-500 outline-none font-semibold text-slate-700 focus:bg-white bg-slate-50/30"
                             placeholder="-"
                             data-cum="${row.maCum}"
                             data-kpi="${kpi.ma}"
+                            value="${displayVal}" 
                             oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.')"
                         >
                     </td>
@@ -503,6 +525,36 @@ const UIRenderer = {
             rowHtml += `</tr>`;
             return rowHtml;
         }).join('');
+
+        // --- BƯỚC 4: RENDER FOOTER (TFOOT) - DÒNG TỔNG CỐ ĐỊNH DƯỚI CÙNG ---
+        // Xóa tfoot cũ nếu có để tránh trùng lặp
+        let tfoot = table.querySelector('tfoot');
+        if(tfoot) tfoot.remove();
+        
+        tfoot = document.createElement('tfoot');
+        table.appendChild(tfoot);
+
+        // z-index: 40 (Cao hơn Body, Thấp hơn Header)
+        // bottom-0: Dính đáy bảng
+        let tfootHtml = `
+            <tr class="bg-yellow-100 font-bold text-slate-800 border-t-2 border-yellow-300 shadow-inner sticky bottom-0 z-40">
+                <td class="p-3 text-center sticky left-0 z-40 bg-yellow-100 border-r border-yellow-200">#</td>
+                <td class="p-3 text-left sticky left-12 z-40 bg-yellow-100 border-r border-yellow-200 uppercase tracking-wider text-xs">Tổng cộng</td>
+                <td class="p-3 border-r border-yellow-200"></td> `;
+
+        kpiStructure.forEach(kpi => {
+            const totalVal = colTotals[kpi.ma] || 0;
+            const displayTotal = totalVal > 0 ? new Intl.NumberFormat('vi-VN').format(totalVal) : '-';
+            
+            tfootHtml += `
+                <td class="p-3 text-right border-r border-yellow-200 text-blue-800 text-sm">
+                    ${displayTotal}
+                </td>
+            `;
+        });
+
+        tfootHtml += `</tr>`;
+        tfoot.innerHTML = tfootHtml;
     },
 
     // --- 8. TAB USER GHI NHẬN (CÓ THỐNG KÊ & LỌC CỤM) ---
