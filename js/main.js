@@ -1,9 +1,11 @@
 const app = {
-    // --- 1. QUẢN LÝ TRẠNG THÁI (STATE) ---
+    // ============================================================
+    // 1. QUẢN LÝ TRẠNG THÁI (STATE)
+    // ============================================================
     currentUser: null,       // User đang đăng nhập
     fullClusterData: [],     // Cache dữ liệu hạ tầng (dùng để tra cứu)
     cachedKPIData: [],       // Cache dữ liệu KPI (Dùng cho cả báo cáo và lọc User)
-    cachedLogData: [],
+    cachedLogData: [],       // Cache dữ liệu Log User
     
     // TỪ ĐIỂN TRA CỨU (Mapping ID -> Tên)
     mapLienCum: {}, 
@@ -11,16 +13,18 @@ const app = {
 
     chartInstances: {},      // Cache biểu đồ
 
-    // --- CẤU HÌNH CẢNH BÁO THUÊ ---
+    // CẤU HÌNH CẢNH BÁO THUÊ
     rentalConfig: {
         emails: "admin@mobifone.vn, quanly@mobifone.vn",
         alertDays: [90, 60],
         urgentDay: 30
     },
 
-    // --- 2. KHỞI TẠO ỨNG DỤNG (INIT) ---
+    // ============================================================
+    // 2. KHỞI TẠO ỨNG DỤNG (INIT)
+    // ============================================================
     async init() {
-        console.log("App Starting... Version 01.34 (Fix Duplicate Logic)");
+        console.log("App Starting... Version 02.01 (Final Complete)");
 
         // A. KIỂM TRA ĐĂNG NHẬP
         const savedUser = localStorage.getItem('MIS_USER');
@@ -45,7 +49,9 @@ const app = {
         this.navigate('dashboard');
     },
 
-    // --- 3. LOGIC TỪ ĐIỂN & HELPER ---
+    // ============================================================
+    // 3. LOGIC TỪ ĐIỂN & HELPER
+    // ============================================================
     
     buildDictionary() {
         this.fullClusterData.forEach(lc => {
@@ -63,7 +69,9 @@ const app = {
         return String(code || '').trim().toUpperCase();
     },
 
-    // --- 4. LOGIC PHÂN QUYỀN & GIAO DIỆN ---
+    // ============================================================
+    // 4. LOGIC PHÂN QUYỀN & GIAO DIỆN
+    // ============================================================
 
     updateUserInterface() {
         const user = this.currentUser;
@@ -97,14 +105,16 @@ const app = {
         if (!document.getElementById('app-footer')) {
             const footerHTML = `
                 <div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">
-                    Bản quyền <span class="font-bold">MBF TNI</span> | Ver <span class="font-mono">01.34</span>
+                    Bản quyền <span class="font-bold">hoang.lehuu</span> | Ver <span class="font-mono">02.01</span>
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', footerHTML);
         }
     },
 
-    // --- 5. LOGIC LỌC DỮ LIỆU (SCOPE FILTER) ---
+    // ============================================================
+    // 5. LOGIC LỌC DỮ LIỆU (SCOPE FILTER)
+    // ============================================================
     filterDataByScope(data, fieldId = 'maLienCum') {
         const user = this.currentUser;
         if (user.role === 'admin' || user.scope === 'all') return data;
@@ -115,7 +125,9 @@ const app = {
         });
     },
 
-    // --- 6. ĐIỀU HƯỚNG (NAVIGATION) ---
+    // ============================================================
+    // 6. ĐIỀU HƯỚNG (NAVIGATION)
+    // ============================================================
     navigate(pageId) {
         if (pageId === 'system' && this.currentUser.role !== 'admin') {
             alert("Bạn không có quyền truy cập menu này!");
@@ -148,10 +160,20 @@ const app = {
         document.getElementById('page-title').textContent = titles[pageId] || 'Trang Quản Trị';
     },
 
-    // --- 7. LOAD DỮ LIỆU TỪNG TRANG ---
+    // ============================================================
+    // 7. LOAD DỮ LIỆU TỪNG TRANG
+    // ============================================================
     async loadDataForPage(pageId) {
         if (pageId === 'dashboard') {
-            this.loadDashboard();
+            // Reset dropdown về mặc định khi vào lại Dashboard
+            const select = document.getElementById('dashboard-scope-select');
+            if(select) select.value = 'all';
+            
+            // Gọi hàm render Dashboard mới (Cards + Breakdown)
+            UIRenderer.renderDashboard('all');
+            
+            // Render luôn biểu đồ (Lazy load)
+            this.updateCharts();
         }
         else if (pageId === 'clusters') {
             let data = this.filterDataByScope(this.fullClusterData, 'maLienCum');
@@ -187,48 +209,26 @@ const app = {
         }
     },
 
-    // --- 8. DASHBOARD LOGIC ---
-    async loadDashboard() {
-        let [clusters, stores, gdvs, sales, indirect, bts] = await Promise.all([
-            Promise.resolve(this.fullClusterData),
-            DataService.getStores(), DataService.getGDVs(),
-            DataService.getSalesStaff(), DataService.getIndirectChannels(), DataService.getBTS()
-        ]);
-
-        clusters = this.filterDataByScope(clusters, 'maLienCum');
-        stores = this.filterDataByScope(stores, 'maLienCum');
-        gdvs = this.filterDataByScope(gdvs, 'maLienCum');
-        sales = this.filterDataByScope(sales, 'maLienCum');
-        indirect = this.filterDataByScope(indirect, 'maLienCum');
-        bts = this.filterDataByScope(bts, 'maLienCum');
-
-        UIRenderer.renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts);
-
-        const scopeSelect = document.getElementById('chart-scope');
-        if(scopeSelect) {
-            let options = '<option value="all">Toàn công ty</option>';
-            if (this.currentUser.role === 'manager') {
-                options = `<option value="${this.currentUser.scope}">${this.getNameLienCum(this.currentUser.scope)}</option>`;
-            } else {
-                options += clusters.map(c => `<option value="${c.maLienCum}">${c.tenLienCum}</option>`).join('');
-            }
-            scopeSelect.innerHTML = options;
-        }
-            
-        this.updateCharts(); 
+    // ============================================================
+    // 8. DASHBOARD LOGIC (MỚI)
+    // ============================================================
+    
+    // Hàm xử lý khi chọn Dropdown lọc trên Dashboard
+    handleDashboardFilter(scope) {
+        UIRenderer.renderDashboard(scope);
     },
 
     async updateCharts() {
         const from = document.getElementById('chart-from').value;
         const to = document.getElementById('chart-to').value;
-        const scope = document.getElementById('chart-scope').value;
-
+        
         const kpiData = await DataService.getKPIActual(from, to, '');
-        let filteredKPI = scope !== 'all' ? kpiData.filter(d => d.maLienCum === scope || d.lienCum === scope) : kpiData;
-        UIRenderer.renderDashboardCharts(filteredKPI, this.chartInstances);
+        UIRenderer.renderDashboardCharts(kpiData, this.chartInstances);
     },
 
-    // --- 9. BUSINESS DATA & SEARCH ---
+    // ============================================================
+    // 9. BUSINESS DATA & SEARCH
+    // ============================================================
 
     async loadBusinessDataPage() {
         console.log("--> Đang tải dữ liệu kinh doanh...");
@@ -240,7 +240,6 @@ const app = {
         const viewModeEl = document.getElementById('view-mode');
         const viewMode = viewModeEl ? viewModeEl.value : 'cluster';
 
-        // Gọi DataService và lưu vào cache dùng chung
         let rawData = await DataService.getKPIActual(mFrom, mTo, keyword);
         this.cachedKPIData = rawData || [];
         
@@ -363,48 +362,41 @@ const app = {
         alert(`Bạn đang xem chi tiết: ${id}. \nChức năng hiển thị popup chi tiết đang được xây dựng!`);
     },
 
-    // --- 10. TAB GIAO KẾ HOẠCH (LOGIC MỚI: THEO CỤM & LIÊN CỤM) ---
-    // [Trong main.js - Thay thế hàm renderPlanningTab cũ]
+    // ============================================================
+    // 10. TAB GIAO KẾ HOẠCH (LOGIC MỚI: THEO CỤM & LIÊN CỤM)
+    // ============================================================
 
     async renderPlanningTab() {
         console.log("--> Đang tải giao diện lập kế hoạch...");
         
-        // 1. Lấy dữ liệu cần thiết
         const structure = await DataService.getKPIStructure();
-        const allPlans = await DataService.getKPIPlanning(); // <--- LẤY DATA KẾ HOẠCH
-        
-        // 2. Xác định tháng đang chọn
-        const selectedMonth = document.getElementById('planning-month')?.value; // VD: "2025-12"
+        const allPlans = await DataService.getKPIPlanning();
+        const selectedMonth = document.getElementById('planning-month')?.value; 
 
-        // 3. Tạo Map dữ liệu để tra cứu nhanh (Mapping: MaCum_MaKPI => GiaTri)
+        // Map dữ liệu
         const planMap = {};
         if (selectedMonth && allPlans.length > 0) {
             allPlans.forEach(row => {
-                // Kiểm tra nếu row.month khớp với tháng đang chọn
-                // Lưu ý: row.month từ Google Sheet trả về có thể là String "2025-12-01" hoặc Date object
                 let rowMonth = row.month;
                 if (row.month instanceof Date) {
-                   // Chuyển Date thành YYYY-MM
                    rowMonth = row.month.toISOString().slice(0, 7); 
                 } else if (typeof row.month === 'string') {
                    rowMonth = row.month.slice(0, 7);
                 }
 
                 if (rowMonth === selectedMonth) {
-                    const key = `${row.maCum}_${row.maKpi}`; // Tạo Key duy nhất
+                    const key = `${row.maCum}_${row.maKpi}`;
                     planMap[key] = row.giaTri;
                 }
             });
         }
 
-        // 4. Chuẩn bị cấu trúc cột
         const activeKPIs = structure.filter(k => k.active).map(k => ({
             ...k, 
             ma: this.cleanCode(k.ma),
             tenHienThi: k.tenHienThi || k.ten || k.ma
         }));
 
-        // 5. Chuẩn bị dòng (Danh sách Cụm)
         let rawClusters = this.filterDataByScope(this.fullClusterData, 'maLienCum');
         let planningRows = [];
         rawClusters.forEach(lc => {
@@ -418,80 +410,36 @@ const app = {
             });
         });
 
-        // 6. Gửi sang UI render (Kèm theo planMap)
         UIRenderer.renderPlanningTable(planningRows, activeKPIs, planMap);
     },
 
-    // Hàm xử lý Lưu kế hoạch (Gắn vào nút Lưu trên giao diện)
     async savePlanningData() {
         const inputs = document.querySelectorAll('.plan-input');
         const month = document.getElementById('planning-month')?.value; 
         
         if (!month) return alert("Vui lòng chọn tháng áp dụng!");
 
-        // Gom dữ liệu từ ma trận nhập liệu
         const payload = [];
         inputs.forEach(input => {
-            // Xóa dấu chấm phân cách ngàn để lấy số thực
             const val = Number(input.value.replace(/\./g, '')) || 0; 
-
-            // Chỉ lấy các ô có nhập số liệu để gửi lên Server cho nhẹ
             if (val > 0) {
                 payload.push({
                     thang: month,
-                    maCum: input.dataset.cum,      // Lấy mã Cụm từ attribute data-cum
-                    maKpi: input.dataset.kpi,      // Lấy mã KPI từ attribute data-kpi
+                    maCum: input.dataset.cum,      
+                    maKpi: input.dataset.kpi,      
                     keHoach: val
                 });
             }
         });
-
-        console.log("Dữ liệu chuẩn bị lưu:", payload);
         
-        if (payload.length === 0) {
-            alert("Chưa có dữ liệu nào được nhập!");
-            return;
-        }
-
+        if (payload.length === 0) return alert("Chưa có dữ liệu nào được nhập!");
         alert(`Đã thu thập ${payload.length} chỉ tiêu. \n(Log chi tiết xem trong Console F12)`);
+        console.log("Saving Plan:", payload);
     },
 
-    // --- 11. TAB USER GHI NHẬN (LOGIC MỚI: THEO SHEET KPI_LOGS) ---
-
-    async loadUserLogPage() {
-        console.log("--> Đang tải dữ liệu từ KPI_LOGS...");
-        
-        // 1. Kiểm tra cache
-        if (this.cachedKPIData.length === 0) {
-            const mFrom = document.getElementById('filter-month-from')?.value || '';
-            const mTo = document.getElementById('filter-month-to')?.value || '';
-            
-            // Gọi DataService. API cần trả về các cột: maNV, channel, Type...
-            this.cachedKPIData = await DataService.getKPIActual(mFrom, mTo, '');
-        }
-
-        if (!this.cachedKPIData || this.cachedKPIData.length === 0) {
-            alert("Không tìm thấy dữ liệu KPI Logs!");
-            UIRenderer.renderKPIUserLogs([]); 
-            return;
-        }
-
-        // Log kiểm tra xem dữ liệu trả về có đúng key maNV, channel không
-        console.log("Mẫu dữ liệu log (Row 1):", this.cachedKPIData[0]); 
-
-        // 2. Trích xuất danh sách Mã Cụm duy nhất có trong logs
-        const uniqueCumCodes = [...new Set(this.cachedKPIData.map(item => item.maCum))].filter(Boolean).sort();
-
-        // 3. Render Dropdown chọn Cụm
-        UIRenderer.renderUserLogFilter(uniqueCumCodes);
-
-        // 4. Reset bảng
-        UIRenderer.renderKPIUserLogs([]); 
-    },
-
-// [File: main.js]
-
-    // --- 11. TAB USER GHI NHẬN (CẬP NHẬT TÍNH NĂNG MỚI) ---
+    // ============================================================
+    // 11. TAB USER GHI NHẬN (ĐÃ TỐI ƯU & HỢP NHẤT)
+    // ============================================================
 
     async loadUserLogPage() {
         console.log("--> Đang tải dữ liệu KPI_LOGS...");
@@ -505,10 +453,8 @@ const app = {
             return;
         }
 
-        // 2. TÍNH TOÁN THỐNG KÊ (YÊU CẦU 2 CỦA BẠN)
-        // Tạo Map: Mã Cụm -> Set(Các Mã NV duy nhất)
+        // 2. TÍNH TOÁN THỐNG KÊ
         const clusterStatsMap = {};
-        
         this.cachedLogData.forEach(log => {
             const mCum = log.maCum;
             const mNV = log.maNV || log.MaNV || log.manv;
@@ -521,11 +467,10 @@ const app = {
             }
         });
 
-        // Chuyển về dạng mảng để render
         const statsArray = Object.keys(clusterStatsMap).map(maCum => ({
             maCum: maCum,
             tenCum: this.getNameCum(maCum),
-            userCount: clusterStatsMap[maCum].size // Đếm số user trong Set
+            userCount: clusterStatsMap[maCum].size
         }));
 
         // Render bảng thống kê so sánh
@@ -537,7 +482,7 @@ const app = {
         UIRenderer.renderKPIUserLogs([]); 
     },
 
-    // XỬ LÝ LỌC (ĐÃ BỎ LOGIC TÁCH TYPE)
+    // Xử lý khi chọn dropdown Lọc Cụm trong tab User Logs
     handleUserFilterChange(selectedCum) {
         if (!selectedCum) {
             UIRenderer.renderKPIUserLogs([]);
@@ -562,17 +507,14 @@ const app = {
                 }
 
                 const userObj = userMap.get(code);
-                
-                // Chỉ lấy channelType làm Kênh, không cần tách nữa
                 const rawData = log.channelType || log.ChannelType || log.channeltype || '';
                 
-                // Logic tách thông minh (chỉ lấy phần đầu làm channel)
                 if (rawData) {
+                    // Logic tách thông minh
                     if (rawData.includes('-')) userObj.channels.add(rawData.split('-')[0].trim());
                     else if (rawData.includes('_')) userObj.channels.add(rawData.split('_')[0].trim());
                     else userObj.channels.add(rawData);
                 }
-
                 userObj.totalLogs += 1;
             }
         });
@@ -585,7 +527,9 @@ const app = {
         UIRenderer.renderKPIUserLogs(distinctUsers);
     },
 
-    // --- 12. SEARCH FUNCTIONS KHÁC ---
+    // ============================================================
+    // 12. SEARCH FUNCTIONS
+    // ============================================================
 
     handleSearchCluster(keyword) {
         keyword = keyword.toLowerCase().trim();
@@ -595,10 +539,8 @@ const app = {
 
         const filtered = data.map(lc => {
             const matchLC = (lc.tenLienCum || '').toLowerCase().includes(keyword);
-            
             const filteredCums = lc.cums.map(cum => {
                 const matchCum = (cum.tenCum || '').toLowerCase().includes(keyword);
-                
                 const filteredPX = cum.phuongXas.filter(px => 
                     (px.ten || '').toLowerCase().includes(keyword) || 
                     (px.lanhDao && px.lanhDao.some(ld => (ld.ten || '').toLowerCase().includes(keyword)))
@@ -633,9 +575,10 @@ const app = {
         UIRenderer.renderBTSTable(data);
     },
 
-    // --- 13. UTILS & EVENT HANDLERS ---
+    // ============================================================
+    // 13. UTILS & EVENT HANDLERS
+    // ============================================================
     
-    // CẬP NHẬT: Trigger tải dữ liệu khi chuyển tab
     switchTab(tabId, btnElement) {
         const parent = btnElement.closest('.view-section');
         parent.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -705,7 +648,73 @@ const app = {
     downloadTemplate(type) { alert(`Đang tải mẫu cho: ${type}...`); },
     
     loadBusinessData: () => app.loadBusinessDataPage(),
-    addKPIStructure: () => alert("Chức năng thêm KPI đang phát triển")
+    addKPIStructure: () => alert("Chức năng thêm KPI đang phát triển"),
+
+    // ============================================================
+    // 14. MODAL CHI TIẾT (DRILL-DOWN) - ĐÃ TÍCH HỢP
+    // ============================================================
+
+    async showDetailModal(type, scopeCode, scopeType) {
+        // scopeType: 'liencum' hoặc 'cum'
+        // scopeCode: Mã (VD: 'LC_TANCHAU' hoặc 'CUM_ABC')
+
+        console.log(`Open Detail: ${type} - ${scopeCode} (${scopeType})`);
+        
+        let title = '';
+        let detailData = [];
+
+        // 1. Lấy dữ liệu thô
+        let [stores, gdvs, sales, indirect, bts] = await Promise.all([
+            DataService.getStores(), DataService.getGDVs(), DataService.getSalesStaff(),
+            DataService.getIndirectChannels(), DataService.getBTS()
+        ]);
+
+        // Helper lọc
+        const filterFn = (item) => item[scopeType === 'liencum' ? 'maLienCum' : 'maCum'] === scopeCode;
+
+        if (type === 'commune') {
+            title = 'Danh sách Phường/Xã & Thông tin Lãnh đạo';
+            
+            // Logic lấy Xã hơi phức tạp vì nó nằm lồng trong Clusters
+            this.fullClusterData.forEach(lc => {
+                lc.cums.forEach(c => {
+                    let match = false;
+                    if (scopeType === 'liencum' && lc.maLienCum === scopeCode) match = true;
+                    if (scopeType === 'cum' && c.maCum === scopeCode) match = true;
+
+                    if (match) {
+                        detailData.push(...c.phuongXas);
+                    }
+                });
+            });
+
+        } else if (type === 'store') {
+            title = 'Danh sách Cửa hàng';
+            detailData = stores.filter(filterFn);
+        } else if (type === 'gdv') {
+            title = 'Danh sách Giao dịch viên';
+            detailData = gdvs.filter(filterFn);
+        } else if (type === 'sales') {
+            title = 'Danh sách NV Bán hàng';
+            detailData = sales.filter(filterFn);
+        } else if (type === 'bts') {
+            title = 'Danh sách Trạm BTS';
+            detailData = bts.filter(filterFn);
+        } else if (type === 'indirect') {
+            title = 'Danh sách Kênh Gián tiếp';
+            detailData = indirect.filter(filterFn);
+        }
+
+        // 2. Cập nhật UI Modal
+        document.getElementById('modal-detail-title').textContent = title;
+        document.getElementById('modal-detail-subtitle').textContent = `Đơn vị: ${app.getNameCum(scopeCode) || app.getNameLienCum(scopeCode) || scopeCode} - Số lượng: ${detailData.length}`;
+        
+        // 3. Render Table
+        UIRenderer.renderDetailModalContent(type, detailData);
+
+        // 4. Mở Modal
+        document.getElementById('modal-detail-list').classList.add('open');
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => { app.init(); });
