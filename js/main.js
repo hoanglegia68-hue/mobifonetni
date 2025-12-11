@@ -364,23 +364,49 @@ const app = {
     },
 
     // --- 10. TAB GIAO KẾ HOẠCH (LOGIC MỚI: THEO CỤM & LIÊN CỤM) ---
-    
+    // [Trong main.js - Thay thế hàm renderPlanningTab cũ]
+
     async renderPlanningTab() {
-        console.log("--> Đang tải giao diện lập kế hoạch theo Cụm...");
+        console.log("--> Đang tải giao diện lập kế hoạch...");
         
-        // 1. Lấy cấu trúc KPI để vẽ cột (Chỉ lấy các chỉ tiêu đang Active)
+        // 1. Lấy dữ liệu cần thiết
         const structure = await DataService.getKPIStructure();
+        const allPlans = await DataService.getKPIPlanning(); // <--- LẤY DATA KẾ HOẠCH
+        
+        // 2. Xác định tháng đang chọn
+        const selectedMonth = document.getElementById('planning-month')?.value; // VD: "2025-12"
+
+        // 3. Tạo Map dữ liệu để tra cứu nhanh (Mapping: MaCum_MaKPI => GiaTri)
+        const planMap = {};
+        if (selectedMonth && allPlans.length > 0) {
+            allPlans.forEach(row => {
+                // Kiểm tra nếu row.month khớp với tháng đang chọn
+                // Lưu ý: row.month từ Google Sheet trả về có thể là String "2025-12-01" hoặc Date object
+                let rowMonth = row.month;
+                if (row.month instanceof Date) {
+                   // Chuyển Date thành YYYY-MM
+                   rowMonth = row.month.toISOString().slice(0, 7); 
+                } else if (typeof row.month === 'string') {
+                   rowMonth = row.month.slice(0, 7);
+                }
+
+                if (rowMonth === selectedMonth) {
+                    const key = `${row.maCum}_${row.maKpi}`; // Tạo Key duy nhất
+                    planMap[key] = row.giaTri;
+                }
+            });
+        }
+
+        // 4. Chuẩn bị cấu trúc cột
         const activeKPIs = structure.filter(k => k.active).map(k => ({
             ...k, 
             ma: this.cleanCode(k.ma),
             tenHienThi: k.tenHienThi || k.ten || k.ma
         }));
 
-        // 2. Chuẩn bị dữ liệu Dòng (Rows) là danh sách Cụm
-        // Lấy từ fullClusterData (đã có sẵn khi init) và làm phẳng (flatten)
+        // 5. Chuẩn bị dòng (Danh sách Cụm)
         let rawClusters = this.filterDataByScope(this.fullClusterData, 'maLienCum');
         let planningRows = [];
-        
         rawClusters.forEach(lc => {
             lc.cums.forEach(c => {
                 planningRows.push({
@@ -392,9 +418,8 @@ const app = {
             });
         });
 
-        // 3. Gọi Renderer vẽ bảng Ma trận (Dòng Cụm x Cột KPI)
-        // Dữ liệu này sẽ khớp với Sticky Header trong UI-Renderer
-        UIRenderer.renderPlanningTable(planningRows, activeKPIs);
+        // 6. Gửi sang UI render (Kèm theo planMap)
+        UIRenderer.renderPlanningTable(planningRows, activeKPIs, planMap);
     },
 
     // Hàm xử lý Lưu kế hoạch (Gắn vào nút Lưu trên giao diện)
