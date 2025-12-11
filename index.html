@@ -11,6 +11,23 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Tùy chỉnh thanh cuộn để bảng hiển thị đẹp hơn */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
 
@@ -453,8 +470,8 @@
 
                         <div class="flex border-b border-slate-200 px-4 pt-4 gap-1 bg-white">
                             <button class="tab-btn active" onclick="app.switchTab('tab-kpi-thuchien', this)">1. Thực hiện</button>
-                            <button class="tab-btn" onclick="app.switchTab('tab-kpi-kehoach', this)">2. Giao Kế hoạch</button>
-                            <button class="tab-btn" onclick="app.switchTab('tab-kpi-user', this)">3. User ghi nhận</button>
+                            <button class="tab-btn" onclick="app.switchTab('tab-kehoach', this)">2. Giao Kế hoạch</button>
+                            <button class="tab-btn" onclick="app.switchTab('tab-user-ghinhan', this)">3. User ghi nhận</button>
                             <button class="tab-btn" onclick="app.switchTab('tab-kpi-cautruc', this)">4. Cấu trúc Kế hoạch</button>
                         </div>
 
@@ -465,15 +482,16 @@
                                     <h4 class="font-bold text-slate-700">Kết quả thực hiện kinh doanh</h4>
                                     <button class="btn-secondary text-xs"><i data-lucide="refresh-cw" class="w-3 h-3 mr-1"></i> Đồng bộ SQL Server</button>
                                 </div>
-                                <div class="overflow-x-auto border rounded-lg">
+                                <div class="overflow-x-auto border rounded-lg max-h-[600px] overflow-y-auto relative custom-scrollbar">
                                     <table class="modern-table" id="table-thuchien">
                                         <thead class="bg-slate-100" id="kpi-header"></thead>
-                                        <tbody id="kpi-actual-tbody"></tbody> </table>
+                                        <tbody id="kpi-actual-tbody"></tbody> 
+                                    </table>
                                 </div>
                             </div>
                             
-                            <div id="tab-kpi-kehoach" class="tab-content hidden">
-                                <div class="flex justify-between items-center mb-4 bg-white p-3 border rounded-lg shadow-sm">
+                            <div id="tab-kehoach" class="tab-content hidden h-full flex flex-col">
+                                <div class="flex justify-between items-center mb-4 bg-white p-3 border rounded-lg shadow-sm shrink-0">
                                     <div class="flex items-center gap-4">
                                         <div class="flex items-center gap-2">
                                             <label class="text-sm font-semibold text-slate-600">Tháng giao:</label>
@@ -485,27 +503,38 @@
                                     </button>
                                 </div>
 
-                                <div class="overflow-x-auto border rounded-lg max-h-[600px] overflow-y-auto relative custom-scrollbar">
-                                    <table class="modern-table w-full" id="table-kehoach">
-                                        <thead class="bg-slate-100 text-slate-700 z-20">
-                                            </thead>
-                                        <tbody id="body-kehoach">
-                                            </tbody>
+                                <div class="overflow-auto border rounded-lg max-h-[550px] relative custom-scrollbar flex-1">
+                                    <table class="modern-table w-full border-separate border-spacing-0" id="table-kehoach">
+                                        <thead class="bg-slate-100 text-slate-700 z-20 sticky top-0"></thead>
+                                        <tbody id="body-kehoach"></tbody>
                                     </table>
                                 </div>
                             </div>
 
-                            <div id="tab-kpi-user" class="tab-content hidden">
-                                <div class="overflow-x-auto border rounded-lg">
-                                    <table class="modern-table">
-                                        <thead>
+                        <div id="tab-user-ghinhan" class="tab-content hidden flex flex-col h-full">
+    
+                            <div id="cluster-stats-overview" class="mb-4 bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                    <h4 class="text-sm font-bold text-slate-700 mb-2 border-b pb-2">
+                                        <i data-lucide="bar-chart-2" class="w-4 h-4 inline mr-1 text-blue-600"></i>
+                                        Thống kê nhân sự ghi nhận theo Cụm
+                                    </h4>
+                                    <div id="stats-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-32 overflow-y-auto custom-scrollbar">
+                                        </div>
+                                </div>
+
+                                <div id="filter-container-user"></div>
+                                <div id="user-stat-summary"></div>
+
+                                <div class="overflow-auto border rounded-lg flex-1 custom-scrollbar">
+                                    <table class="modern-table w-full border-collapse">
+                                        <thead class="bg-slate-50 sticky top-0 shadow-sm z-10">
                                             <tr>
-                                                <th class="w-10 text-center">STT</th>
-                                                <th>Liên Cụm</th>
-                                                <th>Cụm</th>
-                                                <th>User Ghi nhận (Mã CH/NV)</th>
-                                                <th>Kênh</th>
-                                                <th>Thời gian ghi nhận</th>
+                                                <th class="w-12 text-center p-3 font-bold border-b text-slate-700 bg-slate-100">STT</th>
+                                                <th class="p-3 font-bold border-b text-left text-slate-700 bg-slate-100 min-w-[120px]">Mã NV</th>
+                                                <th class="p-3 font-bold border-b text-left text-slate-700 bg-slate-100">Kênh (Channel)</th>
+                                                <th class="p-3 font-bold border-b text-left text-slate-700 bg-slate-100">Cụm</th>
+                                                <th class="p-3 font-bold border-b text-left text-slate-700 bg-slate-100">Liên Cụm</th>
+                                                <th class="p-3 font-bold border-b text-right text-slate-700 bg-slate-100">Số Log</th>
                                             </tr>
                                         </thead>
                                         <tbody id="body-user-ghinhan"></tbody>
@@ -536,8 +565,8 @@
                                 </div>
                             </div>
 
+                         </div>
                         </div>
-                    </div>
                 </section>
 
                 <section id="view-system" class="view-section hidden animate-fade-in">
