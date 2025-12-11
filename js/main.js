@@ -2,6 +2,8 @@ const app = {
     // --- 1. QUẢN LÝ TRẠNG THÁI (STATE) ---
     currentUser: null,       // User đang đăng nhập
     fullClusterData: [],     // Cache dữ liệu hạ tầng (dùng để tra cứu)
+    cachedKPIData: [],       // Cache dữ liệu KPI (Dùng cho cả báo cáo và lọc User)
+    cachedLogData: [],
     
     // TỪ ĐIỂN TRA CỨU (Mapping ID -> Tên)
     mapLienCum: {}, 
@@ -18,7 +20,7 @@ const app = {
 
     // --- 2. KHỞI TẠO ỨNG DỤNG (INIT) ---
     async init() {
-        console.log("App Starting... Version 01.32 (Planning by Cluster)");
+        console.log("App Starting... Version 01.34 (Fix Duplicate Logic)");
 
         // A. KIỂM TRA ĐĂNG NHẬP
         const savedUser = localStorage.getItem('MIS_USER');
@@ -95,7 +97,7 @@ const app = {
         if (!document.getElementById('app-footer')) {
             const footerHTML = `
                 <div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">
-                    Bản quyền <span class="font-bold">MBF TNI</span> | Ver <span class="font-mono">01.32</span>
+                    Bản quyền <span class="font-bold">MBF TNI</span> | Ver <span class="font-mono">01.34</span>
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', footerHTML);
@@ -238,7 +240,9 @@ const app = {
         const viewModeEl = document.getElementById('view-mode');
         const viewMode = viewModeEl ? viewModeEl.value : 'cluster';
 
+        // Gọi DataService và lưu vào cache dùng chung
         let rawData = await DataService.getKPIActual(mFrom, mTo, keyword);
+        this.cachedKPIData = rawData || [];
         
         // 1. CHUẨN BỊ MAP ĐƠN VỊ TÍNH
         const kpiUnitMap = {};
@@ -345,9 +349,6 @@ const app = {
         UIRenderer.renderKPIStructureTable(cleanStructure);
         UIRenderer.renderKPIActualTable(processedData, cleanStructure);
         
-        // RENDER TAB KẾ HOẠCH (ĐÃ CẬP NHẬT GỌI HÀM MỚI)
-        this.renderPlanningTab(); 
-        
         lucide.createIcons();
     },
 
@@ -362,15 +363,12 @@ const app = {
         alert(`Bạn đang xem chi tiết: ${id}. \nChức năng hiển thị popup chi tiết đang được xây dựng!`);
     },
 
-    // --- TÌM ĐẾN ĐOẠN renderPlanningTab TRONG MAIN.JS VÀ THAY THẾ TOÀN BỘ BẰNG CODE SAU ---
-
     // --- 10. TAB GIAO KẾ HOẠCH (LOGIC MỚI: THEO CỤM & LIÊN CỤM) ---
     
     async renderPlanningTab() {
         console.log("--> Đang tải giao diện lập kế hoạch theo Cụm...");
         
         // 1. Lấy cấu trúc KPI để vẽ cột (Chỉ lấy các chỉ tiêu đang Active)
-        // Đây chính là các cột trong file Google Sheet Planning của bạn
         const structure = await DataService.getKPIStructure();
         const activeKPIs = structure.filter(k => k.active).map(k => ({
             ...k, 
@@ -390,20 +388,19 @@ const app = {
                     tenLienCum: lc.tenLienCum,
                     maCum: c.maCum,
                     tenCum: c.tenCum,
-                    // TODO: Sau này nếu có API lấy dữ liệu kế hoạch đã lưu, sẽ map vào đây
-                    // currentPlan: ...
                 });
             });
         });
 
         // 3. Gọi Renderer vẽ bảng Ma trận (Dòng Cụm x Cột KPI)
+        // Dữ liệu này sẽ khớp với Sticky Header trong UI-Renderer
         UIRenderer.renderPlanningTable(planningRows, activeKPIs);
     },
 
     // Hàm xử lý Lưu kế hoạch (Gắn vào nút Lưu trên giao diện)
     async savePlanningData() {
         const inputs = document.querySelectorAll('.plan-input');
-        const month = document.getElementById('planning-month')?.value; // Cần thêm input chọn tháng trong HTML
+        const month = document.getElementById('planning-month')?.value; 
         
         if (!month) return alert("Vui lòng chọn tháng áp dụng!");
 
@@ -424,42 +421,146 @@ const app = {
             }
         });
 
-        console.log("Dữ liệu chuẩn bị lưu (Format phù hợp Google Sheet):", payload);
+        console.log("Dữ liệu chuẩn bị lưu:", payload);
         
         if (payload.length === 0) {
             alert("Chưa có dữ liệu nào được nhập!");
             return;
         }
 
-        // TODO: Gọi hàm DataService.savePlanning(payload) ở đây
         alert(`Đã thu thập ${payload.length} chỉ tiêu. \n(Log chi tiết xem trong Console F12)`);
     },
 
-    // Hàm Lưu kế hoạch (Gắn vào nút Save)
-    async savePlanningData() {
-        const inputs = document.querySelectorAll('.plan-input');
-        const month = document.getElementById('planning-month')?.value;
-        
-        if (!month) return alert("Vui lòng chọn tháng áp dụng!");
+    // --- 11. TAB USER GHI NHẬN (LOGIC MỚI: THEO SHEET KPI_LOGS) ---
 
-        const payload = [];
-        inputs.forEach(input => {
-            const val = Number(input.value.replace(/\./g, '')) || 0; 
-            if (val > 0) {
-                payload.push({
-                    thang: month,
-                    maCum: input.dataset.cum,
-                    maKpi: input.dataset.kpi,
-                    keHoach: val
-                });
+    async loadUserLogPage() {
+        console.log("--> Đang tải dữ liệu từ KPI_LOGS...");
+        
+        // 1. Kiểm tra cache
+        if (this.cachedKPIData.length === 0) {
+            const mFrom = document.getElementById('filter-month-from')?.value || '';
+            const mTo = document.getElementById('filter-month-to')?.value || '';
+            
+            // Gọi DataService. API cần trả về các cột: maNV, channel, Type...
+            this.cachedKPIData = await DataService.getKPIActual(mFrom, mTo, '');
+        }
+
+        if (!this.cachedKPIData || this.cachedKPIData.length === 0) {
+            alert("Không tìm thấy dữ liệu KPI Logs!");
+            UIRenderer.renderKPIUserLogs([]); 
+            return;
+        }
+
+        // Log kiểm tra xem dữ liệu trả về có đúng key maNV, channel không
+        console.log("Mẫu dữ liệu log (Row 1):", this.cachedKPIData[0]); 
+
+        // 2. Trích xuất danh sách Mã Cụm duy nhất có trong logs
+        const uniqueCumCodes = [...new Set(this.cachedKPIData.map(item => item.maCum))].filter(Boolean).sort();
+
+        // 3. Render Dropdown chọn Cụm
+        UIRenderer.renderUserLogFilter(uniqueCumCodes);
+
+        // 4. Reset bảng
+        UIRenderer.renderKPIUserLogs([]); 
+    },
+
+// [File: main.js]
+
+    // --- 11. TAB USER GHI NHẬN (CẬP NHẬT TÍNH NĂNG MỚI) ---
+
+    async loadUserLogPage() {
+        console.log("--> Đang tải dữ liệu KPI_LOGS...");
+        
+        // 1. Gọi DataService
+        this.cachedLogData = await DataService.getKPILogs();
+
+        if (!this.cachedLogData || this.cachedLogData.length === 0) {
+            alert("Không tìm thấy dữ liệu KPI Logs!");
+            UIRenderer.renderKPIUserLogs([]); 
+            return;
+        }
+
+        // 2. TÍNH TOÁN THỐNG KÊ (YÊU CẦU 2 CỦA BẠN)
+        // Tạo Map: Mã Cụm -> Set(Các Mã NV duy nhất)
+        const clusterStatsMap = {};
+        
+        this.cachedLogData.forEach(log => {
+            const mCum = log.maCum;
+            const mNV = log.maNV || log.MaNV || log.manv;
+            
+            if (mCum && mNV) {
+                if (!clusterStatsMap[mCum]) {
+                    clusterStatsMap[mCum] = new Set();
+                }
+                clusterStatsMap[mCum].add(mNV);
             }
         });
 
-        console.log("Dữ liệu lưu:", payload);
-        alert(`Hệ thống đã ghi nhận ${payload.length} chỉ tiêu. (Chức năng lưu Server đang phát triển)`);
+        // Chuyển về dạng mảng để render
+        const statsArray = Object.keys(clusterStatsMap).map(maCum => ({
+            maCum: maCum,
+            tenCum: this.getNameCum(maCum),
+            userCount: clusterStatsMap[maCum].size // Đếm số user trong Set
+        }));
+
+        // Render bảng thống kê so sánh
+        UIRenderer.renderClusterStats(statsArray);
+
+        // 3. Render Dropdown & Reset bảng chi tiết
+        const uniqueCumCodes = statsArray.map(s => s.maCum).sort();
+        UIRenderer.renderUserLogFilter(uniqueCumCodes);
+        UIRenderer.renderKPIUserLogs([]); 
     },
 
-    // --- 11. SEARCH FUNCTIONS ---
+    // XỬ LÝ LỌC (ĐÃ BỎ LOGIC TÁCH TYPE)
+    handleUserFilterChange(selectedCum) {
+        if (!selectedCum) {
+            UIRenderer.renderKPIUserLogs([]);
+            return;
+        }
+
+        const filteredLogs = this.cachedLogData.filter(item => item.maCum === selectedCum);
+        const userMap = new Map();
+        
+        filteredLogs.forEach(log => {
+            const code = log.maNV || log.MaNV || log.manv; 
+            
+            if (code) {
+                if (!userMap.has(code)) {
+                    userMap.set(code, {
+                        maNV: code,
+                        maCum: log.maCum,
+                        maLienCum: log.maLienCum,
+                        channels: new Set(),
+                        totalLogs: 0
+                    });
+                }
+
+                const userObj = userMap.get(code);
+                
+                // Chỉ lấy channelType làm Kênh, không cần tách nữa
+                const rawData = log.channelType || log.ChannelType || log.channeltype || '';
+                
+                // Logic tách thông minh (chỉ lấy phần đầu làm channel)
+                if (rawData) {
+                    if (rawData.includes('-')) userObj.channels.add(rawData.split('-')[0].trim());
+                    else if (rawData.includes('_')) userObj.channels.add(rawData.split('_')[0].trim());
+                    else userObj.channels.add(rawData);
+                }
+
+                userObj.totalLogs += 1;
+            }
+        });
+
+        const distinctUsers = Array.from(userMap.values()).map(u => ({
+            ...u,
+            channelStr: Array.from(u.channels).join(', ')
+        }));
+        
+        UIRenderer.renderKPIUserLogs(distinctUsers);
+    },
+
+    // --- 12. SEARCH FUNCTIONS KHÁC ---
 
     handleSearchCluster(keyword) {
         keyword = keyword.toLowerCase().trim();
@@ -507,15 +608,20 @@ const app = {
         UIRenderer.renderBTSTable(data);
     },
 
-    // --- 12. UTILS ---
+    // --- 13. UTILS & EVENT HANDLERS ---
     
+    // CẬP NHẬT: Trigger tải dữ liệu khi chuyển tab
     switchTab(tabId, btnElement) {
         const parent = btnElement.closest('.view-section');
         parent.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById(tabId).classList.remove('hidden');
         parent.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         btnElement.classList.add('active');
+
+        // Logic tải dữ liệu lười (Lazy load)
         if(tabId === 'dash-charts') this.updateCharts();
+        if(tabId === 'tab-kehoach') this.renderPlanningTab(); 
+        if(tabId === 'tab-user-ghinhan') this.loadUserLogPage(); 
     },
     
     openUploadModal(type = 'cluster') {
