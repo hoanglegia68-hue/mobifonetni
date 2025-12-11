@@ -378,15 +378,13 @@ const UIRenderer = {
 
     // Render Bảng Dữ liệu thực tế
     renderKPIActualTable(data, structure) {
-        // CƠ CHẾ FALLBACK ID: Tìm ID mới trước, nếu không thấy thì tìm ID cũ
         const tbody = document.getElementById('kpi-actual-tbody') || document.getElementById('body-thuchien');
 
         if (!tbody) {
-            console.error("Critical UI Error: Không tìm thấy <tbody> cho bảng KPI. Vui lòng kiểm tra lại file index.html");
+            console.error("Critical UI Error: Không tìm thấy <tbody> cho bảng KPI.");
             return;
         }
         
-        // Reset nội dung
         tbody.innerHTML = '';
 
         if (!data || data.length === 0) {
@@ -400,7 +398,6 @@ const UIRenderer = {
             const tr = document.createElement('tr');
             
             if (item.isTotal) {
-                // Style đặc biệt cho dòng Tổng
                 tr.className = "bg-blue-100 font-bold border-t-2 border-blue-300 text-blue-900 sticky bottom-0 z-10 shadow-lg";
             } else {
                 tr.className = "bg-white border-b hover:bg-slate-50 cursor-pointer transition-colors";
@@ -409,7 +406,6 @@ const UIRenderer = {
 
             let sttHtml = item.isTotal ? '' : `<span class="text-slate-400">${index + 1}</span>`;
             
-            // Xây dựng nội dung hàng
             let html = `
                 <td class="p-3 text-center border-r border-slate-200">${sttHtml}</td>
                 <td class="p-3 text-left border-r border-slate-200 ${item.isTotal ? 'uppercase' : 'font-medium'}">
@@ -418,7 +414,6 @@ const UIRenderer = {
                 </td>
             `;
 
-            // Vòng lặp tạo cột động dựa trên Structure
             structure.forEach(kpi => {
                 if (kpi.active) {
                     const cleanKey = app.cleanCode(kpi.ma); 
@@ -439,47 +434,29 @@ const UIRenderer = {
         tbody.appendChild(fragment);
     },
 
-    renderKPIUserLogs(data) {
-        const tbody = document.getElementById('body-user-ghinhan');
-        if (!tbody) return;
-        tbody.innerHTML = data.map((item, i) => `
-            <tr class="bg-white border-b hover:bg-slate-50">
-                <td class="p-3 text-center">${i+1}</td>
-                <td class="p-3 text-sm" title="${item.maLienCum || ''}">${app.getNameLienCum(item.maLienCum || item.lienCum)}</td>
-                <td class="p-3 text-sm" title="${item.maCum || ''}">${app.getNameCum(item.maCum || item.cum)}</td>
-                <td class="p-3 font-medium text-blue-600">${item.user}</td>
-                <td class="p-3"><span class="badge-region">${item.kenh}</span></td>
-                <td class="p-3 text-xs text-slate-500 font-mono">${item.time}</td>
-            </tr>
-        `).join('');
-    },
-
-// --- TÌM ĐẾN ĐOẠN renderPlanningTable TRONG UI-RENDERER.JS VÀ THAY THẾ TOÀN BỘ ---
-
-    // --- 7. BẢNG GIAO KẾ HOẠCH (MA TRẬN: CỤM x KPI) ---
+    // --- 7. BẢNG GIAO KẾ HOẠCH (HEADER CỐ ĐỊNH, CỘT THẢ NỔI) ---
     renderPlanningTable(rows, kpiStructure) {
         const table = document.getElementById('table-kehoach'); 
         if (!table) return;
 
-        // 1. Render Header (Cột động theo KPI Structure)
-        // Sticky Header: Giúp tiêu đề luôn nổi khi cuộn xuống
+        // 1. Render Header
+        // FIX: Sticky top-0 cho toàn bộ dòng tiêu đề, Z-Index 50 để luôn nổi trên cùng
         let theadHtml = `
             <tr>
-                <th class="w-12 text-center p-3 border font-bold text-slate-700 bg-slate-100 sticky top-0 left-0 z-30 shadow-sm">STT</th>
-                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[200px] sticky top-0 left-12 z-30 shadow-sm">Đơn vị (Cụm)</th>
-                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[120px] sticky top-0 z-20 shadow-sm">Liên Cụm</th>
+                <th class="w-12 text-center p-3 border font-bold text-slate-700 bg-slate-100 sticky top-0 z-50 shadow-sm">STT</th>
+                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[200px] sticky top-0 z-50 shadow-sm">Đơn vị (Cụm)</th> 
+                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-left min-w-[120px] sticky top-0 z-50 shadow-sm">Liên Cụm</th>
         `;
 
         kpiStructure.forEach(kpi => {
             theadHtml += `
-                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-right min-w-[140px] sticky top-0 z-20 shadow-sm">
+                <th class="p-3 border font-bold text-slate-700 bg-slate-100 text-right min-w-[140px] sticky top-0 z-50 shadow-sm">
                     ${kpi.tenHienThi} <br> 
                     <span class="text-[10px] font-normal text-slate-500 italic">(${kpi.dvt})</span>
                 </th>`;
         });
         theadHtml += `</tr>`;
         
-        // Gắn Header vào bảng
         let thead = table.querySelector('thead');
         if(!thead) { 
             thead = document.createElement('thead'); 
@@ -487,21 +464,21 @@ const UIRenderer = {
         }
         thead.innerHTML = theadHtml;
 
-        // 2. Render Body (Các dòng Cụm + Ô Input)
+        // 2. Render Body
         const tbody = document.getElementById('body-kehoach');
         if (!tbody) return;
         
         if (rows.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${3 + kpiStructure.length}" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu Cụm</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${3 + kpiStructure.length}" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
             return;
         }
 
         tbody.innerHTML = rows.map((row, index) => {
-            // Sticky Column: Cột Tên Cụm sẽ dính bên trái khi cuộn ngang
+            // FIX: Bỏ 'sticky left-0' ở các thẻ td để cột Cụm trôi tự nhiên khi cuộn ngang
             let rowHtml = `
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 text-center border-r bg-slate-50 sticky left-0 font-medium text-slate-500 z-10">${index + 1}</td>
-                    <td class="p-3 font-medium text-blue-700 border-r bg-white sticky left-12 whitespace-nowrap z-10 shadow-sm" title="${row.maCum}">
+                    <td class="p-3 text-center border-r bg-slate-50 font-medium text-slate-500">${index + 1}</td>
+                    <td class="p-3 font-medium text-blue-700 border-r whitespace-nowrap" title="${row.maCum}">
                         ${row.tenCum}
                     </td>
                     <td class="p-3 text-sm text-slate-500 border-r text-xs">
@@ -509,17 +486,14 @@ const UIRenderer = {
                     </td>
             `;
 
-            // Tạo ô input cho từng KPI
             kpiStructure.forEach(kpi => {
-                // Thêm data-cum và data-kpi để lúc Save dễ lấy dữ liệu
                 rowHtml += `
                     <td class="p-2 border-r">
                         <input type="text" 
-                            class="plan-input w-full text-right border border-slate-200 rounded px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition font-mono text-slate-800 font-medium"
-                            placeholder="0"
+                            class="plan-input w-full text-right border border-slate-200 rounded px-2 py-1.5 text-sm focus:border-blue-500 outline-none"
+                            placeholder="-"
                             data-cum="${row.maCum}"
                             data-kpi="${kpi.ma}"
-                            onfocus="this.select()"
                             oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.')"
                         >
                     </td>
@@ -530,8 +504,111 @@ const UIRenderer = {
             return rowHtml;
         }).join('');
     },
+
+    // --- 8. TAB USER GHI NHẬN (CÓ THỐNG KÊ & LỌC CỤM) ---
     
-    // --- 8. DASHBOARD ---
+    // Render Dropdown chọn Cụm
+    renderUserLogFilter(listCum, selectedCum = "") {
+        const container = document.getElementById('filter-container-user'); 
+        if (!container) return;
+
+        let options = `<option value="">-- Chọn Đơn vị (Cụm) --</option>`;
+        listCum.forEach(cumCode => {
+            const tenCum = app.getNameCum(cumCode) || cumCode;
+            const isSelected = cumCode === selectedCum ? 'selected' : '';
+            options += `<option value="${cumCode}" ${isSelected}>${tenCum}</option>`;
+        });
+
+        container.innerHTML = `
+            <div class="flex items-center gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm mb-4">
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-sm text-slate-700 whitespace-nowrap">Lọc theo Cụm:</label>
+                    <select id="user-filter-select" onchange="app.handleUserFilterChange(this.value)" class="border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-w-[250px]">
+                        ${options}
+                    </select>
+                </div>
+                <div class="h-6 w-px bg-slate-300 mx-2"></div>
+                <div class="text-sm text-slate-600 flex items-center gap-1">
+                    <i data-lucide="info" class="w-4 h-4 text-blue-500"></i>
+                    <span>Dữ liệu trích xuất từ lịch sử ghi nhận KPI thực tế</span>
+                </div>
+            </div>
+        `;
+        lucide.createIcons();
+    },
+
+    // [File: ui-renderer.js]
+
+    // 1. HÀM MỚI: RENDER THỐNG KÊ SO SÁNH CÁC CỤM
+    renderClusterStats(statsData) {
+        const container = document.getElementById('stats-grid');
+        if (!container) return;
+
+        if (!statsData || statsData.length === 0) {
+            container.innerHTML = '<p class="text-xs text-slate-400 col-span-full">Chưa có dữ liệu thống kê.</p>';
+            return;
+        }
+
+        // Sắp xếp giảm dần theo số lượng user
+        statsData.sort((a, b) => b.userCount - a.userCount);
+
+        container.innerHTML = statsData.map(item => `
+            <div class="flex flex-col bg-slate-50 border border-slate-200 rounded p-2 hover:shadow-md transition cursor-pointer" 
+                 onclick="app.handleUserFilterChange('${item.maCum}'); document.getElementById('user-filter-select').value='${item.maCum}';">
+                <span class="text-[10px] uppercase font-bold text-slate-500 truncate" title="${item.tenCum}">
+                    ${item.tenCum}
+                </span>
+                <div class="flex justify-between items-end mt-1">
+                    <span class="text-lg font-bold text-blue-700 leading-none">${item.userCount}</span>
+                    <span class="text-[10px] text-slate-400">users</span>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    // 2. SỬA HÀM RENDER LOGS (BỎ CỘT TYPE)
+    renderKPIUserLogs(data) {
+        const tbody = document.getElementById('body-user-ghinhan');
+        
+        let statDiv = document.getElementById('user-stat-summary');
+        if (statDiv) {
+            if (data && data.length > 0) {
+                statDiv.innerHTML = `<div class="text-sm font-bold text-blue-800 mb-2">
+                    ➤ Chi tiết: <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded ml-1 border border-blue-200">${data.length} Mã NV</span>
+                </div>`;
+            } else {
+                statDiv.innerHTML = '';
+            }
+        }
+
+        if (!tbody) return;
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center p-12 text-slate-400 italic bg-slate-50/50">
+                <div class="flex flex-col items-center gap-2">
+                    <i data-lucide="filter" class="w-8 h-8 opacity-50"></i>
+                    <span>Vui lòng chọn Cụm (hoặc click vào ô thống kê) để xem chi tiết</span>
+                </div>
+            </td></tr>`;
+            lucide.createIcons();
+            return;
+        }
+
+        tbody.innerHTML = data.map((item, i) => `
+            <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
+                <td class="p-3 text-center text-slate-500 font-medium border-r">${i+1}</td>
+                <td class="p-3 font-bold text-blue-700 font-mono text-sm border-r">${item.maNV}</td>
+                
+                <td class="p-3 text-sm text-slate-700 border-r">${item.channelStr || '-'}</td>
+                
+                <td class="p-3 text-sm text-slate-600 border-r">${app.getNameCum(item.maCum)}</td>
+                <td class="p-3 text-sm text-slate-500 text-xs border-r">${app.getNameLienCum(item.maLienCum)}</td>
+                <td class="p-3 text-right"><span class="text-xs font-bold text-slate-400">${item.totalLogs} records</span></td>
+            </tr>
+        `).join('');
+        lucide.createIcons();
+    },
+    // --- 9. DASHBOARD ---
 
     renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts) {
         const tbody = document.getElementById('dashboard-summary-body');
