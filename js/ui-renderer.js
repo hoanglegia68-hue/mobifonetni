@@ -1,5 +1,3 @@
-// ui-renderer.js (Đã được hoàn thiện)
-
 const UIRenderer = {
     // ============================================================
     // 1. CÁC HÀM HELPER DÙNG CHUNG
@@ -153,7 +151,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP & BTS
+    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP & BTS (Giữ nguyên)
     // ============================================================
 
     renderStoresTable(data) {
@@ -340,7 +338,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 4. SỐ LIỆU KINH DOANH (KPI)
+    // 4. SỐ LIỆU KINH DOANH (KPI) (Giữ nguyên)
     // ============================================================
 
     renderKPIStructureTable(structure) {
@@ -496,7 +494,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 5. USER LOGS & STATS
+    // 5. USER LOGS & STATS (Giữ nguyên)
     // ============================================================
 
     renderUserLogFilter(listCum, selectedCum = "") {
@@ -630,14 +628,14 @@ const UIRenderer = {
         const totalCommunes = communes.length;
         // ------------------------------------
 
-        // --- PHẦN A: VẼ CARD (ĐÃ CÓ VLR/DÂN SỐ/CLICK) ---
+        // --- PHẦN A: VẼ CARD (ĐÃ GỘP BTS VÀO HẠ TẦNG KÊNH) ---
         const storesExpiring = stores.filter(s => {
             if(!s.ngayHetHan) return false;
             return this.getDaysRemaining(s.ngayHetHan) < 30; 
         }).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
-        // Vùng Hạ tầng Kênh
+        // Vùng Hạ tầng Kênh (4 Cards: Cửa hàng, Địa lý/Dân số, Đại lý, BTS)
         document.getElementById('dashboard-infrastructure').innerHTML = `
             <div onclick="app.showDashboardDetail('store', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
                 <div class="flex justify-between items-start">
@@ -671,20 +669,24 @@ const UIRenderer = {
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">Kênh gián tiếp</div>
             </div>
-        `;
 
-        // Vùng Mạng Lưới
-        document.getElementById('dashboard-network').innerHTML = `
-            <div onclick="app.showDashboardDetail('bts', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 hover:shadow-md transition-shadow group col-span-1 md:col-span-2 cursor-pointer">
-                <div class="flex justify-between items-center mb-4">
+            <div onclick="app.showDashboardDetail('bts', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500 hover:shadow-md transition-shadow group cursor-pointer">
+                <div class="flex justify-between items-center">
                     <div><p class="text-slate-500 text-sm font-medium uppercase">Tổng Trạm BTS</p><h3 class="text-3xl font-bold text-slate-800">${this.formatNumber(bts.length)}</h3></div>
                     <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><i data-lucide="tower-control" class="w-6 h-6"></i></div>
                 </div>
-                <div class="border-t border-slate-100 pt-3"><span class="text-xs text-slate-500">Hạ tầng phát sóng</span></div>
+                <div class="border-t border-slate-100 pt-3 mt-4">
+                    <span class="text-xs text-slate-500">Hạ tầng phát sóng</span>
+                </div>
             </div>
         `;
 
-        // Vùng Nhân Sự
+        // Xóa logic render khu vực Mạng Lưới cũ (đảm bảo div này không còn trong index.html)
+        const divNetwork = document.getElementById('dashboard-network');
+        if(divNetwork) divNetwork.innerHTML = '';
+
+
+        // Vùng Nhân Sự (3 Cards: GDV, NVBH, KHDN)
         document.getElementById('dashboard-hr').innerHTML = `
             <div onclick="app.showDashboardDetail('gdv', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 hover:shadow-md transition-shadow group cursor-pointer">
                 <div class="flex justify-between items-start">
@@ -707,12 +709,12 @@ const UIRenderer = {
                     <div><p class="text-slate-500 text-sm font-medium uppercase">Kênh KHDN</p><h3 class="text-3xl font-bold text-slate-800 mt-1">${this.formatNumber(countActive(b2b))}</h3></div>
                     <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i data-lucide="building-2" class="w-6 h-6"></i></div>
                 </div>
-                <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">Khách hàng doanh nghiệp</div>
+                <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">Phụ trách khách hàng doanh nghiệp</div>
             </div>
         `;
 
 
-        // --- PHẦN B: BẢNG CHI TIẾT INTERACTIVE (GIỮ NGUYÊN) ---
+        // --- PHẦN B: BẢNG CHI TIẾT INTERACTIVE (Giữ nguyên) ---
         let displayClusters = allClusters;
         if (filterScope !== 'all') {
             const selectedLC = allClusters.find(c => c.maLienCum === filterScope);
@@ -771,16 +773,19 @@ const UIRenderer = {
     },
 
     // -------------------------------------------------------------------------------------
-    // Các hàm render khác (renderKPIStructureTable, renderKPIActualTable, renderPlanningTable, v.v.)
-    // ... (Giữ nguyên các hàm này) ...
+    // Các hàm render khác (Giữ nguyên)
     // -------------------------------------------------------------------------------------
 
+    renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts) {
+        // Fallback function for compatibility if needed
+        this.renderDashboard('all');
+    },
+
     // ============================================================
-    // 7. MODAL CHI TIẾT (DRILL-DOWN)
+    // 7. MODAL CHI TIẾT (DRILL-DOWN) (Giữ nguyên)
     // ============================================================
 
     renderDetailModalContent(type, data) {
-        // ... (Giữ nguyên hàm này) ...
         const thead = document.getElementById('modal-detail-thead');
         const tbody = document.getElementById('modal-detail-tbody');
         if(!thead || !tbody) return;
