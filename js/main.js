@@ -1,19 +1,16 @@
-// main.js (Đã được hoàn thiện)
-
 const app = {
     // ============================================================
     // 1. QUẢN LÝ TRẠNG THÁI (STATE)
     // ============================================================
-    currentUser: null,       // User đang đăng nhập
-    fullClusterData: [],     // Cache dữ liệu hạ tầng (dùng để tra cứu)
-    cachedKPIData: [],       // Cache dữ liệu KPI (Dùng cho cả báo cáo và lọc User)
-    cachedLogData: [],       // Cache dữ liệu Log User
-    
-    // TỪ ĐIỂN TRA CỨU (Mapping ID -> Tên)
+    currentUser: null,
+    fullClusterData: [],
+    cachedKPIData: [],
+    cachedLogData: [],
+    cachedData: {}, 
+
+    // TỪ ĐIỂN TRA CỨU
     mapLienCum: {}, 
     mapCum: {},
-
-    chartInstances: {},      // Cache biểu đồ
 
     // CẤU HÌNH CẢNH BÁO THUÊ
     rentalConfig: {
@@ -26,703 +23,497 @@ const app = {
     // 2. KHỞI TẠO ỨNG DỤNG (INIT)
     // ============================================================
     async init() {
-        console.log("App Starting... Version 02.01 (Final Complete)");
+        console.log("App Starting... Version 04.02 (Final - Fixed B2B Modal)");
 
-        // A. KIỂM TRA ĐĂNG NHẬP
         const savedUser = localStorage.getItem('MIS_USER');
-        if (!savedUser) {
-            window.location.href = 'login.html'; 
-            return;
-        }
+        if (!savedUser) { window.location.href = 'login.html'; return; }
         this.currentUser = JSON.parse(savedUser);
 
-        // B. Lấy dữ liệu hạ tầng trước (Để xây dựng từ điển tra cứu)
-        this.fullClusterData = await DataService.getClusters();
-        
-        // C. Xây dựng Từ điển (Mapping)
-        this.buildDictionary();
+        try {
+            const [clusters, stores, gdvs, sales, b2b, indirect, bts] = await Promise.all([
+                DataService.getClusters(),
+                DataService.getStores(),
+                DataService.getGDVs(),
+                DataService.getSalesStaff(),
+                DataService.getB2BStaff(),
+                DataService.getIndirectChannels(),
+                DataService.getBTS()
+            ]);
+            
+            this.fullClusterData = this.normalizeDataSet(clusters);
+            this.cachedData = { 
+                stores: this.normalizeDataSet(stores), 
+                gdvs: this.normalizeDataSet(gdvs), 
+                sales: this.normalizeDataSet(sales), 
+                b2b: this.normalizeDataSet(b2b), 
+                indirect: this.normalizeDataSet(indirect), 
+                bts: this.normalizeDataSet(bts) 
+            }; 
+        } catch (error) {
+            console.error("Lỗi data:", error);
+        }
 
-        // D. Cập nhật giao diện User
+        this.buildDictionary();
+        this.initKPIReportTab(); 
         this.updateUserInterface();
         this.renderFooter();
         lucide.createIcons();
-
-        // E. Vào trang Dashboard mặc định
         this.navigate('dashboard');
     },
 
     // ============================================================
-    // 3. LOGIC TỪ ĐIỂN & HELPER
+    // 3. HELPER: CHUẨN HÓA DỮ LIỆU
     // ============================================================
     
+    normalizeDataSet(data) {
+        if (!Array.isArray(data)) return [];
+        return data.map(row => {
+            const newRow = {};
+            Object.keys(row).forEach(key => {
+                newRow[key.trim()] = row[key];
+            });
+            return newRow;
+        });
+    },
+
+    parseDateKey(dateStr) {
+        if (!dateStr) return { full: '', month: '' };
+        let y, m, d;
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length >= 2) {
+                d = parts[0].padStart(2, '0');
+                m = parts[1].padStart(2, '0');
+                y = parts[2];
+                if (y.length === 2) y = '20' + y;
+            }
+        } else if (dateStr.includes('-')) {
+            return { full: dateStr.substring(0, 10), month: dateStr.substring(0, 7) };
+        }
+        
+        if (y && m) return { full: `${y}-${m}-${d || '01'}`, month: `${y}-${m}` };
+        return { full: dateStr, month: dateStr };
+    },
+
     buildDictionary() {
         this.fullClusterData.forEach(lc => {
             if (lc.maLienCum) this.mapLienCum[lc.maLienCum] = lc.tenLienCum;
-            lc.cums.forEach(c => {
-                if (c.maCum) this.mapCum[c.maCum] = c.tenCum;
-            });
+            lc.cums.forEach(c => { if (c.maCum) this.mapCum[c.maCum] = c.tenCum; });
         });
     },
 
     getNameLienCum(code) { return this.mapLienCum[code] || code || ''; },
     getNameCum(code) { return this.mapCum[code] || code || ''; },
-
-    cleanCode(code) {
-        return String(code || '').trim().toUpperCase();
-    },
+    cleanCode(code) { return String(code || '').trim().toUpperCase().replace('KPI_', ''); },
 
     // ============================================================
-    // 4. LOGIC PHÂN QUYỀN & GIAO DIỆN
+    // 4. GIAO DIỆN & PHÂN QUYỀN
     // ============================================================
 
     updateUserInterface() {
         const user = this.currentUser;
         const nameEl = document.getElementById('sidebar-user-name');
         const roleEl = document.getElementById('sidebar-user-role');
-        
         if (nameEl) nameEl.textContent = user.name;
-        if (roleEl) {
-            let roleText = 'Nhân viên';
-            if (user.role === 'admin') roleText = 'Administrator';
-            if (user.role === 'manager') roleText = `Quản lý: ${this.getNameLienCum(user.scope)}`;
-            roleEl.textContent = roleText;
-        }
-
+        if (roleEl) roleEl.textContent = user.role === 'admin' ? 'Administrator' : `User: ${user.scope}`;
+        
         document.body.classList.remove('is-admin', 'is-view', 'is-manager');
         document.body.classList.add(`is-${user.role}`);
-
-        const systemMenu = document.querySelector('.system-menu-only');
-        if (systemMenu) systemMenu.style.display = user.role === 'admin' ? 'flex' : 'none';
-    },
-
-    logout() {
-        if(confirm('Bạn có chắc muốn đăng xuất?')) {
-            localStorage.removeItem('MIS_USER');       
-            localStorage.removeItem('MIS_LOCAL_DATA'); 
-            window.location.href = 'login.html';
-        }
+        const sysMenu = document.querySelector('.system-menu-only');
+        if (sysMenu) sysMenu.style.display = user.role === 'admin' ? 'flex' : 'none';
     },
 
     renderFooter() {
         if (!document.getElementById('app-footer')) {
-            const footerHTML = `
-                <div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">
-                    Bản quyền <span class="font-bold">MBF TNI</span> | Ver <span class="font-mono">02.01</span>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', footerHTML);
+            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">MBF TNI | Ver 04.02</div>`);
         }
     },
 
-    // ============================================================
-    // 5. LOGIC LỌC DỮ LIỆU (SCOPE FILTER)
-    // ============================================================
     filterDataByScope(data, fieldId = 'maLienCum') {
         const user = this.currentUser;
         if (user.role === 'admin' || user.scope === 'all') return data;
-        return data.filter(item => {
-            if (item[fieldId] === user.scope) return true;
-            if (item.tenLienCum === user.scope || item.lienCum === user.scope) return true;
-            return false;
-        });
+        return data.filter(item => item[fieldId] === user.scope || item.tenLienCum === user.scope);
     },
 
-    // ============================================================
-    // 6. ĐIỀU HƯỚNG (NAVIGATION)
-    // ============================================================
-    navigate(pageId) {
-        if (pageId === 'system' && this.currentUser.role !== 'admin') {
-            alert("Bạn không có quyền truy cập menu này!");
-            return;
-        }
+    checkScope(item) {
+        const user = this.currentUser;
+        if (user.role === 'admin' || user.scope === 'all') return true;
+        return (item.maLienCum === user.scope || item.maCum === user.scope);
+    },
 
+    navigate(pageId) {
+        if (pageId === 'system' && this.currentUser.role !== 'admin') return alert("Không có quyền!");
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        const activeLink = document.querySelector(`.nav-item[onclick*="'${pageId}'"]`);
-        if(activeLink) activeLink.classList.add('active');
+        const link = document.querySelector(`.nav-item[onclick*="'${pageId}'"]`);
+        if(link) link.classList.add('active');
 
         document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-        const targetView = document.getElementById(`view-${pageId}`);
-        if(targetView) {
-            targetView.classList.remove('hidden');
+        const view = document.getElementById(`view-${pageId}`);
+        if(view) {
+            view.classList.remove('hidden');
             this.updateTitle(pageId);
             this.loadDataForPage(pageId);
         }
     },
 
     updateTitle(pageId) {
-        const titles = { 
-            'dashboard': 'TỔNG QUAN HỆ THỐNG', 
-            'clusters': 'QUẢN LÝ HẠ TẦNG LIÊN CỤM', 
+        const t = { 
+            'dashboard': 'TỔNG QUAN', 
+            'business_data': 'SỐ LIỆU KINH DOANH', 
+            'clusters': 'QUẢN LÝ HẠ TẦNG',
             'direct_channel': 'QUẢN LÝ KÊNH TRỰC TIẾP',
             'indirect_channel': 'QUẢN LÝ KÊNH GIÁN TIẾP',
-            'bts': 'QUẢN LÝ TRẠM BTS',
-            'business_data': 'SỐ LIỆU KINH DOANH',
-            'system': 'QUẢN TRỊ HỆ THỐNG USER'
+            'bts': 'QUẢN LÝ TRẠM BTS'
         };
-        document.getElementById('page-title').textContent = titles[pageId] || 'Trang Quản Trị';
+        document.getElementById('page-title').textContent = t[pageId] || 'Trang Quản Trị';
     },
 
-    // ============================================================
-    // 7. LOAD DỮ LIỆU TỪNG TRANG
-    // ============================================================
     async loadDataForPage(pageId) {
         if (pageId === 'dashboard') {
-            // Reset dropdown về mặc định khi vào lại Dashboard
-            const select = document.getElementById('dashboard-scope-select');
-            if(select) select.value = 'all';
-            
-            // Gọi hàm render Dashboard mới (Cards + Breakdown)
+            const sel = document.getElementById('dashboard-scope-select'); if(sel) sel.value = 'all';
             UIRenderer.renderDashboard('all');
-            
-            // Render luôn biểu đồ (Lazy load)
-            this.updateCharts();
-        }
-        else if (pageId === 'clusters') {
-            let data = this.filterDataByScope(this.fullClusterData, 'maLienCum');
-            UIRenderer.renderClusterTable(data);
-        }
-        else if (pageId === 'direct_channel') {
-            let [stores, gdvs, sales, b2b] = await Promise.all([
-                DataService.getStores(), DataService.getGDVs(),
-                DataService.getSalesStaff(), DataService.getB2BStaff()
-            ]);
-            
-            stores = this.filterDataByScope(stores, 'maLienCum');
-            gdvs = this.filterDataByScope(gdvs, 'maLienCum');
-            sales = this.filterDataByScope(sales, 'maLienCum');
-            b2b = this.filterDataByScope(b2b, 'maLienCum');
-
-            UIRenderer.renderStoresTable(stores);
-            UIRenderer.renderGDVTable(gdvs);
-            UIRenderer.renderSalesTable(sales);
-            UIRenderer.renderB2BTable(b2b);
-            lucide.createIcons();
-        }
-        else if (pageId === 'indirect_channel') {
-            let data = await DataService.getIndirectChannels();
-            UIRenderer.renderIndirectTable(this.filterDataByScope(data, 'maLienCum'));
-        }
-        else if (pageId === 'bts') {
-            let data = await DataService.getBTS();
-            UIRenderer.renderBTSTable(this.filterDataByScope(data, 'maLienCum'));
+            const btn = document.querySelector('[onclick*="dash-overview"]');
+            if (btn) this.switchTab('dash-overview', btn); 
         }
         else if (pageId === 'business_data') {
-            await this.loadBusinessDataPage();
+            const btn = document.querySelector('[onclick*="tab-kpi-thuchien"]');
+            if (btn) this.switchTab('tab-kpi-thuchien', btn); else this.loadBusinessDataPage();
+        }
+        else if (pageId === 'clusters') {
+            UIRenderer.renderClusterTable(this.filterDataByScope(this.fullClusterData));
+        }
+        else if (pageId === 'direct_channel') {
+             // ĐÃ FIX: Load đầy đủ 4 bảng
+             const { stores, gdvs, sales, b2b } = this.cachedData;
+             UIRenderer.renderStoresTable(this.filterDataByScope(stores));
+             UIRenderer.renderGDVTable(this.filterDataByScope(gdvs));
+             UIRenderer.renderSalesTable(this.filterDataByScope(sales));
+             UIRenderer.renderB2BTable(this.filterDataByScope(b2b));
+        }
+        else if (pageId === 'indirect_channel') {
+            UIRenderer.renderIndirectTable(this.filterDataByScope(this.cachedData.indirect));
+        }
+        else if (pageId === 'bts') {
+            UIRenderer.renderBTSTable(this.filterDataByScope(this.cachedData.bts));
         }
     },
 
     // ============================================================
-    // 8. DASHBOARD LOGIC (MỚI)
+    // 5. DASHBOARD & KPI REPORT
     // ============================================================
-    
-    // Hàm xử lý khi chọn Dropdown lọc trên Dashboard
-    handleDashboardFilter(scope) {
-        UIRenderer.renderDashboard(scope);
+
+    handleDashboardFilter(scope) { UIRenderer.renderDashboard(scope); },
+
+    async initKPIReportTab() {
+        const sel = document.getElementById('filter-scope');
+        if (sel) {
+            sel.innerHTML = '<option value="all">Tất cả Liên Cụm</option>';
+            Object.keys(this.mapLienCum).forEach(k => sel.innerHTML += `<option value="${k}">${this.mapLienCum[k]}</option>`);
+        }
+        ['dash-month-from', 'dash-month-to'].forEach(id => { const el = document.getElementById(id); if(el) el.value = '2025-12'; });
+        const btn = document.getElementById('btn-apply-report-filter');
+        if (btn) btn.addEventListener('click', () => this.handleKPIReportFilter());
     },
 
-    async updateCharts() {
-        const from = document.getElementById('chart-from').value;
-        const to = document.getElementById('chart-to').value;
-        
-        const kpiData = await DataService.getKPIActual(from, to, '');
-        UIRenderer.renderDashboardCharts(kpiData, this.chartInstances);
+    async handleKPIReportFilter() {
+        console.log("Loading Dashboard Data...");
+        const mFrom = document.getElementById('dash-month-from')?.value || '2025-12';
+        const mTo = document.getElementById('dash-month-to')?.value || '2025-12';
+        const scope = document.getElementById('filter-scope')?.value || 'all';
+
+        try {
+            const [raw, plans, struct] = await Promise.all([
+                DataService.getKPIActual(mFrom, mTo, null),
+                DataService.getKPIPlanning(),
+                DataService.getKPIStructure()
+            ]);
+
+            const rawData = this.normalizeDataSet(raw);
+            const planData = this.normalizeDataSet(plans);
+            
+            const unitMap = {};
+            struct.forEach(s => { if(s.active) unitMap[app.cleanCode(s.ma)] = (s.dvt || '').toLowerCase(); });
+
+            const totalPlan = { TB_MOI: 0, _4G: 0, DT: 0 };
+            planData.forEach(row => {
+                const rowMonth = (row.month || row.thang || '').substring(0, 7);
+                if (rowMonth < mFrom || rowMonth > mTo) return;
+                if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
+
+                const kpi = app.cleanCode(row.maKpi);
+                const val = Number(row.giaTri || row.keHoach) || 0;
+                if (kpi === 'TB_MOI' || kpi === 'TBPTM') totalPlan.TB_MOI += val;
+                else if (kpi === '4G') totalPlan._4G += val;
+                else if (kpi === 'DT') totalPlan.DT += val;
+            });
+
+            const aggregated = {};
+            rawData.forEach(row => {
+                const parsed = this.parseDateKey(row.date);
+                if (parsed.month < mFrom || parsed.month > mTo) return;
+                if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
+
+                const dateKey = parsed.full;
+                if (!aggregated[dateKey]) aggregated[dateKey] = { DATE: dateKey, KPI_TB_MOI_TH: 0, KPI_4G_TH: 0, KPI_DT_TH: 0 };
+
+                const kpi = app.cleanCode(row.maKpi);
+                const unit = unitMap[kpi];
+                let val = Number(row.giaTri) || 0;
+                if (unit && (unit === 'tb' || unit.includes('thuê bao'))) val = 1;
+                else if (unit && (unit.includes('triệu') || unit.includes('doanh thu'))) val = val / 1000000;
+
+                if (kpi === 'TB_MOI' || kpi === 'TBPTM') aggregated[dateKey].KPI_TB_MOI_TH += val;
+                else if (kpi === '4G') aggregated[dateKey].KPI_4G_TH += val;
+                else if (kpi === 'DT' || kpi.includes('DT')) aggregated[dateKey].KPI_DT_TH += val;
+            });
+
+            const finalData = Object.values(aggregated).sort((a, b) => a.DATE.localeCompare(b.DATE));
+            
+            if (finalData.length > 0) finalData[0]._TOTAL_PLAN = totalPlan;
+            else finalData.push({ DATE: mFrom + '-01', KPI_TB_MOI_TH: 0, KPI_4G_TH: 0, KPI_DT_TH: 0, _TOTAL_PLAN: totalPlan });
+
+            UIRenderer.renderKPIReport(finalData, { mFrom, mTo, scope }, this.mapLienCum, this.mapCum);
+
+        } catch (e) { console.error(e); }
     },
 
     // ============================================================
-    // 9. BUSINESS DATA & SEARCH
+    // 6. BUSINESS DATA
     // ============================================================
 
     async loadBusinessDataPage() {
-        console.log("--> Đang tải dữ liệu kinh doanh...");
-        const structure = await DataService.getKPIStructure();
-        const mFrom = document.getElementById('filter-month-from').value;
-        const mTo = document.getElementById('filter-month-to').value;
-        const keyword = document.getElementById('business-search').value;
-        
-        const viewModeEl = document.getElementById('view-mode');
-        const viewMode = viewModeEl ? viewModeEl.value : 'cluster';
+        console.log("Loading Business Data...");
+        const mFrom = document.getElementById('biz-month-from')?.value || '2025-12';
+        const mTo = document.getElementById('biz-month-to')?.value || '2025-12';
+        const viewMode = document.getElementById('view-mode')?.value || 'cluster';
 
-        let rawData = await DataService.getKPIActual(mFrom, mTo, keyword);
-        this.cachedKPIData = rawData || [];
-        
-        // 1. CHUẨN BỊ MAP ĐƠN VỊ TÍNH
-        const kpiUnitMap = {};
-        const listKpiKeys = []; 
-        
-        structure.forEach(item => {
-            if(item.active) {
-                const code = this.cleanCode(item.ma);
-                kpiUnitMap[code] = (item.dvt || '').toLowerCase();
-                listKpiKeys.push(code);
-            }
+        const [raw, plans, struct] = await Promise.all([
+            DataService.getKPIActual(mFrom, mTo, null),
+            DataService.getKPIPlanning(),
+            DataService.getKPIStructure()
+        ]);
+
+        const rawData = this.normalizeDataSet(raw);
+        const planData = this.normalizeDataSet(plans);
+
+        const cleanStructure = struct.filter(s => s.active).map(s => ({
+            ...s, ma: this.cleanCode(s.ma), tenHienThi: s.tenHienThi || s.ten || s.ma
+        }));
+        const kpiKeys = cleanStructure.map(k => k.ma);
+        const unitMap = {}; cleanStructure.forEach(s => unitMap[s.ma] = (s.dvt||'').toLowerCase());
+
+        const aggData = {};
+        const keyField = viewMode === 'liencum' ? 'maLienCum' : 'maCum';
+        const nameMap = viewMode === 'liencum' ? this.mapLienCum : this.mapCum;
+
+        planData.forEach(row => {
+            const m = (row.month || row.thang || '').substring(0, 7);
+            if (m < mFrom || m > mTo) return;
+            
+            let code = row[keyField];
+            if (!code && viewMode === 'liencum' && row.maLienCum) code = row.maLienCum;
+            if (!code || !this.checkScope({[keyField]: code})) return;
+
+            const uKey = `${code}_${m}`;
+            if (!aggData[uKey]) aggData[uKey] = { ma: code, hienThi: nameMap[code]||code, month: m, ...this.initKPIObj(kpiKeys) };
+            
+            const kpi = this.cleanCode(row.maKpi);
+            if (kpiKeys.includes(kpi)) aggData[uKey][`${kpi}_KH`] += (Number(row.giaTri)||0);
         });
-
-        // 2. GOM NHÓP DỮ LIỆU
-        const aggregatedData = {};
 
         rawData.forEach(row => {
+            const parsed = this.parseDateKey(row.date);
+            if (parsed.month < mFrom || parsed.month > mTo) return;
+            
+            const code = row[keyField] || 'KHÁC';
             if (!this.checkScope(row)) return;
 
-            let key = '', tenHienThi = '';
-            if (viewMode === 'liencum') {
-                key = row.maLienCum; 
-                tenHienThi = this.getNameLienCum(row.maLienCum);
-            } else {
-                key = `${row.maLienCum}_${row.maCum}`;
-                tenHienThi = this.getNameCum(row.maCum);
-            }
+            const uKey = `${code}_${parsed.month}`;
+            if (!aggData[uKey]) aggData[uKey] = { ma: code, hienThi: nameMap[code]||code, month: parsed.month, ...this.initKPIObj(kpiKeys) };
 
-            if (!aggregatedData[key]) {
-                aggregatedData[key] = {
-                    id: key,                  
-                    hienThi: tenHienThi || `Mã: ${row.maCum}`,      
-                    maLienCum: row.maLienCum, 
-                    phuong: viewMode === 'liencum' ? '-' : (row.phuong || ''),
-                    viewMode: viewMode,
-                    detailRows: [],           
-                    ...listKpiKeys.reduce((acc, k) => ({...acc, [k]: 0}), {}) 
-                };
-                
-                aggregatedData[key]['FWAP'] = 0;
-                aggregatedData[key]['SAYMEE'] = 0;
-                aggregatedData[key]['TBPTM_GOC'] = 0; 
-            }
+            const kpi = this.cleanCode(row.maKpi);
+            const val = Number(row.giaTri)||0;
+            let actual = val;
+            const u = unitMap[kpi];
+            if (u === 'tb' || u.includes('thuê bao')) actual = 1;
+            else if (u.includes('doanh thu')) actual = val; 
 
-            aggregatedData[key].detailRows.push(row);
-
-            // LOGIC TÍNH TOÁN
-            const rawKpiCode = this.cleanCode(row.maKpi);
-            const rawValue = Number(row.giaTri) || 0;
-            
-            if (['FWAP', 'SAYMEE'].includes(rawKpiCode)) {
-                aggregatedData[key][rawKpiCode] += 1; 
-            }
-            else if (rawKpiCode.includes('TBPTM')) {
-                 aggregatedData[key]['TBPTM_GOC'] += 1; 
-            }
-            else if (kpiUnitMap.hasOwnProperty(rawKpiCode)) {
-                const unit = kpiUnitMap[rawKpiCode];
-                if (unit.includes('đồng') || unit.includes('doanh thu') || unit.includes('tiền')) {
-                    aggregatedData[key][rawKpiCode] += rawValue;
-                } else {
-                    aggregatedData[key][rawKpiCode] += 1;
-                }
-            }
+            if (kpiKeys.includes(kpi)) aggData[uKey][`${kpi}_TH`] += actual;
         });
 
-        let processedData = Object.values(aggregatedData);
-
-        // LOGIC CỘNG GỘP TBPTM
-        const KEY_TBPTM = 'TBPTM'; 
-        processedData.forEach(item => {
-            const valFWAP = item['FWAP'] || 0;
-            const valSAYMEE = item['SAYMEE'] || 0;
-            const valTBPTM_Goc = item['TBPTM_GOC'] || 0; 
-            item[KEY_TBPTM] = valTBPTM_Goc + valFWAP + valSAYMEE;
-        });
-
-        // TÍNH DÒNG TỔNG
-        if (processedData.length > 0) {
-            const totalRow = {
-                id: 'TOTAL',
-                hienThi: 'TỔNG CỘNG TOÀN CÔNG TY',
-                phuong: '',
-                isTotal: true, 
-                ...listKpiKeys.reduce((acc, k) => ({...acc, [k]: 0}), {})
-            };
-
-            processedData.forEach(item => {
-                listKpiKeys.forEach(key => {
-                    totalRow[key] += (item[key] || 0);
-                });
+        const processed = Object.values(aggData);
+        if (processed.length > 0) {
+            const total = { id: 'TOTAL', hienThi: 'TỔNG CỘNG', isTotal: true, ma: 'TOTAL', ...this.initKPIObj(kpiKeys) };
+            kpiKeys.forEach(k => {
+                total[`${k}_TH`] = processed.reduce((s, i) => s + (i[`${k}_TH`]||0), 0);
+                total[`${k}_KH`] = processed.reduce((s, i) => s + (i[`${k}_KH`]||0), 0);
             });
-
-            processedData.push(totalRow);
+            processed.push(total);
         }
 
-        // RENDER
-        const cleanStructure = structure.map(s => ({
-            ...s, 
-            ma: this.cleanCode(s.ma),
-            tenHienThi: s.tenHienThi || s.ten || s.ma 
-        }));
-        
-        UIRenderer.renderKPIStructureTable(cleanStructure);
-        UIRenderer.renderKPIActualTable(processedData, cleanStructure);
-        
-        lucide.createIcons();
+        UIRenderer.renderKPIActualTable(processed, cleanStructure);
+        this.renderKPIStructureTab(struct);
     },
 
-    checkScope(item) {
-        const user = this.currentUser;
-        if (user.role === 'admin' || user.scope === 'all') return true;
-        if (item.maLienCum === user.scope || item.lienCum === user.scope) return true;
-        return false;
-    },
-
-    handleRowClick(id) {
-        alert(`Bạn đang xem chi tiết: ${id}. \nChức năng hiển thị popup chi tiết đang được xây dựng!`);
+    initKPIObj(keys) {
+        return keys.reduce((acc, k) => ({...acc, [`${k}_TH`]: 0, [`${k}_KH`]: 0}), {});
     },
 
     // ============================================================
-    // 10. TAB GIAO KẾ HOẠCH (LOGIC MỚI: THEO CỤM & LIÊN CỤM)
+    // 7. CÁC TAB KHÁC
     // ============================================================
+
+    async renderKPIStructureTab(struct) {
+        let data = struct || await DataService.getKPIStructure();
+        UIRenderer.renderKPIStructureTable(data.map(s => ({...s, ma: this.cleanCode(s.ma), tenHienThi: s.tenHienThi||s.ten})));
+    },
 
     async renderPlanningTab() {
-        console.log("--> Đang tải giao diện lập kế hoạch...");
-        
-        const structure = await DataService.getKPIStructure();
-        const allPlans = await DataService.getKPIPlanning();
-        const selectedMonth = document.getElementById('planning-month')?.value; 
+        console.log("Loading Planning Tab...");
+        const struct = await DataService.getKPIStructure();
+        const plans = await DataService.getKPIPlanning();
+        const m = document.getElementById('planning-month')?.value || '2025-12';
+        document.getElementById('planning-month').value = m;
 
-        // Map dữ liệu
-        const planMap = {};
-        if (selectedMonth && allPlans.length > 0) {
-            allPlans.forEach(row => {
-                let rowMonth = row.month;
-                if (row.month instanceof Date) {
-                   rowMonth = row.month.toISOString().slice(0, 7); 
-                } else if (typeof row.month === 'string') {
-                   rowMonth = row.month.slice(0, 7);
-                }
-
-                if (rowMonth === selectedMonth) {
-                    const key = `${row.maCum}_${row.maKpi}`;
-                    planMap[key] = row.giaTri;
-                }
-            });
-        }
-
-        const activeKPIs = structure.filter(k => k.active).map(k => ({
-            ...k, 
-            ma: this.cleanCode(k.ma),
-            tenHienThi: k.tenHienThi || k.ten || k.ma
-        }));
-
-        let rawClusters = this.filterDataByScope(this.fullClusterData, 'maLienCum');
-        let planningRows = [];
-        rawClusters.forEach(lc => {
-            lc.cums.forEach(c => {
-                planningRows.push({
-                    maLienCum: lc.maLienCum,
-                    tenLienCum: lc.tenLienCum,
-                    maCum: c.maCum,
-                    tenCum: c.tenCum,
-                });
-            });
+        const pMap = {};
+        this.normalizeDataSet(plans).forEach(row => {
+            if ((row.month||row.thang).substring(0, 7) === m) {
+                pMap[`${row.maCum}_${app.cleanCode(row.maKpi)}`] = row.keHoach || row.giaTri;
+            }
         });
 
-        UIRenderer.renderPlanningTable(planningRows, activeKPIs, planMap);
+        const activeKPIs = struct.filter(k => k.active).map(k => ({
+            ...k, ma: this.cleanCode(k.ma), tenHienThi: k.tenHienThi || k.ten || k.ma 
+        }));
+
+        let rows = [];
+        this.filterDataByScope(this.fullClusterData).forEach(lc => {
+            lc.cums.forEach(c => rows.push({ maLienCum: lc.maLienCum, tenLienCum: lc.tenLienCum, maCum: c.maCum, tenCum: c.tenCum }));
+        });
+
+        UIRenderer.renderPlanningTable(rows, activeKPIs, pMap);
     },
 
     async savePlanningData() {
         const inputs = document.querySelectorAll('.plan-input');
-        const month = document.getElementById('planning-month')?.value; 
-        
-        if (!month) return alert("Vui lòng chọn tháng áp dụng!");
-
+        const m = document.getElementById('planning-month')?.value; 
+        if (!m) return alert("Chưa chọn tháng!");
         const payload = [];
-        inputs.forEach(input => {
-            const val = Number(input.value.replace(/\./g, '')) || 0; 
-            if (val > 0) {
-                payload.push({
-                    thang: month,
-                    maCum: input.dataset.cum,      
-                    maKpi: input.dataset.kpi,      
-                    keHoach: val
-                });
-            }
+        inputs.forEach(i => {
+            const val = Number(i.value.replace(/\./g, '')) || 0;
+            if (val > 0) payload.push({ thang: m, maCum: i.dataset.cum, maKpi: i.dataset.kpi, keHoach: val });
         });
-        
-        if (payload.length === 0) return alert("Chưa có dữ liệu nào được nhập!");
-        alert(`Đã thu thập ${payload.length} chỉ tiêu. \n(Log chi tiết xem trong Console F12)`);
-        console.log("Saving Plan:", payload);
+        if (!payload.length) return alert("Chưa có dữ liệu!");
+        console.log("Saving...", payload);
+        alert(`Đã lưu ${payload.length} chỉ tiêu (Demo).`);
     },
-
-    // ============================================================
-    // 11. TAB USER GHI NHẬN (ĐÃ TỐI ƯU & HỢP NHẤT)
-    // ============================================================
 
     async loadUserLogPage() {
-        console.log("--> Đang tải dữ liệu KPI_LOGS...");
+        const logs = this.normalizeDataSet(await DataService.getKPILogs());
+        this.cachedLogData = logs;
         
-        // 1. Gọi DataService
-        this.cachedLogData = await DataService.getKPILogs();
-
-        if (!this.cachedLogData || this.cachedLogData.length === 0) {
-            alert("Không tìm thấy dữ liệu KPI Logs!");
-            UIRenderer.renderKPIUserLogs([]); 
-            return;
-        }
-
-        // 2. TÍNH TOÁN THỐNG KÊ
-        const clusterStatsMap = {};
-        this.cachedLogData.forEach(log => {
-            const mCum = log.maCum;
-            const mNV = log.maNV || log.MaNV || log.manv;
-            
-            if (mCum && mNV) {
-                if (!clusterStatsMap[mCum]) {
-                    clusterStatsMap[mCum] = new Set();
-                }
-                clusterStatsMap[mCum].add(mNV);
+        const stats = {};
+        logs.forEach(l => {
+            if(l.maCum && l.maNV && this.checkScope(l)) {
+                if(!stats[l.maCum]) stats[l.maCum] = new Set();
+                stats[l.maCum].add(l.maNV);
             }
         });
-
-        const statsArray = Object.keys(clusterStatsMap).map(maCum => ({
-            maCum: maCum,
-            tenCum: this.getNameCum(maCum),
-            userCount: clusterStatsMap[maCum].size
-        }));
-
-        // Render bảng thống kê so sánh
-        UIRenderer.renderClusterStats(statsArray);
-
-        // 3. Render Dropdown & Reset bảng chi tiết
-        const uniqueCumCodes = statsArray.map(s => s.maCum).sort();
-        UIRenderer.renderUserLogFilter(uniqueCumCodes);
-        UIRenderer.renderKPIUserLogs([]); 
+        const arr = Object.keys(stats).map(k => ({ maCum: k, tenCum: this.getNameCum(k), userCount: stats[k].size }));
+        UIRenderer.renderClusterStats(arr);
+        UIRenderer.renderUserLogFilter(arr.map(s => s.maCum).sort());
+        UIRenderer.renderKPIUserLogs([]);
     },
 
-    // Xử lý khi chọn dropdown Lọc Cụm trong tab User Logs
-    handleUserFilterChange(selectedCum) {
-        if (!selectedCum) {
-            UIRenderer.renderKPIUserLogs([]);
-            return;
-        }
-
-        const filteredLogs = this.cachedLogData.filter(item => item.maCum === selectedCum);
-        const userMap = new Map();
-        
-        filteredLogs.forEach(log => {
-            const code = log.maNV || log.MaNV || log.manv; 
-            
-            if (code) {
-                if (!userMap.has(code)) {
-                    userMap.set(code, {
-                        maNV: code,
-                        maCum: log.maCum,
-                        maLienCum: log.maLienCum,
-                        channels: new Set(),
-                        totalLogs: 0
-                    });
-                }
-
-                const userObj = userMap.get(code);
-                const rawData = log.channelType || log.ChannelType || log.channeltype || '';
-                
-                if (rawData) {
-                    // Logic tách thông minh
-                    if (rawData.includes('-')) userObj.channels.add(rawData.split('-')[0].trim());
-                    else if (rawData.includes('_')) userObj.channels.add(rawData.split('_')[0].trim());
-                    else userObj.channels.add(rawData);
-                }
-                userObj.totalLogs += 1;
+    handleUserFilterChange(cum) {
+        if(!cum) { UIRenderer.renderKPIUserLogs([]); return; }
+        const users = new Map();
+        this.cachedLogData.filter(l => l.maCum === cum).forEach(l => {
+            const id = l.maNV || l.MaNV;
+            if(id) {
+                if(!users.has(id)) users.set(id, { maNV: id, maCum: cum, channels: new Set(), totalLogs: 0 });
+                const u = users.get(id);
+                if(l.channelType) u.channels.add(l.channelType.split('-')[0].trim());
+                u.totalLogs++;
             }
         });
-
-        const distinctUsers = Array.from(userMap.values()).map(u => ({
-            ...u,
-            channelStr: Array.from(u.channels).join(', ')
-        }));
-        
-        UIRenderer.renderKPIUserLogs(distinctUsers);
+        UIRenderer.renderKPIUserLogs(Array.from(users.values()).map(u => ({...u, channelStr: Array.from(u.channels).join(', ')})));
     },
 
-    // ============================================================
-    // 12. SEARCH FUNCTIONS
-    // ============================================================
-
-    handleSearchCluster(keyword) {
-        keyword = keyword.toLowerCase().trim();
-        let data = this.filterDataByScope(this.fullClusterData, 'maLienCum');
-        
-        if (!keyword) { UIRenderer.renderClusterTable(data); return; }
-
-        const filtered = data.map(lc => {
-            const matchLC = (lc.tenLienCum || '').toLowerCase().includes(keyword);
-            const filteredCums = lc.cums.map(cum => {
-                const matchCum = (cum.tenCum || '').toLowerCase().includes(keyword);
-                const filteredPX = cum.phuongXas.filter(px => 
-                    (px.ten || '').toLowerCase().includes(keyword) || 
-                    (px.lanhDao && px.lanhDao.some(ld => (ld.ten || '').toLowerCase().includes(keyword)))
-                );
-                
-                if (filteredPX.length > 0 || matchCum) {
-                    return { ...cum, phuongXas: filteredPX.length ? filteredPX : cum.phuongXas };
-                }
-                return null;
-            }).filter(c => c !== null);
-
-            if (filteredCums.length > 0 || matchLC) {
-                return { ...lc, cums: filteredCums.length ? filteredCums : lc.cums };
-            }
-            return null;
-        }).filter(lc => lc !== null);
-
-        UIRenderer.renderClusterTable(filtered);
-    },
-
-    async handleSearchIndirect(keyword) {
-        let data = await DataService.getIndirectChannels();
-        data = this.filterDataByScope(data, 'maLienCum');
-        if(keyword) data = data.filter(i => (i.ten || '').toLowerCase().includes(keyword.toLowerCase()));
-        UIRenderer.renderIndirectTable(data);
-    },
-
-    async handleSearchBTS(keyword) {
-        let data = await DataService.getBTS();
-        data = this.filterDataByScope(data, 'maLienCum');
-        if(keyword) data = data.filter(i => (i.tenTram || '').toLowerCase().includes(keyword.toLowerCase()));
-        UIRenderer.renderBTSTable(data);
-    },
-
-    // ============================================================
-    // 13. UTILS & EVENT HANDLERS
-    // ============================================================
-    
-    switchTab(tabId, btnElement) {
-        const parent = btnElement.closest('.view-section');
-        parent.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    switchTab(tabId, btn) {
+        const p = btn.closest('.view-section');
+        p.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
         document.getElementById(tabId).classList.remove('hidden');
-        parent.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        btnElement.classList.add('active');
+        p.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
 
-        // Logic tải dữ liệu lười (Lazy load)
-        if(tabId === 'dash-charts') this.updateCharts();
+        if(tabId === 'dash-charts') this.loadKPIReportTab(); 
+        if(tabId === 'tab-kpi-thuchien') this.loadBusinessDataPage(); 
         if(tabId === 'tab-kehoach') this.renderPlanningTab(); 
         if(tabId === 'tab-user-ghinhan') this.loadUserLogPage(); 
     },
     
-    openUploadModal(type = 'cluster') {
-        document.getElementById('upload-type').value = type;
-        document.getElementById('file-input').value = '';
-        document.getElementById('file-name-display').classList.add('hidden');
-        document.getElementById('upload-progress').style.display = 'none';
-        document.getElementById('progress-bar-inner').style.width = '0%';
-        document.getElementById('upload-status').textContent = '';
-        document.getElementById('modal-upload').classList.add('open');
-    },
-
-    handleFileSelect(input) {
-        if (input.files && input.files[0]) {
-            const display = document.getElementById('file-name-display');
-            display.textContent = `Đã chọn: ${input.files[0].name}`;
-            display.classList.remove('hidden');
-        }
-    },
-
-    startUpload() {
-        if (!document.getElementById('file-input').files[0]) {
-            alert("Vui lòng chọn file trước!");
-            return;
-        }
-        document.getElementById('upload-progress').style.display = 'block';
-        let width = 0;
-        const interval = setInterval(() => {
-            if (width >= 100) {
-                clearInterval(interval);
-                document.getElementById('upload-status').textContent = "Thành công!";
-                document.getElementById('progress-bar-inner').style.backgroundColor = "#10b981";
-                setTimeout(() => {
-                    this.closeModal('modal-upload');
-                    alert("Đã cập nhật dữ liệu!");
-                }, 500);
-            } else { width += 10; document.getElementById('progress-bar-inner').style.width = width + '%'; }
-        }, 50);
-    },
-
-    openRentConfigModal() {
-        if(this.currentUser.role !== 'admin') return alert("Chỉ Admin mới được cấu hình!");
-        document.getElementById('config-emails').value = this.rentalConfig.emails;
-        document.getElementById('modal-rent-config').classList.add('open');
-    },
-    saveRentConfig() {
-        this.rentalConfig.emails = document.getElementById('config-emails').value;
-        alert("Đã lưu cấu hình!");
-        this.closeModal('modal-rent-config');
-    },
-
-    closeModal(id) { document.getElementById(id || 'modal-edit-ward').classList.remove('open'); },
+    // UTILS & MODAL
+    openUploadModal(type) { document.getElementById('upload-type').value = type; document.getElementById('modal-upload').classList.add('open'); },
+    closeModal(id) { document.getElementById(id||'modal-edit-ward').classList.remove('open'); },
+    openRentConfigModal() { if(this.currentUser.role === 'admin') document.getElementById('modal-rent-config').classList.add('open'); else alert('Quyền hạn chế!'); },
+    saveRentConfig() { alert("Đã lưu cấu hình (Demo)!"); this.closeModal('modal-rent-config'); },
     
-    openEditModal() { if(this.currentUser.role === 'admin') document.getElementById('modal-edit-ward').classList.add('open'); else alert('Quyền hạn chế!'); },
-    saveWardData() { alert('Chức năng đang phát triển!'); this.closeModal(); },
-    downloadTemplate(type) { alert(`Đang tải mẫu cho: ${type}...`); },
-    
-    loadBusinessData: () => app.loadBusinessDataPage(),
-    addKPIStructure: () => alert("Chức năng thêm KPI đang phát triển"),
-
-    // ============================================================
-    // 14. MODAL CHI TIẾT (DRILL-DOWN) - ĐÃ TÍCH HỢP
-    // ============================================================
-
-    // Hàm xử lý click vào các CARD lớn trên Dashboard
-    async showDashboardDetail(type, scopeCode) {
-        // 'geo' card maps to 'commune' data type
-        let targetType = (type === 'geo') ? 'commune' : type;
-
-        // Dù là 'all' hay một mã Liên Cụm cụ thể, ta đều coi nó là lọc theo 'liencum' 
-        // để showDetailModal có thể lấy được toàn bộ dữ liệu (nếu scopeCode là 'all')
-        this.showDetailModal(targetType, scopeCode, 'liencum');
+    // SEARCH
+    handleSearchCluster(k) {
+        k = k.toLowerCase().trim();
+        let d = this.filterDataByScope(this.fullClusterData);
+        if(!k) { UIRenderer.renderClusterTable(d); return; }
+        const res = d.map(lc => {
+            const sub = lc.cums.filter(c => (c.tenCum||'').toLowerCase().includes(k));
+            if(sub.length || (lc.tenLienCum||'').toLowerCase().includes(k)) return {...lc, cums: sub.length?sub:lc.cums};
+            return null;
+        }).filter(Boolean);
+        UIRenderer.renderClusterTable(res);
+    },
+    handleSearchIndirect(k) { 
+        let d = this.filterDataByScope(this.cachedData.indirect);
+        UIRenderer.renderIndirectTable(k ? d.filter(i => (i.ten||'').toLowerCase().includes(k.toLowerCase())) : d);
+    },
+    handleSearchBTS(k) {
+        let d = this.filterDataByScope(this.cachedData.bts);
+        UIRenderer.renderBTSTable(k ? d.filter(i => (i.tenTram||'').toLowerCase().includes(k.toLowerCase())) : d);
+    },
+    handleSearchStore(k) { 
+        let d = this.filterDataByScope(this.cachedData.stores); 
+        UIRenderer.renderStoresTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
+    },
+    handleSearchGDV(k) { 
+        let d = this.filterDataByScope(this.cachedData.gdvs); 
+        UIRenderer.renderGDVTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
+    },
+    handleSearchSales(k) { 
+        let d = this.filterDataByScope(this.cachedData.sales); 
+        UIRenderer.renderSalesTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
+    },
+    handleSearchB2B(k) { 
+        let d = this.filterDataByScope(this.cachedData.b2b); 
+        UIRenderer.renderB2BTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
     },
 
-    // Hàm xử lý click vào các CON SỐ trong bảng chi tiết (Breakdown)
-    async showDetailModal(type, scopeCode, scopeType) {
-        // scopeType: 'liencum' (từ Card) hoặc 'cum' (từ Breakdown Table)
+    async showDashboardDetail(type, scope) { this.showDetailModal(type==='geo'?'commune':type, scope, 'liencum'); },
+    async showDetailModal(type, scope, stype) {
+        let t='', d=[]; 
+        // FIX: Bổ sung b2b vào destructuring
+        const {stores, gdvs, sales, b2b, bts, indirect} = this.cachedData;
+        const filter = i => i[stype==='liencum'?'maLienCum':'maCum'] === scope;
         
-        let title = '';
-        let detailData = [];
-
-        // 1. Lấy dữ liệu thô
-        let [stores, gdvs, sales, indirect, bts] = await Promise.all([
-            DataService.getStores(), DataService.getGDVs(), DataService.getSalesStaff(),
-            DataService.getIndirectChannels(), DataService.getBTS()
-        ]);
-
-        // Helper lọc
-        const filterFn = (item) => item[scopeType === 'liencum' ? 'maLienCum' : 'maCum'] === scopeCode;
-
-        if (type === 'commune') {
-            title = 'Danh sách Phường/Xã & Thông tin Lãnh đạo';
-            
-            // Logic lấy Xã
-            this.fullClusterData.forEach(lc => {
-                lc.cums.forEach(c => {
-                    let match = false;
-                    if (scopeCode === 'all' || (scopeType === 'liencum' && lc.maLienCum === scopeCode)) match = true;
-                    if (scopeType === 'cum' && c.maCum === scopeCode) match = true;
-
-                    if (match) {
-                        detailData.push(...c.phuongXas);
-                    }
-                });
-            });
-
-        } else if (type === 'store') {
-            title = 'Danh sách Cửa hàng';
-            detailData = scopeCode === 'all' ? stores : stores.filter(filterFn);
-        } else if (type === 'gdv') {
-            title = 'Danh sách Giao dịch viên';
-            detailData = scopeCode === 'all' ? gdvs : gdvs.filter(filterFn);
-        } else if (type === 'sales') {
-            title = 'Danh sách NV Bán hàng';
-            detailData = scopeCode === 'all' ? sales : sales.filter(filterFn);
-        } else if (type === 'bts') {
-            title = 'Danh sách Trạm BTS';
-            detailData = scopeCode === 'all' ? bts : bts.filter(filterFn);
-        } else if (type === 'indirect') {
-            title = 'Danh sách Kênh Gián tiếp';
-            detailData = scopeCode === 'all' ? indirect : indirect.filter(filterFn);
-        }
-
-        // 2. Cập nhật UI Modal
-        document.getElementById('modal-detail-title').textContent = title;
-        document.getElementById('modal-detail-subtitle').textContent = `Đơn vị: ${app.getNameCum(scopeCode) || app.getNameLienCum(scopeCode) || scopeCode} - Số lượng: ${detailData.length}`;
+        if(type==='commune') this.fullClusterData.forEach(lc => { if(scope==='all'||lc.maLienCum===scope) lc.cums.forEach(c => d.push(...c.phuongXas)); });
+        else if(type==='store') { t='DS Cửa Hàng'; d=scope==='all'?stores:stores.filter(filter); }
+        else if(type==='gdv') { t='DS GDV'; d=scope==='all'?gdvs:gdvs.filter(filter); }
+        else if(type==='sales') { t='DS NVBH'; d=scope==='all'?sales:sales.filter(filter); }
+        else if(type==='b2b') { t='DS KHDN'; d=scope==='all'?b2b:b2b.filter(filter); } // FIX: Dùng biến b2b
+        else if(type==='bts') { t='DS Trạm BTS'; d=scope==='all'?bts:bts.filter(filter); }
+        else if(type==='indirect') { t='DS Kênh GT'; d=scope==='all'?indirect:indirect.filter(filter); }
         
-        // 3. Render Table
-        UIRenderer.renderDetailModalContent(type, detailData);
-
-        // 4. Mở Modal
+        document.getElementById('modal-detail-title').textContent = t;
+        document.getElementById('modal-detail-subtitle').textContent = `SL: ${d.length}`;
+        UIRenderer.renderDetailModalContent(type, d);
         document.getElementById('modal-detail-list').classList.add('open');
     }
 };
