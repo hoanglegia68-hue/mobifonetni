@@ -43,11 +43,28 @@ const UIRenderer = {
         return parts[0][0] + parts[parts.length - 1][0];
     },
 
-    // Tính số ngày còn lại
+    // Tính số ngày còn lại (Hỗ trợ cả dd/mm/yyyy và yyyy-mm-dd)
     getDaysRemaining(endDateStr) {
         if (!endDateStr) return 9999;
-        const end = new Date(endDateStr);
+        let end;
+        
+        // Xử lý ngày Việt Nam (31/12/2025)
+        if (endDateStr.includes('/')) {
+            const parts = endDateStr.split('/');
+            if (parts.length === 3) {
+                // new Date(y, m-1, d)
+                end = new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+        } 
+        
+        if (!end || isNaN(end.getTime())) {
+            end = new Date(endDateStr);
+        }
+        
+        if (isNaN(end.getTime())) return 9999;
+
         const now = new Date();
+        now.setHours(0,0,0,0);
         const diffTime = end - now;
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
     },
@@ -56,6 +73,9 @@ const UIRenderer = {
     formatDateVN(dateStr) {
         if(!dateStr) return '';
         try {
+            // Check nếu là chuỗi dd/mm/yyyy sẵn rồi thì trả về luôn
+            if (typeof dateStr === 'string' && dateStr.includes('/') && dateStr.split('/').length === 3) return dateStr;
+
             const date = new Date(dateStr);
             if (isNaN(date.getTime())) return dateStr; 
             const d = String(date.getDate()).padStart(2, '0');
@@ -73,7 +93,7 @@ const UIRenderer = {
         const tbody = document.getElementById('cluster-table-body');
         if (!tbody) return;
         
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu phù hợp</td></tr>`;
             return;
         }
@@ -151,12 +171,18 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP & BTS (Giữ nguyên)
+    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP & BTS
     // ============================================================
 
     renderStoresTable(data) {
         const tbody = document.getElementById('store-list-body');
         if (!tbody) return;
+        
+        if (!data || data.length === 0) {
+             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+             return;
+        }
+
         tbody.innerHTML = data.map((item, idx) => {
             const daysLeft = this.getDaysRemaining(item.ngayHetHan);
             let alertHtml = '';
@@ -208,6 +234,12 @@ const UIRenderer = {
     renderGDVTable(data) {
         const tbody = document.getElementById('gdv-list-body');
         if (!tbody) return;
+        
+        if (!data || data.length === 0) {
+             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+             return;
+        }
+
         tbody.innerHTML = data.map(item => `
             <tr class="${this.getRowClass(item.trangThai)} border-b transition">
                 <td class="p-3 text-center text-slate-500">${item.stt}</td>
@@ -233,6 +265,12 @@ const UIRenderer = {
     renderSalesTable(data) {
         const tbody = document.getElementById('sales-list-body');
         if (!tbody) return;
+        
+        if (!data || data.length === 0) {
+             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+             return;
+        }
+
         tbody.innerHTML = data.map(item => `
             <tr class="${this.getRowClass(item.trangThai)} border-b transition">
                 <td class="p-3 text-center text-slate-500">${item.stt}</td>
@@ -255,6 +293,12 @@ const UIRenderer = {
     renderB2BTable(data) {
         const tbody = document.getElementById('b2b-list-body');
         if (!tbody) return;
+        
+        if (!data || data.length === 0) {
+             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+             return;
+        }
+
         tbody.innerHTML = data.map(item => `
             <tr class="${this.getRowClass(item.trangThai)} border-b transition">
                 <td class="p-3 text-center text-slate-500">${item.stt}</td>
@@ -277,7 +321,7 @@ const UIRenderer = {
         const tbody = document.getElementById('indirect-list-body');
         if (!tbody) return;
         
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
             return;
         }
@@ -290,8 +334,8 @@ const UIRenderer = {
                 <td class="p-3 font-mono text-xs text-slate-500">${item.maNV}</td>
                 <td class="p-3 text-center">
                     <span class="px-2 py-1 rounded text-[10px] font-bold border 
-                        ${item.loai.includes('UQ') ? 'bg-blue-50 text-blue-600 border-blue-100' : 
-                          item.loai.includes('C2C') ? 'bg-orange-50 text-orange-600 border-orange-100' : 
+                        ${(item.loai || '').includes('UQ') ? 'bg-blue-50 text-blue-600 border-blue-100' : 
+                          (item.loai || '').includes('C2C') ? 'bg-orange-50 text-orange-600 border-orange-100' : 
                           'bg-slate-50 text-slate-600 border-slate-200'}">
                         ${item.loai}
                     </span>
@@ -313,7 +357,7 @@ const UIRenderer = {
         const tbody = document.getElementById('bts-list-body');
         if (!tbody) return;
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
             return;
         }
@@ -338,26 +382,10 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 4. SỐ LIỆU KINH DOANH (KPI) (Giữ nguyên)
+    // 4. SỐ LIỆU KINH DOANH (KPI) 
     // ============================================================
 
     renderKPIStructureTable(structure) {
-        const thead = document.getElementById('kpi-header');
-        if (thead) {
-            let headerHtml = `
-                <tr>
-                    <th class="w-12 text-center p-3 border font-bold text-slate-700 bg-slate-100 sticky top-0 shadow-sm z-20">STT</th>
-                    <th class="p-3 border font-bold text-slate-700 bg-slate-100 min-w-[200px] sticky top-0 shadow-sm z-20">Đơn vị</th>
-            `;
-            structure.forEach(item => {
-                if(item.active) {
-                    headerHtml += `<th class="p-3 border font-bold text-slate-700 bg-slate-100 text-right min-w-[120px] sticky top-0 shadow-sm z-20">${item.tenHienThi}<br><span class="text-[10px] font-normal text-slate-500">(${item.dvt})</span></th>`;
-                }
-            });
-            headerHtml += `</tr>`;
-            thead.innerHTML = headerHtml;
-        }
-
         const tbody = document.getElementById('body-cautruc');
         if (tbody) {
             tbody.innerHTML = structure.map((item, i) => `
@@ -375,6 +403,7 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
+    // HÀM RENDER CHÍNH CHO TAB SỐ LIỆU KINH DOANH (ĐÃ ĐƯỢC CẬP NHẬT HEADER 2 DÒNG)
     renderKPIActualTable(data, structure) {
         const tbody = document.getElementById('kpi-actual-tbody') || document.getElementById('body-thuchien');
         if (!tbody) return;
@@ -385,6 +414,31 @@ const UIRenderer = {
             return;
         }
 
+        // Tạo lại Header động để khớp với cấu trúc KPI mới
+        const thead = document.getElementById('kpi-header');
+        if (thead) {
+            let headerHtml = `
+                <tr>
+                    <th rowspan="2" class="w-12 text-center sticky left-0 z-30 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">#</th>
+                    <th rowspan="2" class="min-w-[150px] sticky left-12 z-30 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Đơn vị</th>
+                    <th rowspan="2" class="w-20">Thời gian</th>
+            `;
+
+            let subHeaderHtml = '<tr>';
+            structure.forEach(kpi => {
+                headerHtml += `<th colspan="2" class="text-center min-w-[200px]">${kpi.tenHienThi} (${kpi.dvt})</th>`;
+                subHeaderHtml += `
+                    <th class="text-right w-24 border-t border-r border-slate-200">Thực hiện</th>
+                    <th class="text-right w-24 border-t border-slate-200">Kế hoạch</th>
+                `;
+            });
+
+            headerHtml += '</tr>';
+            subHeaderHtml += '</tr>';
+            thead.innerHTML = headerHtml + subHeaderHtml;
+        }
+
+        // Render Body
         const fragment = document.createDocumentFragment();
         data.forEach((item, index) => {
             const tr = document.createElement('tr');
@@ -395,25 +449,39 @@ const UIRenderer = {
                 tr.onclick = () => app.handleRowClick(item.hienThi); 
             }
 
-            let sttHtml = item.isTotal ? '' : `<span class="text-slate-400">${index + 1}</span>`;
-            let html = `
-                <td class="p-3 text-center border-r border-slate-200">${sttHtml}</td>
-                <td class="p-3 text-left border-r border-slate-200 ${item.isTotal ? 'uppercase' : 'font-medium'}">
-                    ${item.hienThi} ${item.phuong && item.phuong !== '-' ? `<div class="text-[10px] text-slate-400 font-normal ml-2 inline-block">(${item.phuong})</div>` : ''}
-                </td>
+            let sttHtml = item.isTotal ? 'TỔNG' : (index + 1);
+            let rowHtml = `
+                <td class="p-3 text-center border-r bg-white sticky left-0 z-30 border-r-slate-200 font-medium ${item.isTotal ? 'bg-blue-200 font-bold' : 'text-slate-500'} shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">${sttHtml}</td>
+                <td class="p-3 font-bold text-blue-700 border-r whitespace-nowrap sticky left-12 z-30 bg-white ${item.isTotal ? 'bg-blue-200 text-blue-900' : 'group-hover:bg-slate-50'} border-r-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" title="${item.ma}">${item.hienThi}</td>
+                <td class="p-3 text-sm font-medium border-r text-slate-600">${item.month || ''}</td>
             `;
 
             structure.forEach(kpi => {
-                if (kpi.active) {
-                    const cleanKey = app.cleanCode(kpi.ma); 
-                    const val = item[cleanKey] || 0;
-                    const valClass = val > 0 ? (item.isTotal ? 'text-blue-800' : 'text-slate-800') : 'text-slate-300';
-                    html += `<td class="p-3 text-right border-r border-slate-200 ${valClass}">${this.formatNumber(val)}</td>`;
+                const cleanKey = app.cleanCode(kpi.ma);
+                const actual = item[`${cleanKey}_TH`] || 0;
+                const plan = item[`${cleanKey}_KH`] || 0;
+                
+                let actualVal = this.formatNumber(actual);
+                let planVal = this.formatNumber(plan);
+                
+                // Tô màu nếu là %
+                if (kpi.dvt && kpi.dvt.toLowerCase().includes('%')) {
+                     let percent = actual; // Với % thì giá trị chính là số
+                     let percentClass = percent >= 100 ? 'text-green-600' : (percent >= 80 ? 'text-orange-600' : 'text-red-600');
+                     actualVal = `<span class="${percentClass}">${percent}%</span>`;
+                     planVal = '-';
                 }
+                
+                rowHtml += `
+                    <td class="p-3 text-right font-bold border-r ${item.isTotal ? 'bg-blue-100' : 'text-slate-800'}">${actualVal}</td>
+                    <td class="p-3 text-right font-medium border-r ${item.isTotal ? 'bg-blue-100' : 'text-slate-500'}">${planVal}</td>
+                `;
             });
-            tr.innerHTML = html;
+
+            tr.innerHTML = rowHtml;
             fragment.appendChild(tr);
         });
+
         tbody.appendChild(fragment);
     },
 
@@ -421,6 +489,7 @@ const UIRenderer = {
         const table = document.getElementById('table-kehoach'); 
         if (!table) return;
 
+        // Tính tổng cột
         const colTotals = {};
         kpiStructure.forEach(k => colTotals[k.ma] = 0);
         rows.forEach(row => {
@@ -431,6 +500,7 @@ const UIRenderer = {
             });
         });
 
+        // Render Header
         let theadHtml = `
             <tr>
                 <th class="w-12 text-center p-3 border font-bold text-slate-800 bg-slate-200 sticky top-0 left-0 z-[60] shadow-md border-b-2 border-slate-300">STT</th>
@@ -455,6 +525,7 @@ const UIRenderer = {
             return;
         }
 
+        // Render Body Input
         tbody.innerHTML = rows.map((row, index) => {
             let rowHtml = `
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors group">
@@ -473,6 +544,7 @@ const UIRenderer = {
             return rowHtml;
         }).join('');
 
+        // Render Footer (Tổng)
         let tfoot = table.querySelector('tfoot');
         if(tfoot) tfoot.remove();
         tfoot = document.createElement('tfoot');
@@ -494,7 +566,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 5. USER LOGS & STATS (Giữ nguyên)
+    // 5. USER LOGS & STATS
     // ============================================================
 
     renderUserLogFilter(listCum, selectedCum = "") {
@@ -626,16 +698,15 @@ const UIRenderer = {
         const totalVLR = communes.reduce((sum, px) => sum + (Number(px.vlr) || 0), 0);
         const totalPop = communes.reduce((sum, px) => sum + (Number(px.danSo) || 0), 0);
         const totalCommunes = communes.length;
-        // ------------------------------------
-
-        // --- PHẦN A: VẼ CARD (ĐÃ GỘP BTS VÀO HẠ TẦNG KÊNH) ---
+        
+        // Count Active/Expiring
         const storesExpiring = stores.filter(s => {
             if(!s.ngayHetHan) return false;
             return this.getDaysRemaining(s.ngayHetHan) < 30; 
         }).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
-        // Vùng Hạ tầng Kênh (4 Cards: Cửa hàng, Địa lý/Dân số, Đại lý, BTS)
+        // --- RENDER CARDS ---
         document.getElementById('dashboard-infrastructure').innerHTML = `
             <div onclick="app.showDashboardDetail('store', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
                 <div class="flex justify-between items-start">
@@ -681,12 +752,6 @@ const UIRenderer = {
             </div>
         `;
 
-        // Xóa logic render khu vực Mạng Lưới cũ (đảm bảo div này không còn trong index.html)
-        const divNetwork = document.getElementById('dashboard-network');
-        if(divNetwork) divNetwork.innerHTML = '';
-
-
-        // Vùng Nhân Sự (3 Cards: GDV, NVBH, KHDN)
         document.getElementById('dashboard-hr').innerHTML = `
             <div onclick="app.showDashboardDetail('gdv', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 hover:shadow-md transition-shadow group cursor-pointer">
                 <div class="flex justify-between items-start">
@@ -713,8 +778,7 @@ const UIRenderer = {
             </div>
         `;
 
-
-        // --- PHẦN B: BẢNG CHI TIẾT INTERACTIVE (Giữ nguyên) ---
+        // --- BẢNG CHI TIẾT ---
         let displayClusters = allClusters;
         if (filterScope !== 'all') {
             const selectedLC = allClusters.find(c => c.maLienCum === filterScope);
@@ -730,9 +794,6 @@ const UIRenderer = {
         }
 
         const tbody = document.getElementById('dashboard-breakdown-body');
-        const theadRow = document.querySelector('#dashboard-breakdown-body').previousElementSibling.querySelector('tr');
-        if(theadRow && theadRow.children[1]) theadRow.children[1].innerText = filterScope === 'all' ? "Liên Cụm" : "Cụm Trực Thuộc";
-
         if (tbody) {
             tbody.innerHTML = displayClusters.map((item, idx) => {
                 const filterKey = item.isCum ? 'maCum' : 'maLienCum';
@@ -747,7 +808,7 @@ const UIRenderer = {
 
                 const makeLink = (count, type, cssClass) => {
                     if(count === 0) return `<span class="text-slate-300">-</span>`;
-                    return `<button onclick="app.showDetailModal('${type}', '${code}', '${item.isCum ? 'cum' : 'liencum'}')" 
+                    return `<button onclick="app.showDashboardDetail('${type}', '${code}')" 
                             class="${cssClass} hover:underline hover:scale-110 transition-transform cursor-pointer px-2 py-0.5 rounded shadow-sm text-xs border border-transparent hover:border-slate-300">
                             ${count}
                             </button>`;
@@ -772,17 +833,108 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    // -------------------------------------------------------------------------------------
-    // Các hàm render khác (Giữ nguyên)
-    // -------------------------------------------------------------------------------------
+    /**
+     * Vẽ toàn bộ báo cáo Biểu đồ & Số liệu KPI
+     */
+    renderKPIReport(kpiData, filters, mapLienCum, mapCum) {
+        ['chartSubDaily', 'chartSubComparative', 'chartRevenueDaily', 'chartRevenueComparative'].forEach(id => {
+            if (app.chartInstances[id]) {
+                app.chartInstances[id].destroy();
+                delete app.chartInstances[id];
+            }
+        });
 
-    renderDashboardSummary(clusters, stores, gdvs, sales, indirect, bts) {
-        // Fallback function for compatibility if needed
-        this.renderDashboard('all');
+        // Tự động tính % hoàn thành
+        const calculatePercent = (actual, plan) => plan > 0 ? Math.min(100, Math.round((actual / plan) * 100)) : (actual > 0 ? 100 : 0);
+        
+        // Cập nhật Widget số liệu
+        const updateWidget = (id, actual, plan) => {
+            const percent = calculatePercent(actual, plan);
+            const percentEl = document.getElementById(`${id}-percent`);
+            document.getElementById(`${id}-actual`).textContent = this.formatNumber(actual);
+            document.getElementById(`${id}-plan`).textContent = this.formatNumber(plan);
+            if (percentEl) percentEl.textContent = `${percent}%`;
+            return percent;
+        };
+
+        // Tính tổng
+        const sumWithPlanFallback = (data, actualKey, planKey) => {
+            const totalActual = data.reduce((sum, item) => sum + (Number(item[actualKey] || 0)), 0);
+            const totalPlan = data.reduce((sum, item) => sum + (Number(item[planKey] || item[actualKey] || 0)), 0); // Nếu ko có plan thì lấy actual làm mốc 100%
+            return { totalActual, totalPlan };
+        };
+
+        const { totalActual: totalActualTB, totalPlan: totalPlanTB } = sumWithPlanFallback(kpiData, 'KPI_TB_MOI_TH', 'KPI_TB_MOI_KH');
+        const { totalActual: totalActual4G, totalPlan: totalPlan4G } = sumWithPlanFallback(kpiData, 'KPI_4G_TH', 'KPI_4G_KH');
+        const { totalActual: totalActualDT, totalPlan: totalPlanDT } = sumWithPlanFallback(kpiData, 'KPI_DT_TH', 'KPI_DT_KH');
+        
+        // Update UI Widgets
+        updateWidget('kpi-tb-moi', totalActualTB, totalPlanTB);
+        const barTB = document.querySelector('#subscriber-widgets div:nth-child(2) .progress-bar');
+        if(barTB) barTB.style.width = `${calculatePercent(totalActualTB, totalPlanTB)}%`;
+
+        updateWidget('kpi-4g', totalActual4G, totalPlan4G);
+        const bar4G = document.querySelector('#subscriber-widgets div:nth-child(4) .progress-bar');
+        if(bar4G) bar4G.style.width = `${calculatePercent(totalActual4G, totalPlan4G)}%`;
+
+        updateWidget('kpi-dt', totalActualDT, totalPlanDT);
+        const barDT = document.querySelector('#revenue-widgets div:nth-child(2) .progress-bar');
+        if(barDT) barDT.style.width = `${calculatePercent(totalActualDT, totalPlanDT)}%`;
+
+        // Vẽ biểu đồ Line Chart (Theo ngày)
+        const dailyData = kpiData.reduce((acc, item) => {
+            const date = item.DATE; 
+            if (!date) return acc;
+            acc[date] = acc[date] || { date, tbActual: 0, tbPlan: 0, dtActual: 0, dtPlan: 0 };
+            acc[date].tbActual += (Number(item.KPI_TB_MOI_TH) || 0);
+            acc[date].tbPlan += (Number(item.KPI_TB_MOI_KH || item.KPI_TB_MOI_TH || 0)); 
+            acc[date].dtActual += (Number(item.KPI_DT_TH) || 0);
+            acc[date].dtPlan += (Number(item.KPI_DT_KH || item.KPI_DT_TH || 0)); 
+            return acc;
+        }, {});
+
+        const sortedDates = Object.keys(dailyData).sort();
+        const dailyLabels = sortedDates.map(d => d.substring(8, 10) + '/' + d.substring(5, 7)); // DD/MM
+        
+        // 1. Chart TB Daily
+        const ctxSubDaily = document.getElementById('chartSubDaily');
+        if (ctxSubDaily) {
+            app.chartInstances['chartSubDaily'] = new Chart(ctxSubDaily.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: dailyLabels,
+                    datasets: [
+                        { label: 'Thực hiện', data: sortedDates.map(d => dailyData[d].tbActual), borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true, tension: 0.3, pointRadius: 2 },
+                        { label: 'Kế hoạch', data: sortedDates.map(d => dailyData[d].tbPlan), borderColor: '#cbd5e1', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3, pointRadius: 0 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+            });
+        }
+
+        // 2. Chart DT Daily
+        const ctxRevDaily = document.getElementById('chartRevenueDaily');
+        if (ctxRevDaily) {
+            app.chartInstances['chartRevenueDaily'] = new Chart(ctxRevDaily.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: dailyLabels,
+                    datasets: [
+                        { label: 'Thực hiện', data: sortedDates.map(d => dailyData[d].dtActual), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.3, pointRadius: 2 },
+                        { label: 'Kế hoạch', data: sortedDates.map(d => dailyData[d].dtPlan), borderColor: '#cbd5e1', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3, pointRadius: 0 }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    scales: { y: { beginAtZero: true, ticks: { callback: (v) => v/1000000 + ' Tr' } }, x: { grid: { display: false } } },
+                    plugins: { tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${this.formatNumber(c.parsed.y/1000000)} Tr` } } }
+                }
+            });
+        }
     },
 
     // ============================================================
-    // 7. MODAL CHI TIẾT (DRILL-DOWN) (Giữ nguyên)
+    // 7. MODAL CHI TIẾT (DRILL-DOWN)
     // ============================================================
 
     renderDetailModalContent(type, data) {
@@ -857,7 +1009,7 @@ const UIRenderer = {
         const labels = [...new Set(kpiData.map(d => d.maLienCum || d.lienCum))];
         const displayLabels = labels.map(code => app.getNameLienCum(code));
         
-        const dataPlan = labels.map(l => 600); 
+        const dataPlan = labels.map(l => 600); // Demo data
         const dataActual = labels.map(code => kpiData.filter(d => (d.maLienCum || d.lienCum) === code).reduce((sum, item) => sum + (Number(item.KPI_DT) || 0), 0));
 
         const ctxRev = document.getElementById('chartRevenue');
@@ -872,24 +1024,6 @@ const UIRenderer = {
                     ]
                 },
                 options: { responsive: true, scales: { y: { beginAtZero: true } }, maintainAspectRatio: false }
-            });
-        }
-
-        const totalNewSub = kpiData.reduce((sum, item) => sum + (Number(item.KPI_TB_MOI) || 0), 0);
-        const total4G = kpiData.reduce((sum, item) => sum + (Number(item.KPI_4G) || 0), 0);
-
-        const ctxSub = document.getElementById('chartSubscriber');
-        if (ctxSub) {
-            instances.subChart = new Chart(ctxSub.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Thuê bao mới', 'Gói cước 4G'],
-                    datasets: [{
-                        data: [totalNewSub, total4G],
-                        backgroundColor: ['#10b981', '#f59e0b']
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
             });
         }
     }
