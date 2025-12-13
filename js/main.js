@@ -10,6 +10,7 @@ const app = {
     mapLienCum: {}, 
     mapCum: {},
     chartInstances: {}, // Lưu chart instances để destroy khi vẽ lại
+    currentKPIReportData: null, // Lưu dữ liệu báo cáo để dùng cho Popup Breakdown
 
     rentalConfig: {
         emails: "admin@mobifone.vn, quanly@mobifone.vn",
@@ -21,7 +22,7 @@ const app = {
     // 2. INIT
     // ============================================================
     async init() {
-        console.log("App Starting... Version 05.00 (Advanced Charts & Date Filter)");
+        console.log("App Starting... Version 05.01 (Final Fix Syntax)");
 
         const savedUser = localStorage.getItem('MIS_USER');
         if (!savedUser) { window.location.href = 'login.html'; return; }
@@ -105,7 +106,7 @@ const app = {
 
     renderFooter() {
         if (!document.getElementById('app-footer')) {
-            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">MBF TNI | Ver 05.00</div>`);
+            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">MBF TNI | Ver 05.01</div>`);
         }
     },
 
@@ -176,11 +177,25 @@ const app = {
     async initKPIReportTab() {
         const selScope = document.getElementById('filter-scope');
         if (selScope) {
-            selScope.innerHTML = '<option value="all">Tất cả Liên Cụm</option>';
-            Object.keys(this.mapLienCum).forEach(k => selScope.innerHTML += `<option value="${k}">${this.mapLienCum[k]}</option>`);
+            selScope.innerHTML = '<option value="all">-- Tất cả Phạm vi --</option>';
+            
+            // Group Liên Cụm
+            let lcGroup = document.createElement('optgroup');
+            lcGroup.label = "--- LIÊN CỤM ---";
+            Object.keys(this.mapLienCum).forEach(k => {
+                lcGroup.innerHTML += `<option value="${k}">${this.mapLienCum[k]}</option>`;
+            });
+            selScope.appendChild(lcGroup);
+
+            // Group Cụm (MỚI)
+            let cGroup = document.createElement('optgroup');
+            cGroup.label = "--- CỤM ---";
+            Object.keys(this.mapCum).forEach(k => {
+                cGroup.innerHTML += `<option value="${k}">${this.mapCum[k]}</option>`;
+            });
+            selScope.appendChild(cGroup);
         }
 
-        // Tải logs trước để lấy danh sách kênh cho Filter
         const logs = this.normalizeDataSet(await DataService.getKPILogs());
         const channels = new Set();
         logs.forEach(l => { if(l.channelType) channels.add(l.channelType.split('-')[0].trim()); });
@@ -191,7 +206,6 @@ const app = {
             channels.forEach(c => selChannel.innerHTML += `<option value="${c}">${c}</option>`);
         }
 
-        // Set default dates (Đầu tháng đến Hôm nay)
         const now = new Date();
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -217,7 +231,7 @@ const app = {
 
         try {
             const [raw, plans, struct, logs] = await Promise.all([
-                DataService.getKPIActual(dFrom.substring(0,7), dTo.substring(0,7), null), // Vẫn fetch data rộng theo tháng
+                DataService.getKPIActual(dFrom.substring(0,7), dTo.substring(0,7), null),
                 DataService.getKPIPlanning(),
                 DataService.getKPIStructure(),
                 DataService.getKPILogs()
@@ -227,7 +241,6 @@ const app = {
             const planData = this.normalizeDataSet(plans);
             const logData = this.normalizeDataSet(logs);
 
-            // 1. Map NV -> Kênh (Từ logs)
             const userChannelMap = {};
             logData.forEach(l => {
                 const nv = l.maNV || l.MaNV;
@@ -235,9 +248,8 @@ const app = {
                 if(nv) userChannelMap[nv] = ch;
             });
 
-            // 2. Phân loại KPI (Tb vs Trd)
             const unitMap = {}; 
-            const typeMap = {}; // 'sub' or 'rev'
+            const typeMap = {}; 
             struct.forEach(s => { 
                 if(s.active) {
                     const k = app.cleanCode(s.ma);
@@ -247,56 +259,66 @@ const app = {
                 }
             });
 
-            // 3. AGGREGATE DỮ LIỆU
-            const subData = { actual: 0, plan: 0, daily: {}, channel: {}, cluster: {} };
-            const revData = { actual: 0, plan: 0, daily: {}, channel: {}, cluster: {} };
+            // Init data structure
+            const initData = () => ({ 
+                actual: 0, plan: 0, 
+                daily: {}, channel: {}, cluster: {}, 
+                breakdown: {} 
+            });
             
+            const subData = initData();
+            const revData = initData();
             const initObj = () => ({ actual: 0, plan: 0 });
 
-            // 3a. Xử lý Thực hiện (Actual)
+            // 1. PROCESS ACTUAL
             rawData.forEach(row => {
                 const parsed = this.parseDateKey(row.date);
-                if (parsed.full < dFrom || parsed.full > dTo) return; // Filter chính xác theo ngày
+                if (parsed.full < dFrom || parsed.full > dTo) return;
+                
+                // Logic Filter Scope: Hỗ trợ cả Liên Cụm và Cụm
                 if (!this.checkScope(row)) return;
-                if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
+                if (scope !== 'all') {
+                    if (scope.startsWith('LC-') && row.maLienCum !== scope) return;
+                    if (scope.startsWith('C-') && row.maCum !== scope) return;
+                }
 
                 const kpi = app.cleanCode(row.maKpi);
                 const type = typeMap[kpi];
-                if (!type) return; // Bỏ qua nếu không xác định được loại
+                if (!type) return;
 
-                // Filter Channel
                 const nv = row.maNV;
                 const rowChannel = userChannelMap[nv] || 'KHÁC';
                 if (channelFilter !== 'all' && rowChannel !== channelFilter) return;
 
                 let val = Number(row.giaTri) || 0;
-                // Chuẩn hóa đơn vị
-                if (type === 'sub') val = 1; // Đếm số lượng
-                else val = val / 1000000;    // Doanh thu ra Triệu
+                if (type === 'sub') val = 1; 
+                else val = val / 1000000;
 
                 const targetData = type === 'sub' ? subData : revData;
                 
-                // Cộng tổng
                 targetData.actual += val;
 
-                // Cộng theo ngày
+                // Daily
                 const dKey = parsed.full;
                 if (!targetData.daily[dKey]) targetData.daily[dKey] = 0;
                 targetData.daily[dKey] += val;
 
-                // Cộng theo Kênh
+                // Channel
                 if (!targetData.channel[rowChannel]) targetData.channel[rowChannel] = 0;
                 targetData.channel[rowChannel] += val;
 
-                // Cộng theo Đơn vị (để so sánh plan)
-                const cKey = row.maLienCum || row.maCum || 'KHÁC';
+                // Cluster (Chart)
+                const cKey = row.maLienCum || 'KHÁC'; 
                 if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initObj();
                 targetData.cluster[cKey].actual += val;
+
+                // Breakdown Detail (Popup)
+                const cumCode = row.maCum || 'KHÁC';
+                if (!targetData.breakdown[cumCode]) targetData.breakdown[cumCode] = initObj();
+                targetData.breakdown[cumCode].actual += val;
             });
 
-            // 3b. Xử lý Kế hoạch (Plan) - Plan theo Tháng
-            // Logic: Nếu chọn từ 1/12 đến 15/12, ta vẫn lấy Plan cả tháng 12 (hoặc chia tỷ lệ nếu muốn complex)
-            // Ở đây hiển thị Plan tổng của các tháng có dính dáng tới range
+            // 2. PROCESS PLAN
             const relevantMonths = new Set();
             let curr = new Date(dFrom);
             const end = new Date(dTo);
@@ -309,9 +331,12 @@ const app = {
                 const m = (row.month || row.thang || '').substring(0, 7);
                 if (!relevantMonths.has(m)) return;
                 
-                if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
-                // Plan không có Channel nên không filter theo Channel được -> Giữ nguyên Plan tổng
-                
+                // Logic Filter Scope cho Plan
+                if (scope !== 'all') {
+                    if (scope.startsWith('LC-') && row.maLienCum !== scope) return;
+                    if (scope.startsWith('C-') && row.maCum !== scope) return;
+                }
+
                 const kpi = app.cleanCode(row.maKpi);
                 const type = typeMap[kpi];
                 if (!type) return;
@@ -321,16 +346,45 @@ const app = {
 
                 targetData.plan += val;
 
-                const cKey = row.maLienCum || row.maCum || 'KHÁC';
+                const cKey = row.maLienCum || 'KHÁC';
                 if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initObj();
                 targetData.cluster[cKey].plan += val;
+
+                // Breakdown Detail
+                const cumCode = row.maCum || 'KHÁC';
+                if (!targetData.breakdown[cumCode]) targetData.breakdown[cumCode] = initObj();
+                targetData.breakdown[cumCode].plan += val;
             });
 
-            // Gửi dữ liệu sang UI
+            // LƯU DỮ LIỆU ĐỂ DÙNG CHO POPUP
+            this.currentKPIReportData = { sub: subData, rev: revData };
+
             UIRenderer.renderKPIReport({ sub: subData, rev: revData }, { dFrom, dTo });
 
         } catch (e) { console.error(e); }
     },
+
+    showKPIBreakdown(type) {
+        if (!this.currentKPIReportData || !this.currentKPIReportData[type]) return;
+        
+        const data = this.currentKPIReportData[type].breakdown;
+        const list = Object.keys(data).map(code => ({
+            code: code,
+            name: this.getNameCum(code) || code,
+            actual: data[code].actual,
+            plan: data[code].plan,
+            percent: data[code].plan > 0 ? Math.round((data[code].actual / data[code].plan) * 100) : (data[code].actual > 0 ? 100 : 0)
+        }));
+
+        // Sắp xếp: Thực hiện giảm dần
+        list.sort((a, b) => b.actual - a.actual);
+
+        document.getElementById('modal-detail-title').textContent = type === 'sub' ? 'Chi tiết Thuê bao theo Cụm' : 'Chi tiết Doanh thu theo Cụm';
+        document.getElementById('modal-detail-subtitle').textContent = `Chi tiết thực hiện & kế hoạch`;
+        
+        UIRenderer.renderDetailModalContent('kpi-breakdown', list);
+        document.getElementById('modal-detail-list').classList.add('open');
+    }, // <--- DẤU PHẨY QUAN TRỌNG ĐÃ ĐƯỢC THÊM
 
     // ============================================================
     // 6. BUSINESS DATA
