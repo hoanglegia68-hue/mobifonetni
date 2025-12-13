@@ -7,12 +7,10 @@ const app = {
     cachedKPIData: [],
     cachedLogData: [],
     cachedData: {}, 
-
-    // TỪ ĐIỂN TRA CỨU
     mapLienCum: {}, 
     mapCum: {},
+    chartInstances: {}, // Lưu chart instances để destroy khi vẽ lại
 
-    // CẤU HÌNH CẢNH BÁO THUÊ
     rentalConfig: {
         emails: "admin@mobifone.vn, quanly@mobifone.vn",
         alertDays: [90, 60],
@@ -20,10 +18,10 @@ const app = {
     },
 
     // ============================================================
-    // 2. KHỞI TẠO ỨNG DỤNG (INIT)
+    // 2. INIT
     // ============================================================
     async init() {
-        console.log("App Starting... Version 04.02 (Final - Fixed B2B Modal)");
+        console.log("App Starting... Version 05.00 (Advanced Charts & Date Filter)");
 
         const savedUser = localStorage.getItem('MIS_USER');
         if (!savedUser) { window.location.href = 'login.html'; return; }
@@ -31,27 +29,17 @@ const app = {
 
         try {
             const [clusters, stores, gdvs, sales, b2b, indirect, bts] = await Promise.all([
-                DataService.getClusters(),
-                DataService.getStores(),
-                DataService.getGDVs(),
-                DataService.getSalesStaff(),
-                DataService.getB2BStaff(),
-                DataService.getIndirectChannels(),
-                DataService.getBTS()
+                DataService.getClusters(), DataService.getStores(), DataService.getGDVs(),
+                DataService.getSalesStaff(), DataService.getB2BStaff(), DataService.getIndirectChannels(), DataService.getBTS()
             ]);
             
             this.fullClusterData = this.normalizeDataSet(clusters);
             this.cachedData = { 
-                stores: this.normalizeDataSet(stores), 
-                gdvs: this.normalizeDataSet(gdvs), 
-                sales: this.normalizeDataSet(sales), 
-                b2b: this.normalizeDataSet(b2b), 
-                indirect: this.normalizeDataSet(indirect), 
-                bts: this.normalizeDataSet(bts) 
+                stores: this.normalizeDataSet(stores), gdvs: this.normalizeDataSet(gdvs), 
+                sales: this.normalizeDataSet(sales), b2b: this.normalizeDataSet(b2b), 
+                indirect: this.normalizeDataSet(indirect), bts: this.normalizeDataSet(bts) 
             }; 
-        } catch (error) {
-            console.error("Lỗi data:", error);
-        }
+        } catch (error) { console.error("Lỗi data:", error); }
 
         this.buildDictionary();
         this.initKPIReportTab(); 
@@ -62,16 +50,13 @@ const app = {
     },
 
     // ============================================================
-    // 3. HELPER: CHUẨN HÓA DỮ LIỆU
+    // 3. HELPER
     // ============================================================
-    
     normalizeDataSet(data) {
         if (!Array.isArray(data)) return [];
         return data.map(row => {
             const newRow = {};
-            Object.keys(row).forEach(key => {
-                newRow[key.trim()] = row[key];
-            });
+            Object.keys(row).forEach(key => newRow[key.trim()] = row[key]);
             return newRow;
         });
     },
@@ -90,7 +75,6 @@ const app = {
         } else if (dateStr.includes('-')) {
             return { full: dateStr.substring(0, 10), month: dateStr.substring(0, 7) };
         }
-        
         if (y && m) return { full: `${y}-${m}-${d || '01'}`, month: `${y}-${m}` };
         return { full: dateStr, month: dateStr };
     },
@@ -107,16 +91,12 @@ const app = {
     cleanCode(code) { return String(code || '').trim().toUpperCase().replace('KPI_', ''); },
 
     // ============================================================
-    // 4. GIAO DIỆN & PHÂN QUYỀN
+    // 4. UI & NAV
     // ============================================================
-
     updateUserInterface() {
         const user = this.currentUser;
-        const nameEl = document.getElementById('sidebar-user-name');
-        const roleEl = document.getElementById('sidebar-user-role');
-        if (nameEl) nameEl.textContent = user.name;
-        if (roleEl) roleEl.textContent = user.role === 'admin' ? 'Administrator' : `User: ${user.scope}`;
-        
+        document.getElementById('sidebar-user-name').textContent = user.name;
+        document.getElementById('sidebar-user-role').textContent = user.role === 'admin' ? 'Administrator' : `User: ${user.scope}`;
         document.body.classList.remove('is-admin', 'is-view', 'is-manager');
         document.body.classList.add(`is-${user.role}`);
         const sysMenu = document.querySelector('.system-menu-only');
@@ -125,7 +105,7 @@ const app = {
 
     renderFooter() {
         if (!document.getElementById('app-footer')) {
-            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">MBF TNI | Ver 04.02</div>`);
+            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">MBF TNI | Ver 05.00</div>`);
         }
     },
 
@@ -158,12 +138,8 @@ const app = {
 
     updateTitle(pageId) {
         const t = { 
-            'dashboard': 'TỔNG QUAN', 
-            'business_data': 'SỐ LIỆU KINH DOANH', 
-            'clusters': 'QUẢN LÝ HẠ TẦNG',
-            'direct_channel': 'QUẢN LÝ KÊNH TRỰC TIẾP',
-            'indirect_channel': 'QUẢN LÝ KÊNH GIÁN TIẾP',
-            'bts': 'QUẢN LÝ TRẠM BTS'
+            'dashboard': 'TỔNG QUAN', 'business_data': 'SỐ LIỆU KINH DOANH', 'clusters': 'QUẢN LÝ HẠ TẦNG',
+            'direct_channel': 'QUẢN LÝ KÊNH TRỰC TIẾP', 'indirect_channel': 'QUẢN LÝ KÊNH GIÁN TIẾP', 'bts': 'QUẢN LÝ TRẠM BTS'
         };
         document.getElementById('page-title').textContent = t[pageId] || 'Trang Quản Trị';
     },
@@ -179,100 +155,179 @@ const app = {
             const btn = document.querySelector('[onclick*="tab-kpi-thuchien"]');
             if (btn) this.switchTab('tab-kpi-thuchien', btn); else this.loadBusinessDataPage();
         }
-        else if (pageId === 'clusters') {
-            UIRenderer.renderClusterTable(this.filterDataByScope(this.fullClusterData));
-        }
+        else if (pageId === 'clusters') UIRenderer.renderClusterTable(this.filterDataByScope(this.fullClusterData));
         else if (pageId === 'direct_channel') {
-             // ĐÃ FIX: Load đầy đủ 4 bảng
              const { stores, gdvs, sales, b2b } = this.cachedData;
              UIRenderer.renderStoresTable(this.filterDataByScope(stores));
              UIRenderer.renderGDVTable(this.filterDataByScope(gdvs));
              UIRenderer.renderSalesTable(this.filterDataByScope(sales));
              UIRenderer.renderB2BTable(this.filterDataByScope(b2b));
         }
-        else if (pageId === 'indirect_channel') {
-            UIRenderer.renderIndirectTable(this.filterDataByScope(this.cachedData.indirect));
-        }
-        else if (pageId === 'bts') {
-            UIRenderer.renderBTSTable(this.filterDataByScope(this.cachedData.bts));
-        }
+        else if (pageId === 'indirect_channel') UIRenderer.renderIndirectTable(this.filterDataByScope(this.cachedData.indirect));
+        else if (pageId === 'bts') UIRenderer.renderBTSTable(this.filterDataByScope(this.cachedData.bts));
     },
 
     // ============================================================
-    // 5. DASHBOARD & KPI REPORT
+    // 5. DASHBOARD & KPI REPORT (NÂNG CẤP)
     // ============================================================
 
     handleDashboardFilter(scope) { UIRenderer.renderDashboard(scope); },
 
     async initKPIReportTab() {
-        const sel = document.getElementById('filter-scope');
-        if (sel) {
-            sel.innerHTML = '<option value="all">Tất cả Liên Cụm</option>';
-            Object.keys(this.mapLienCum).forEach(k => sel.innerHTML += `<option value="${k}">${this.mapLienCum[k]}</option>`);
+        const selScope = document.getElementById('filter-scope');
+        if (selScope) {
+            selScope.innerHTML = '<option value="all">Tất cả Liên Cụm</option>';
+            Object.keys(this.mapLienCum).forEach(k => selScope.innerHTML += `<option value="${k}">${this.mapLienCum[k]}</option>`);
         }
-        ['dash-month-from', 'dash-month-to'].forEach(id => { const el = document.getElementById(id); if(el) el.value = '2025-12'; });
+
+        // Tải logs trước để lấy danh sách kênh cho Filter
+        const logs = this.normalizeDataSet(await DataService.getKPILogs());
+        const channels = new Set();
+        logs.forEach(l => { if(l.channelType) channels.add(l.channelType.split('-')[0].trim()); });
+        
+        const selChannel = document.getElementById('filter-channel');
+        if (selChannel) {
+            selChannel.innerHTML = '<option value="all">Tất cả Kênh</option>';
+            channels.forEach(c => selChannel.innerHTML += `<option value="${c}">${c}</option>`);
+        }
+
+        // Set default dates (Đầu tháng đến Hôm nay)
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        
+        const dFrom = document.getElementById('dash-date-from');
+        const dTo = document.getElementById('dash-date-to');
+        if(dFrom) dFrom.value = `${y}-${m}-01`;
+        if(dTo) dTo.value = `${y}-${m}-${d}`;
+
         const btn = document.getElementById('btn-apply-report-filter');
         if (btn) btn.addEventListener('click', () => this.handleKPIReportFilter());
     },
 
     async handleKPIReportFilter() {
-        console.log("Loading Dashboard Data...");
-        const mFrom = document.getElementById('dash-month-from')?.value || '2025-12';
-        const mTo = document.getElementById('dash-month-to')?.value || '2025-12';
+        console.log("Loading Advanced Chart Data...");
+        const dFrom = document.getElementById('dash-date-from')?.value;
+        const dTo = document.getElementById('dash-date-to')?.value;
         const scope = document.getElementById('filter-scope')?.value || 'all';
+        const channelFilter = document.getElementById('filter-channel')?.value || 'all';
+
+        if (!dFrom || !dTo) return alert("Vui lòng chọn khoảng thời gian!");
 
         try {
-            const [raw, plans, struct] = await Promise.all([
-                DataService.getKPIActual(mFrom, mTo, null),
+            const [raw, plans, struct, logs] = await Promise.all([
+                DataService.getKPIActual(dFrom.substring(0,7), dTo.substring(0,7), null), // Vẫn fetch data rộng theo tháng
                 DataService.getKPIPlanning(),
-                DataService.getKPIStructure()
+                DataService.getKPIStructure(),
+                DataService.getKPILogs()
             ]);
 
             const rawData = this.normalizeDataSet(raw);
             const planData = this.normalizeDataSet(plans);
-            
-            const unitMap = {};
-            struct.forEach(s => { if(s.active) unitMap[app.cleanCode(s.ma)] = (s.dvt || '').toLowerCase(); });
+            const logData = this.normalizeDataSet(logs);
 
-            const totalPlan = { TB_MOI: 0, _4G: 0, DT: 0 };
-            planData.forEach(row => {
-                const rowMonth = (row.month || row.thang || '').substring(0, 7);
-                if (rowMonth < mFrom || rowMonth > mTo) return;
-                if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
-
-                const kpi = app.cleanCode(row.maKpi);
-                const val = Number(row.giaTri || row.keHoach) || 0;
-                if (kpi === 'TB_MOI' || kpi === 'TBPTM') totalPlan.TB_MOI += val;
-                else if (kpi === '4G') totalPlan._4G += val;
-                else if (kpi === 'DT') totalPlan.DT += val;
+            // 1. Map NV -> Kênh (Từ logs)
+            const userChannelMap = {};
+            logData.forEach(l => {
+                const nv = l.maNV || l.MaNV;
+                const ch = (l.channelType || 'KHÁC').split('-')[0].trim();
+                if(nv) userChannelMap[nv] = ch;
             });
 
-            const aggregated = {};
+            // 2. Phân loại KPI (Tb vs Trd)
+            const unitMap = {}; 
+            const typeMap = {}; // 'sub' or 'rev'
+            struct.forEach(s => { 
+                if(s.active) {
+                    const k = app.cleanCode(s.ma);
+                    const u = (s.dvt || '').toLowerCase();
+                    unitMap[k] = u;
+                    typeMap[k] = (u === 'tb' || u.includes('thuê bao')) ? 'sub' : 'rev';
+                }
+            });
+
+            // 3. AGGREGATE DỮ LIỆU
+            const subData = { actual: 0, plan: 0, daily: {}, channel: {}, cluster: {} };
+            const revData = { actual: 0, plan: 0, daily: {}, channel: {}, cluster: {} };
+            
+            const initObj = () => ({ actual: 0, plan: 0 });
+
+            // 3a. Xử lý Thực hiện (Actual)
             rawData.forEach(row => {
                 const parsed = this.parseDateKey(row.date);
-                if (parsed.month < mFrom || parsed.month > mTo) return;
+                if (parsed.full < dFrom || parsed.full > dTo) return; // Filter chính xác theo ngày
+                if (!this.checkScope(row)) return;
                 if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
 
-                const dateKey = parsed.full;
-                if (!aggregated[dateKey]) aggregated[dateKey] = { DATE: dateKey, KPI_TB_MOI_TH: 0, KPI_4G_TH: 0, KPI_DT_TH: 0 };
-
                 const kpi = app.cleanCode(row.maKpi);
-                const unit = unitMap[kpi];
-                let val = Number(row.giaTri) || 0;
-                if (unit && (unit === 'tb' || unit.includes('thuê bao'))) val = 1;
-                else if (unit && (unit.includes('triệu') || unit.includes('doanh thu'))) val = val / 1000000;
+                const type = typeMap[kpi];
+                if (!type) return; // Bỏ qua nếu không xác định được loại
 
-                if (kpi === 'TB_MOI' || kpi === 'TBPTM') aggregated[dateKey].KPI_TB_MOI_TH += val;
-                else if (kpi === '4G') aggregated[dateKey].KPI_4G_TH += val;
-                else if (kpi === 'DT' || kpi.includes('DT')) aggregated[dateKey].KPI_DT_TH += val;
+                // Filter Channel
+                const nv = row.maNV;
+                const rowChannel = userChannelMap[nv] || 'KHÁC';
+                if (channelFilter !== 'all' && rowChannel !== channelFilter) return;
+
+                let val = Number(row.giaTri) || 0;
+                // Chuẩn hóa đơn vị
+                if (type === 'sub') val = 1; // Đếm số lượng
+                else val = val / 1000000;    // Doanh thu ra Triệu
+
+                const targetData = type === 'sub' ? subData : revData;
+                
+                // Cộng tổng
+                targetData.actual += val;
+
+                // Cộng theo ngày
+                const dKey = parsed.full;
+                if (!targetData.daily[dKey]) targetData.daily[dKey] = 0;
+                targetData.daily[dKey] += val;
+
+                // Cộng theo Kênh
+                if (!targetData.channel[rowChannel]) targetData.channel[rowChannel] = 0;
+                targetData.channel[rowChannel] += val;
+
+                // Cộng theo Đơn vị (để so sánh plan)
+                const cKey = row.maLienCum || row.maCum || 'KHÁC';
+                if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initObj();
+                targetData.cluster[cKey].actual += val;
             });
 
-            const finalData = Object.values(aggregated).sort((a, b) => a.DATE.localeCompare(b.DATE));
-            
-            if (finalData.length > 0) finalData[0]._TOTAL_PLAN = totalPlan;
-            else finalData.push({ DATE: mFrom + '-01', KPI_TB_MOI_TH: 0, KPI_4G_TH: 0, KPI_DT_TH: 0, _TOTAL_PLAN: totalPlan });
+            // 3b. Xử lý Kế hoạch (Plan) - Plan theo Tháng
+            // Logic: Nếu chọn từ 1/12 đến 15/12, ta vẫn lấy Plan cả tháng 12 (hoặc chia tỷ lệ nếu muốn complex)
+            // Ở đây hiển thị Plan tổng của các tháng có dính dáng tới range
+            const relevantMonths = new Set();
+            let curr = new Date(dFrom);
+            const end = new Date(dTo);
+            while (curr <= end) {
+                relevantMonths.add(curr.toISOString().substring(0, 7));
+                curr.setMonth(curr.getMonth() + 1);
+            }
 
-            UIRenderer.renderKPIReport(finalData, { mFrom, mTo, scope }, this.mapLienCum, this.mapCum);
+            planData.forEach(row => {
+                const m = (row.month || row.thang || '').substring(0, 7);
+                if (!relevantMonths.has(m)) return;
+                
+                if (scope !== 'all' && row.maLienCum !== scope && row.maCum !== scope) return;
+                // Plan không có Channel nên không filter theo Channel được -> Giữ nguyên Plan tổng
+                
+                const kpi = app.cleanCode(row.maKpi);
+                const type = typeMap[kpi];
+                if (!type) return;
+
+                let val = Number(row.giaTri || row.keHoach) || 0;
+                const targetData = type === 'sub' ? subData : revData;
+
+                targetData.plan += val;
+
+                const cKey = row.maLienCum || row.maCum || 'KHÁC';
+                if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initObj();
+                targetData.cluster[cKey].plan += val;
+            });
+
+            // Gửi dữ liệu sang UI
+            UIRenderer.renderKPIReport({ sub: subData, rev: revData }, { dFrom, dTo });
 
         } catch (e) { console.error(e); }
     },
@@ -280,7 +335,6 @@ const app = {
     // ============================================================
     // 6. BUSINESS DATA
     // ============================================================
-
     async loadBusinessDataPage() {
         console.log("Loading Business Data...");
         const mFrom = document.getElementById('biz-month-from')?.value || '2025-12';
@@ -309,14 +363,12 @@ const app = {
         planData.forEach(row => {
             const m = (row.month || row.thang || '').substring(0, 7);
             if (m < mFrom || m > mTo) return;
-            
             let code = row[keyField];
             if (!code && viewMode === 'liencum' && row.maLienCum) code = row.maLienCum;
             if (!code || !this.checkScope({[keyField]: code})) return;
 
             const uKey = `${code}_${m}`;
             if (!aggData[uKey]) aggData[uKey] = { ma: code, hienThi: nameMap[code]||code, month: m, ...this.initKPIObj(kpiKeys) };
-            
             const kpi = this.cleanCode(row.maKpi);
             if (kpiKeys.includes(kpi)) aggData[uKey][`${kpi}_KH`] += (Number(row.giaTri)||0);
         });
@@ -324,20 +376,16 @@ const app = {
         rawData.forEach(row => {
             const parsed = this.parseDateKey(row.date);
             if (parsed.month < mFrom || parsed.month > mTo) return;
-            
             const code = row[keyField] || 'KHÁC';
             if (!this.checkScope(row)) return;
 
             const uKey = `${code}_${parsed.month}`;
             if (!aggData[uKey]) aggData[uKey] = { ma: code, hienThi: nameMap[code]||code, month: parsed.month, ...this.initKPIObj(kpiKeys) };
-
             const kpi = this.cleanCode(row.maKpi);
-            const val = Number(row.giaTri)||0;
-            let actual = val;
+            let actual = Number(row.giaTri)||0;
             const u = unitMap[kpi];
             if (u === 'tb' || u.includes('thuê bao')) actual = 1;
-            else if (u.includes('doanh thu')) actual = val; 
-
+            else if (u.includes('doanh thu')) actual = actual; 
             if (kpiKeys.includes(kpi)) aggData[uKey][`${kpi}_TH`] += actual;
         });
 
@@ -350,47 +398,34 @@ const app = {
             });
             processed.push(total);
         }
-
         UIRenderer.renderKPIActualTable(processed, cleanStructure);
         this.renderKPIStructureTab(struct);
     },
 
-    initKPIObj(keys) {
-        return keys.reduce((acc, k) => ({...acc, [`${k}_TH`]: 0, [`${k}_KH`]: 0}), {});
-    },
+    initKPIObj(keys) { return keys.reduce((acc, k) => ({...acc, [`${k}_TH`]: 0, [`${k}_KH`]: 0}), {}); },
 
     // ============================================================
     // 7. CÁC TAB KHÁC
     // ============================================================
-
     async renderKPIStructureTab(struct) {
         let data = struct || await DataService.getKPIStructure();
         UIRenderer.renderKPIStructureTable(data.map(s => ({...s, ma: this.cleanCode(s.ma), tenHienThi: s.tenHienThi||s.ten})));
     },
 
     async renderPlanningTab() {
-        console.log("Loading Planning Tab...");
         const struct = await DataService.getKPIStructure();
         const plans = await DataService.getKPIPlanning();
         const m = document.getElementById('planning-month')?.value || '2025-12';
         document.getElementById('planning-month').value = m;
-
         const pMap = {};
         this.normalizeDataSet(plans).forEach(row => {
-            if ((row.month||row.thang).substring(0, 7) === m) {
-                pMap[`${row.maCum}_${app.cleanCode(row.maKpi)}`] = row.keHoach || row.giaTri;
-            }
+            if ((row.month||row.thang).substring(0, 7) === m) pMap[`${row.maCum}_${app.cleanCode(row.maKpi)}`] = row.keHoach || row.giaTri;
         });
-
-        const activeKPIs = struct.filter(k => k.active).map(k => ({
-            ...k, ma: this.cleanCode(k.ma), tenHienThi: k.tenHienThi || k.ten || k.ma 
-        }));
-
+        const activeKPIs = struct.filter(k => k.active).map(k => ({ ...k, ma: this.cleanCode(k.ma), tenHienThi: k.tenHienThi || k.ten || k.ma }));
         let rows = [];
         this.filterDataByScope(this.fullClusterData).forEach(lc => {
             lc.cums.forEach(c => rows.push({ maLienCum: lc.maLienCum, tenLienCum: lc.tenLienCum, maCum: c.maCum, tenCum: c.tenCum }));
         });
-
         UIRenderer.renderPlanningTable(rows, activeKPIs, pMap);
     },
 
@@ -411,7 +446,6 @@ const app = {
     async loadUserLogPage() {
         const logs = this.normalizeDataSet(await DataService.getKPILogs());
         this.cachedLogData = logs;
-        
         const stats = {};
         logs.forEach(l => {
             if(l.maCum && l.maNV && this.checkScope(l)) {
@@ -441,25 +475,37 @@ const app = {
     },
 
     switchTab(tabId, btn) {
-        const p = btn.closest('.view-section');
+        const p = btn.closest('.view-section'); // Tìm section cha
+        if (!p) return; // Guard clause tránh lỗi nếu click sai chỗ
+
+        // Ẩn tất cả tab-content bên trong section này
         p.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-        document.getElementById(tabId).classList.remove('hidden');
+        
+        // Hiện tab được chọn (Lúc này ID đã khớp với HTML mới)
+        const targetTab = document.getElementById(tabId);
+        if (targetTab) targetTab.classList.remove('hidden');
+        else console.error(`Không tìm thấy tab có ID: ${tabId}`);
+
+        // Xử lý active button
         p.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        if(tabId === 'dash-charts') this.loadKPIReportTab(); 
+        // Logic tải dữ liệu riêng cho từng tab
+        // QUAN TRỌNG: Gọi đúng hàm handleKPIReportFilter
+        if(tabId === 'dash-charts') {
+            this.handleKPIReportFilter(); 
+        }
+        
         if(tabId === 'tab-kpi-thuchien') this.loadBusinessDataPage(); 
         if(tabId === 'tab-kehoach') this.renderPlanningTab(); 
         if(tabId === 'tab-user-ghinhan') this.loadUserLogPage(); 
     },
     
-    // UTILS & MODAL
     openUploadModal(type) { document.getElementById('upload-type').value = type; document.getElementById('modal-upload').classList.add('open'); },
     closeModal(id) { document.getElementById(id||'modal-edit-ward').classList.remove('open'); },
     openRentConfigModal() { if(this.currentUser.role === 'admin') document.getElementById('modal-rent-config').classList.add('open'); else alert('Quyền hạn chế!'); },
     saveRentConfig() { alert("Đã lưu cấu hình (Demo)!"); this.closeModal('modal-rent-config'); },
     
-    // SEARCH
     handleSearchCluster(k) {
         k = k.toLowerCase().trim();
         let d = this.filterDataByScope(this.fullClusterData);
@@ -479,27 +525,14 @@ const app = {
         let d = this.filterDataByScope(this.cachedData.bts);
         UIRenderer.renderBTSTable(k ? d.filter(i => (i.tenTram||'').toLowerCase().includes(k.toLowerCase())) : d);
     },
-    handleSearchStore(k) { 
-        let d = this.filterDataByScope(this.cachedData.stores); 
-        UIRenderer.renderStoresTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
-    },
-    handleSearchGDV(k) { 
-        let d = this.filterDataByScope(this.cachedData.gdvs); 
-        UIRenderer.renderGDVTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
-    },
-    handleSearchSales(k) { 
-        let d = this.filterDataByScope(this.cachedData.sales); 
-        UIRenderer.renderSalesTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
-    },
-    handleSearchB2B(k) { 
-        let d = this.filterDataByScope(this.cachedData.b2b); 
-        UIRenderer.renderB2BTable(k ? d.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : d); 
-    },
+    handleSearchStore(k) { UIRenderer.renderStoresTable(k ? this.cachedData.stores.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : this.cachedData.stores); },
+    handleSearchGDV(k) { UIRenderer.renderGDVTable(k ? this.cachedData.gdvs.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : this.cachedData.gdvs); },
+    handleSearchSales(k) { UIRenderer.renderSalesTable(k ? this.cachedData.sales.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : this.cachedData.sales); },
+    handleSearchB2B(k) { UIRenderer.renderB2BTable(k ? this.cachedData.b2b.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : this.cachedData.b2b); },
 
     async showDashboardDetail(type, scope) { this.showDetailModal(type==='geo'?'commune':type, scope, 'liencum'); },
     async showDetailModal(type, scope, stype) {
         let t='', d=[]; 
-        // FIX: Bổ sung b2b vào destructuring
         const {stores, gdvs, sales, b2b, bts, indirect} = this.cachedData;
         const filter = i => i[stype==='liencum'?'maLienCum':'maCum'] === scope;
         
@@ -507,7 +540,7 @@ const app = {
         else if(type==='store') { t='DS Cửa Hàng'; d=scope==='all'?stores:stores.filter(filter); }
         else if(type==='gdv') { t='DS GDV'; d=scope==='all'?gdvs:gdvs.filter(filter); }
         else if(type==='sales') { t='DS NVBH'; d=scope==='all'?sales:sales.filter(filter); }
-        else if(type==='b2b') { t='DS KHDN'; d=scope==='all'?b2b:b2b.filter(filter); } // FIX: Dùng biến b2b
+        else if(type==='b2b') { t='DS KHDN'; d=scope==='all'?b2b:b2b.filter(filter); }
         else if(type==='bts') { t='DS Trạm BTS'; d=scope==='all'?bts:bts.filter(filter); }
         else if(type==='indirect') { t='DS Kênh GT'; d=scope==='all'?indirect:indirect.filter(filter); }
         
