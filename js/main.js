@@ -106,7 +106,7 @@ const app = {
 
     renderFooter() {
         if (!document.getElementById('app-footer')) {
-            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50">MBF TNI | Ver 05.01</div>`);
+            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver 05.01</div>`);
         }
     },
 
@@ -584,24 +584,102 @@ const app = {
     handleSearchSales(k) { UIRenderer.renderSalesTable(k ? this.cachedData.sales.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : this.cachedData.sales); },
     handleSearchB2B(k) { UIRenderer.renderB2BTable(k ? this.cachedData.b2b.filter(i => i.ten.toLowerCase().includes(k.toLowerCase())) : this.cachedData.b2b); },
 
-    async showDashboardDetail(type, scope) { this.showDetailModal(type==='geo'?'commune':type, scope, 'liencum'); },
+    // ============================================================
+    // ... (Các phần code bên trên giữ nguyên)
+    // ============================================================
+
+    // HÀM XỬ LÝ CLICK TỪ DASHBOARD (ĐÃ SỬA LỖI LOGIC)
+    async showDashboardDetail(type, scope) {
+        // 1. Tự động xác định loại phạm vi (Liên cụm hay Cụm) dựa vào mã
+        let scopeType = 'liencum'; // Mặc định
+        if (scope && scope.startsWith('C-')) {
+            scopeType = 'cum';
+        }
+        
+        // 2. Map lại tên type cho khớp với dữ liệu nếu cần
+        // Ví dụ: trên UI gọi là 'geo' nhưng dữ liệu là 'commune' (phường xã)
+        const realType = type === 'geo' ? 'commune' : type;
+
+        console.log(`Open Detail: Type=${realType}, Scope=${scope}, Level=${scopeType}`);
+        this.showDetailModal(realType, scope, scopeType);
+    },
+
+    // HÀM HIỂN THỊ MODAL CHI TIẾT (ĐÃ FIX FILTER & MAPPING)
     async showDetailModal(type, scope, stype) {
-        let t='', d=[]; 
-        const {stores, gdvs, sales, b2b, bts, indirect} = this.cachedData;
-        const filter = i => i[stype==='liencum'?'maLienCum':'maCum'] === scope;
+        let title = '';
+        let detailData = []; 
         
-        if(type==='commune') this.fullClusterData.forEach(lc => { if(scope==='all'||lc.maLienCum===scope) lc.cums.forEach(c => d.push(...c.phuongXas)); });
-        else if(type==='store') { t='DS Cửa Hàng'; d=scope==='all'?stores:stores.filter(filter); }
-        else if(type==='gdv') { t='DS GDV'; d=scope==='all'?gdvs:gdvs.filter(filter); }
-        else if(type==='sales') { t='DS NVBH'; d=scope==='all'?sales:sales.filter(filter); }
-        else if(type==='b2b') { t='DS KHDN'; d=scope==='all'?b2b:b2b.filter(filter); }
-        else if(type==='bts') { t='DS Trạm BTS'; d=scope==='all'?bts:bts.filter(filter); }
-        else if(type==='indirect') { t='DS Kênh GT'; d=scope==='all'?indirect:indirect.filter(filter); }
+        // Destructuring dữ liệu từ Cache
+        const { stores, gdvs, sales, b2b, bts, indirect } = this.cachedData;
+
+        // Hàm lọc chung cho các danh sách phẳng (Store, GDV, BTS...)
+        const filterFn = (item) => {
+            if (scope === 'all') return true;
+            // Xác định trường dữ liệu để so sánh (maLienCum hoặc maCum)
+            const field = stype === 'liencum' ? 'maLienCum' : 'maCum';
+            // So sánh an toàn (tránh null/undefined)
+            return (item[field] || '').toString() === scope.toString();
+        };
         
-        document.getElementById('modal-detail-title').textContent = t;
-        document.getElementById('modal-detail-subtitle').textContent = `SL: ${d.length}`;
-        UIRenderer.renderDetailModalContent(type, d);
-        document.getElementById('modal-detail-list').classList.add('open');
+        // A. XỬ LÝ DỮ LIỆU PHÂN CẤP (ĐỊA LÝ / DÂN SỐ)
+        if (type === 'commune') {
+            title = 'Chi tiết Dân số & Phủ trạm theo Phường/Xã';
+            // Duyệt qua cấu trúc cây: Liên Cụm -> Cụm -> Phường Xã
+            this.fullClusterData.forEach(lc => {
+                // Nếu đang lọc theo Liên Cụm mà không khớp -> Bỏ qua
+                if (stype === 'liencum' && scope !== 'all' && lc.maLienCum !== scope) return;
+
+                lc.cums.forEach(c => {
+                    // Nếu đang lọc theo Cụm mà không khớp -> Bỏ qua
+                    if (stype === 'cum' && c.maCum !== scope) return;
+                    
+                    // Thêm thông tin cha vào từng dòng để hiển thị rõ ràng hơn
+                    const enrichedPX = c.phuongXas.map(px => ({
+                        ...px,
+                        tenLienCum: lc.tenLienCum,
+                        tenCum: c.tenCum
+                    }));
+                    detailData.push(...enrichedPX);
+                });
+            });
+        } 
+        // B. XỬ LÝ DỮ LIỆU DANH SÁCH PHẲNG
+        else if (type === 'store') {
+            title = 'Danh sách Cửa hàng';
+            detailData = stores.filter(filterFn);
+        } else if (type === 'gdv') {
+            title = 'Danh sách Giao dịch viên';
+            detailData = gdvs.filter(filterFn);
+        } else if (type === 'sales') {
+            title = 'Danh sách NV Bán hàng';
+            detailData = sales.filter(filterFn);
+        } else if (type === 'b2b') {
+            title = 'Danh sách Khách hàng Doanh nghiệp';
+            detailData = b2b.filter(filterFn);
+        } else if (type === 'bts') {
+            title = 'Danh sách Trạm BTS';
+            detailData = bts.filter(filterFn);
+        } else if (type === 'indirect') {
+            title = 'Danh sách Kênh Gián tiếp (Đại lý/Điểm bán)';
+            detailData = indirect.filter(filterFn);
+        }
+
+        // C. CẬP NHẬT UI VÀ HIỂN THỊ MODAL
+        const modalTitle = document.getElementById('modal-detail-title');
+        const modalSubtitle = document.getElementById('modal-detail-subtitle');
+        const modalList = document.getElementById('modal-detail-list');
+
+        if (modalTitle) modalTitle.textContent = title;
+        if (modalSubtitle) {
+            const scopeName = scope === 'all' ? 'Toàn Công Ty' : (this.getNameCum(scope) || this.getNameLienCum(scope) || scope);
+            modalSubtitle.textContent = `Phạm vi: ${scopeName} | Số lượng: ${detailData.length}`;
+        }
+        
+        // Gọi hàm render trong ui-renderer.js
+        UIRenderer.renderDetailModalContent(type, detailData);
+        
+        // Mở Modal
+        if (modalList) modalList.classList.add('open');
     }
 };
 
