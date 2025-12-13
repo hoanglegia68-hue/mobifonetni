@@ -836,102 +836,119 @@ const UIRenderer = {
     /**
      * Vẽ toàn bộ báo cáo Biểu đồ & Số liệu KPI
      */
-    renderKPIReport(kpiData, filters, mapLienCum, mapCum) {
-        ['chartSubDaily', 'chartSubComparative', 'chartRevenueDaily', 'chartRevenueComparative'].forEach(id => {
+    // ... (Giữ nguyên phần đầu file đến hết hàm renderDashboardCharts) ...
+// THAY THẾ HÀM renderKPIReport BẰNG CODE DƯỚI ĐÂY:
+
+    renderKPIReport(data, filterInfo) {
+        // Destroy old charts
+        ['chartSubDaily', 'chartSubChannel', 'chartSubCluster', 'chartRevDaily', 'chartRevChannel', 'chartRevCluster'].forEach(id => {
             if (app.chartInstances[id]) {
                 app.chartInstances[id].destroy();
                 delete app.chartInstances[id];
             }
         });
 
-        // Tự động tính % hoàn thành
-        const calculatePercent = (actual, plan) => plan > 0 ? Math.min(100, Math.round((actual / plan) * 100)) : (actual > 0 ? 100 : 0);
-        
-        // Cập nhật Widget số liệu
-        const updateWidget = (id, actual, plan) => {
-            const percent = calculatePercent(actual, plan);
-            const percentEl = document.getElementById(`${id}-percent`);
-            document.getElementById(`${id}-actual`).textContent = this.formatNumber(actual);
-            document.getElementById(`${id}-plan`).textContent = this.formatNumber(plan);
-            if (percentEl) percentEl.textContent = `${percent}%`;
-            return percent;
+        // 1. UPDATE WIDGETS
+        const updateWidget = (prefix, actual, plan) => {
+            const elActual = document.getElementById(`stat-${prefix}-actual`);
+            const elPlan = document.getElementById(`stat-${prefix}-plan`);
+            const elPercent = document.getElementById(`stat-${prefix}-percent`);
+            const elProg = document.getElementById(`prog-${prefix}`);
+
+            if (elActual) elActual.textContent = this.formatNumber(actual);
+            if (elPlan) elPlan.textContent = this.formatNumber(plan);
+            
+            const percent = plan > 0 ? Math.round((actual / plan) * 100) : (actual > 0 ? 100 : 0);
+            if (elPercent) elPercent.textContent = `${percent}%`;
+            if (elProg) elProg.style.width = `${Math.min(percent, 100)}%`;
         };
 
-        // Tính tổng
-        const sumWithPlanFallback = (data, actualKey, planKey) => {
-            const totalActual = data.reduce((sum, item) => sum + (Number(item[actualKey] || 0)), 0);
-            const totalPlan = data.reduce((sum, item) => sum + (Number(item[planKey] || item[actualKey] || 0)), 0); // Nếu ko có plan thì lấy actual làm mốc 100%
-            return { totalActual, totalPlan };
+        updateWidget('sub', data.sub.actual, data.sub.plan);
+        updateWidget('rev', data.rev.actual, data.rev.plan);
+
+        // 2. DRAW CHARTS
+        
+        // Helper: Create Line Chart (Daily)
+        const createLineChart = (canvasId, dailyData, color) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            const dates = Object.keys(dailyData).sort();
+            const values = dates.map(d => dailyData[d]);
+            const labels = dates.map(d => d.split('-').slice(1).join('/')); // mm/dd
+
+            app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Thực hiện',
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: color + '20', // Opacity
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
         };
 
-        const { totalActual: totalActualTB, totalPlan: totalPlanTB } = sumWithPlanFallback(kpiData, 'KPI_TB_MOI_TH', 'KPI_TB_MOI_KH');
-        const { totalActual: totalActual4G, totalPlan: totalPlan4G } = sumWithPlanFallback(kpiData, 'KPI_4G_TH', 'KPI_4G_KH');
-        const { totalActual: totalActualDT, totalPlan: totalPlanDT } = sumWithPlanFallback(kpiData, 'KPI_DT_TH', 'KPI_DT_KH');
-        
-        // Update UI Widgets
-        updateWidget('kpi-tb-moi', totalActualTB, totalPlanTB);
-        const barTB = document.querySelector('#subscriber-widgets div:nth-child(2) .progress-bar');
-        if(barTB) barTB.style.width = `${calculatePercent(totalActualTB, totalPlanTB)}%`;
+        // Helper: Create Bar Chart (Channel)
+        const createChannelChart = (canvasId, channelData, color) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            const labels = Object.keys(channelData);
+            const values = Object.values(channelData);
 
-        updateWidget('kpi-4g', totalActual4G, totalPlan4G);
-        const bar4G = document.querySelector('#subscriber-widgets div:nth-child(4) .progress-bar');
-        if(bar4G) bar4G.style.width = `${calculatePercent(totalActual4G, totalPlan4G)}%`;
-
-        updateWidget('kpi-dt', totalActualDT, totalPlanDT);
-        const barDT = document.querySelector('#revenue-widgets div:nth-child(2) .progress-bar');
-        if(barDT) barDT.style.width = `${calculatePercent(totalActualDT, totalPlanDT)}%`;
-
-        // Vẽ biểu đồ Line Chart (Theo ngày)
-        const dailyData = kpiData.reduce((acc, item) => {
-            const date = item.DATE; 
-            if (!date) return acc;
-            acc[date] = acc[date] || { date, tbActual: 0, tbPlan: 0, dtActual: 0, dtPlan: 0 };
-            acc[date].tbActual += (Number(item.KPI_TB_MOI_TH) || 0);
-            acc[date].tbPlan += (Number(item.KPI_TB_MOI_KH || item.KPI_TB_MOI_TH || 0)); 
-            acc[date].dtActual += (Number(item.KPI_DT_TH) || 0);
-            acc[date].dtPlan += (Number(item.KPI_DT_KH || item.KPI_DT_TH || 0)); 
-            return acc;
-        }, {});
-
-        const sortedDates = Object.keys(dailyData).sort();
-        const dailyLabels = sortedDates.map(d => d.substring(8, 10) + '/' + d.substring(5, 7)); // DD/MM
-        
-        // 1. Chart TB Daily
-        const ctxSubDaily = document.getElementById('chartSubDaily');
-        if (ctxSubDaily) {
-            app.chartInstances['chartSubDaily'] = new Chart(ctxSubDaily.getContext('2d'), {
-                type: 'line',
+            app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
                 data: {
-                    labels: dailyLabels,
+                    labels: labels,
+                    datasets: [{
+                        label: 'Số lượng',
+                        data: values,
+                        backgroundColor: color,
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        };
+
+        // Helper: Create Grouped Bar Chart (Cluster Comp)
+        const createClusterChart = (canvasId, clusterData, colorActual) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            const clusters = Object.keys(clusterData);
+            const actuals = clusters.map(c => clusterData[c].actual);
+            const plans = clusters.map(c => clusterData[c].plan);
+            // Map tên hiển thị
+            const clusterNames = clusters.map(c => app.getNameLienCum(c) || app.getNameCum(c) || c);
+
+            app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: clusterNames,
                     datasets: [
-                        { label: 'Thực hiện', data: sortedDates.map(d => dailyData[d].tbActual), borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true, tension: 0.3, pointRadius: 2 },
-                        { label: 'Kế hoạch', data: sortedDates.map(d => dailyData[d].tbPlan), borderColor: '#cbd5e1', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3, pointRadius: 0 }
+                        { label: 'Thực hiện', data: actuals, backgroundColor: colorActual },
+                        { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1' }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+                options: { responsive: true, maintainAspectRatio: false }
             });
-        }
+        };
 
-        // 2. Chart DT Daily
-        const ctxRevDaily = document.getElementById('chartRevenueDaily');
-        if (ctxRevDaily) {
-            app.chartInstances['chartRevenueDaily'] = new Chart(ctxRevDaily.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: dailyLabels,
-                    datasets: [
-                        { label: 'Thực hiện', data: sortedDates.map(d => dailyData[d].dtActual), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.3, pointRadius: 2 },
-                        { label: 'Kế hoạch', data: sortedDates.map(d => dailyData[d].dtPlan), borderColor: '#cbd5e1', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.3, pointRadius: 0 }
-                    ]
-                },
-                options: { 
-                    responsive: true, maintainAspectRatio: false, 
-                    scales: { y: { beginAtZero: true, ticks: { callback: (v) => v/1000000 + ' Tr' } }, x: { grid: { display: false } } },
-                    plugins: { tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${this.formatNumber(c.parsed.y/1000000)} Tr` } } }
-                }
-            });
-        }
+        // Execute Drawing
+        createLineChart('chartSubDaily', data.sub.daily, '#10b981'); // Emerald
+        createChannelChart('chartSubChannel', data.sub.channel, '#34d399');
+        createClusterChart('chartSubCluster', data.sub.cluster, '#059669');
+
+        createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); // Blue
+        createChannelChart('chartRevChannel', data.rev.channel, '#60a5fa');
+        createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8');
     },
+
 
     // ============================================================
     // 7. MODAL CHI TIẾT (DRILL-DOWN)
