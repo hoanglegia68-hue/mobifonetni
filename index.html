@@ -100,7 +100,6 @@
 
                         <div class="p-6 flex-1 bg-white">
                             <div id="dash-overview" class="tab-content block">
-    
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                                     <div>
                                         <h2 class="text-xl font-bold text-slate-800">Báo cáo nguồn lực</h2>
@@ -111,7 +110,7 @@
                                         <span class="text-xs font-bold text-slate-500 uppercase">Phạm vi:</span>
                                         <select id="dashboard-scope-select" class="outline-none text-sm font-bold text-blue-700 bg-transparent cursor-pointer min-w-[150px]" onchange="app.handleDashboardFilter(this.value)">
                                             <option value="all">Toàn Công Ty</option>
-                                            </select>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -148,132 +147,176 @@
                                                     <th class="text-center text-indigo-700">Trạm BTS</th>
                                                 </tr>
                                             </thead>
-                                            <tbody id="dashboard-breakdown-body">
-                                                </tbody>
+                                            <tbody id="dashboard-breakdown-body"></tbody>
                                         </table>
                                     </div>
                                 </div>
                             </div>
 
-                            <div id="dash-charts" class="tab-content hidden p-6 animate-fade-in">
-    <h2 class="text-2xl font-bold mb-6 text-slate-800">Báo cáo Biểu đồ & Số liệu</h2>
+                            <div id="dash-charts" class="tab-content hidden animate-fade-in pb-20"> 
+                                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 sticky top-0 z-40">
+                                    <div class="flex flex-col md:flex-row gap-4 items-end md:items-center justify-between">
+                                        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                                            <div class="flex flex-col gap-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase">Phạm vi</label>
+                                                <select id="filter-scope" class="border border-slate-200 rounded px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 shadow-sm min-w-[160px]">
+                                                    <option value="all">Tất cả Liên Cụm</option>
+                                                </select>
+                                            </div>
+                                            <div class="flex flex-col gap-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase">Kênh bán</label>
+                                                <select id="filter-channel" class="border border-slate-200 rounded px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 shadow-sm min-w-[120px]">
+                                                    <option value="all">Tất cả Kênh</option>
+                                                </select>
+                                            </div>
+                                            <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded border border-slate-200">
+                                                <div class="flex flex-col gap-1">
+                                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Từ ngày</label>
+                                                    <input type="date" id="dash-date-from" class="bg-transparent border-none text-sm font-bold text-slate-700 outline-none p-0 w-28">
+                                                </div>
+                                                <span class="text-slate-300">|</span>
+                                                <div class="flex flex-col gap-1">
+                                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Đến ngày</label>
+                                                    <input type="date" id="dash-date-to" class="bg-transparent border-none text-sm font-bold text-slate-700 outline-none p-0 w-28">
+                                                </div>
+                                            </div>
+                                            <button id="btn-apply-report-filter" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded shadow-sm text-sm font-bold transition-all flex items-center gap-2">
+                                                <i data-lucide="filter" class="w-4 h-4"></i> Lọc
+                                            </button>
+                                        </div>
+                                        <div class="text-right hidden md:block">
+                                            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cập nhật lần cuối</div>
+                                            <div class="text-xs font-mono font-bold text-slate-600" id="last-update-time">-</div>
+                                        </div>
+                                    </div>
+                                </div>
 
-    <div class="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-wrap gap-4 items-end border border-slate-200">
-        <div class="flex-1 min-w-[150px]">
-            <label for="dash-month-from" class="block text-sm font-medium text-slate-700 mb-1">Thời gian (Từ tháng)</label>
-            <input type="month" id="dash-month-from" value="2025-12" class="w-full form-input border-slate-300 rounded-md p-2">
-        </div>
-        <div class="flex-1 min-w-[150px]">
-             <label for="dash-month-to" class="block text-sm font-medium text-slate-700 mb-1">Đến tháng</label>
-            <input type="month" id="dash-month-to" value="2025-12" class="w-full form-input border-slate-300 rounded-md p-2">
-        </div>
-        <div class="flex-1 min-w-[200px]">
-            <label for="filter-scope" class="block text-sm font-medium text-slate-700 mb-1">Phạm vi (Cụm/Liên cụm)</label>
-            <select id="filter-scope" class="w-full form-select border-slate-300 rounded-md p-2">
-                <option value="all">Tất cả Liên Cụm</option>
-                </select>
-        </div>
-        <div class="flex-1 min-w-[180px]">
-            <label for="filter-channel" class="block text-sm font-medium text-slate-700 mb-1">Kênh bán hàng</label>
-            <select id="filter-channel" class="w-full form-select border-slate-300 rounded-md p-2">
-                <option value="all">Tất cả Kênh</option>
-                <option value="store">Cửa hàng</option>
-                <option value="gdv">Giao dịch viên</option>
-                <option value="sales">NV Bán hàng</option>
-                <option value="indirect">Kênh Gián tiếp</option>
-            </select>
-        </div>
-        <button id="btn-apply-report-filter" class="btn-primary flex-shrink-0">
-            <i data-lucide="filter" class="w-4 h-4 mr-1"></i> Áp dụng
-        </button>
-    </div>
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 border-l-4 border-emerald-500 pl-3">
+                                        <i data-lucide="users" class="w-5 h-5 text-emerald-500"></i> PHÁT TRIỂN THUÊ BAO
+                                    </h3>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm col-span-1 md:col-span-1">
+                                            <div class="text-slate-400 text-xs font-bold uppercase mb-1">Tổng Thuê bao thực hiện</div>
+                                            <div class="text-3xl font-bold text-emerald-600" id="stat-sub-actual">0</div>
+                                            <div class="flex items-center gap-2 mt-2 text-xs">
+                                                <span class="text-slate-400">Kế hoạch:</span>
+                                                <span class="font-bold text-slate-600" id="stat-sub-plan">0</span>
+                                                <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold ml-auto" id="stat-sub-percent">0%</span>
+                                            </div>
+                                            <div class="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
+                                                <div id="prog-sub" class="h-full bg-emerald-500 rounded-full" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm col-span-1 md:col-span-3">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Xu hướng phát triển theo ngày</div>
+                                            <div class="h-[200px]">
+                                                <canvas id="chartSubDaily"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
 
-    <div class="mb-8 border-b border-blue-200 pb-4">
-        <h3 class="text-xl font-semibold text-blue-800 mb-4 flex items-center gap-2">
-            <i data-lucide="users" class="w-6 h-6"></i> Khu vực Thuê bao
-        </h3>
-        <div id="subscriber-widgets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">TB Mới (Thực hiện)</p>
-                <p class="text-3xl font-bold text-blue-600 mt-1" id="kpi-tb-moi-actual">0</p>
-                <p class="text-xs text-slate-400 mt-1">Kế hoạch: <span id="kpi-tb-moi-plan">0</span></p>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">Hoàn thành TB Mới</p>
-                <p class="text-3xl font-bold text-green-600 mt-1" id="kpi-tb-moi-percent">0%</p>
-                <div class="h-2 bg-slate-200 rounded-full mt-2"><div class="progress-bar bg-green-500" style="width: 0%"></div></div>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">TB 4G/5G (Thực hiện)</p>
-                <p class="text-3xl font-bold text-purple-600 mt-1" id="kpi-4g-actual">0</p>
-                <p class="text-xs text-slate-400 mt-1">Kế hoạch: <span id="kpi-4g-plan">0</span></p>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">Hoàn thành 4G/5G</p>
-                <p class="text-3xl font-bold text-yellow-600 mt-1" id="kpi-4g-percent">0%</p>
-                <div class="h-2 bg-slate-200 rounded-full mt-2"><div class="progress-bar bg-yellow-500" style="width: 0%"></div></div>
-            </div>
-        </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Tỷ trọng theo Kênh bán</div>
+                                            <div class="h-[300px]">
+                                                <canvas id="chartSubChannel"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Thực hiện vs Kế hoạch (Theo Đơn vị)</div>
+                                            <div class="h-[300px]">
+                                                <canvas id="chartSubCluster"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-4 rounded-lg shadow-md border border-slate-200">
-                <h4 class="font-semibold text-slate-700 mb-3">TB Mới Theo Ngày (Thực hiện & Kế hoạch)</h4>
-                <div class="h-[350px] relative">
-                    <canvas id="chartSubDaily"></canvas>
-                </div>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-md border border-slate-200">
-                <h4 class="font-semibold text-slate-700 mb-3" id="title-sub-comp">So sánh TB Mới (Theo Liên Cụm)</h4>
-                <div class="h-[350px] relative">
-                    <canvas id="chartSubComparative"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 border-l-4 border-blue-500 pl-3">
+                                        <i data-lucide="banknote" class="w-5 h-5 text-blue-500"></i> DOANH THU & TÀI CHÍNH
+                                    </h3>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm col-span-1 md:col-span-1">
+                                            <div class="text-slate-400 text-xs font-bold uppercase mb-1">Tổng Doanh thu (Tr.đ)</div>
+                                            <div class="text-3xl font-bold text-blue-600" id="stat-rev-actual">0</div>
+                                            <div class="flex items-center gap-2 mt-2 text-xs">
+                                                <span class="text-slate-400">Kế hoạch:</span>
+                                                <span class="font-bold text-slate-600" id="stat-rev-plan">0</span>
+                                                <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold ml-auto" id="stat-rev-percent">0%</span>
+                                            </div>
+                                            <div class="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
+                                                <div id="prog-rev" class="h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm col-span-1 md:col-span-3">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Xu hướng doanh thu theo ngày</div>
+                                            <div class="h-[200px]">
+                                                <canvas id="chartRevDaily"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
 
-    <div class="mt-8">
-        <h3 class="text-xl font-semibold text-red-800 mb-4 flex items-center gap-2">
-            <i data-lucide="trending-up" class="w-6 h-6"></i> Khu vực Doanh thu
-        </h3>
-        <div id="revenue-widgets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">Doanh thu (Thực hiện)</p>
-                <p class="text-3xl font-bold text-red-600 mt-1" id="kpi-dt-actual">0</p>
-                <p class="text-xs text-slate-400 mt-1">Kế hoạch: <span id="kpi-dt-plan">0</span></p>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">Hoàn thành Doanh thu</p>
-                <p class="text-3xl font-bold text-green-600 mt-1" id="kpi-dt-percent">0%</p>
-                <div class="h-2 bg-slate-200 rounded-full mt-2"><div class="progress-bar bg-green-500" style="width: 0%"></div></div>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">ARPU Bình quân</p>
-                <p class="text-3xl font-bold text-orange-600 mt-1" id="kpi-arpu-actual">0</p>
-                <p class="text-xs text-slate-400 mt-1">Mục tiêu: <span id="kpi-arpu-plan">0</span></p>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
-                <p class="text-sm text-slate-500 font-medium">Hoàn thành ARPU</p>
-                <p class="text-3xl font-bold text-indigo-600 mt-1" id="kpi-arpu-percent">0%</p>
-                 <div class="h-2 bg-slate-200 rounded-full mt-2"><div class="progress-bar bg-indigo-500" style="width: 0%"></div></div>
-            </div>
-        </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Tỷ trọng theo Kênh bán</div>
+                                            <div class="h-[300px]">
+                                                <canvas id="chartRevChannel"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Thực hiện vs Kế hoạch (Theo Đơn vị)</div>
+                                            <div class="h-[300px]">
+                                                <canvas id="chartRevCluster"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 border-l-4 border-blue-500 pl-3">
+                                        <i data-lucide="banknote" class="w-5 h-5 text-blue-500"></i> DOANH THU & TÀI CHÍNH
+                                    </h3>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                        <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm col-span-1 md:col-span-1">
+                                            <div class="text-slate-400 text-xs font-bold uppercase mb-1">Tổng Doanh thu (Tr.đ)</div>
+                                            <div class="text-3xl font-bold text-blue-600" id="stat-rev-actual">0</div>
+                                            <div class="flex items-center gap-2 mt-2 text-xs">
+                                                <span class="text-slate-400">Kế hoạch:</span>
+                                                <span class="font-bold text-slate-600" id="stat-rev-plan">0</span>
+                                                <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold ml-auto" id="stat-rev-percent">0%</span>
+                                            </div>
+                                            <div class="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
+                                                <div id="prog-rev" class="h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm col-span-1 md:col-span-3">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Xu hướng doanh thu theo ngày</div>
+                                            <div class="h-[200px]">
+                                                <canvas id="chartRevDaily"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-4 rounded-lg shadow-md border border-slate-200">
-                <h4 class="font-semibold text-slate-700 mb-3">Doanh thu Theo Ngày (Thực hiện & Kế hoạch)</h4>
-                <div class="h-[350px] relative">
-                    <canvas id="chartRevenueDaily"></canvas>
-                </div>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow-md border border-slate-200">
-                <h4 class="font-semibold text-slate-700 mb-3" id="title-rev-comp">So sánh Doanh thu (Theo Liên Cụm)</h4>
-                <div class="h-[350px] relative">
-                    <canvas id="chartRevenueComparative"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Tỷ trọng theo Kênh bán</div>
+                                            <div class="h-[300px]">
+                                                <canvas id="chartRevChannel"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div class="text-xs font-bold text-slate-400 uppercase mb-2">Thực hiện vs Kế hoạch (Theo Đơn vị)</div>
+                                            <div class="h-[300px]">
+                                                <canvas id="chartRevCluster"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -330,6 +373,9 @@
 
                         <div class="p-6 flex-1 overflow-auto bg-white">
                            <div id="tab-stores" class="tab-content block">
+                                <div class="flex justify-between items-center mb-4">
+                                    <input type="text" placeholder="Tìm tên Cửa hàng..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchStore(this.value)">
+                                </div>
                                 <div class="overflow-x-auto border rounded-lg">
                                     <table class="modern-table">
                                         <thead class="bg-slate-50 text-slate-700">
@@ -353,7 +399,7 @@
 
                             <div id="tab-gdv" class="tab-content hidden">
                                 <div class="flex justify-between items-center mb-4">
-                                    <input type="text" placeholder="Tìm GDV, Mã CH..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none">
+                                    <input type="text" placeholder="Tìm GDV, Mã CH..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchGDV(this.value)">
                                     <div class="flex gap-2">
                                         <button class="btn-secondary text-xs" onclick="app.downloadTemplate('gdv')"><i data-lucide="file-spreadsheet" class="w-3 h-3 mr-1"></i> File mẫu</button>
                                         <button class="btn-primary admin-only text-xs" onclick="app.openUploadModal('gdv')"><i data-lucide="upload" class="w-3 h-3 mr-1"></i> Upload</button>
@@ -382,6 +428,7 @@
 
                             <div id="tab-sales" class="tab-content hidden">
                                 <div class="flex justify-between items-center mb-4">
+                                    <input type="text" placeholder="Tìm NVBH..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchSales(this.value)">
                                     <div class="flex gap-2 ml-auto">
                                         <button class="btn-secondary text-xs" onclick="app.downloadTemplate('sales')"><i data-lucide="file-spreadsheet" class="w-3 h-3 mr-1"></i> File mẫu</button>
                                         <button class="btn-primary admin-only text-xs" onclick="app.openUploadModal('sales')"><i data-lucide="upload" class="w-3 h-3 mr-1"></i> Upload</button>
@@ -410,7 +457,7 @@
 
                             <div id="tab-b2b" class="tab-content hidden">
                                 <div class="flex justify-between items-center mb-4">
-                                    <input type="text" placeholder="Tìm NV KHDN..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none">
+                                    <input type="text" placeholder="Tìm NV KHDN..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchB2B(this.value)">
                                     <div class="flex gap-2">
                                         <button class="btn-secondary text-xs" onclick="app.downloadTemplate('b2b')"><i data-lucide="file-spreadsheet" class="w-3 h-3 mr-1"></i> File mẫu</button>
                                         <button class="btn-primary admin-only text-xs" onclick="app.openUploadModal('b2b')"><i data-lucide="upload" class="w-3 h-3 mr-1"></i> Upload</button>
@@ -812,6 +859,7 @@
             </div>
         </div>
     </div>
+
     <div id="modal-detail-list" class="modal-overlay">
         <div class="modal-content overflow-hidden max-w-5xl h-[80vh] flex flex-col">
             <div class="bg-white px-6 py-4 border-b border-slate-200 flex justify-between items-center shrink-0">
@@ -838,8 +886,10 @@
             </div>
         </div>
     </div>
+
     <script src="js/data-service.js"></script>
     <script src="js/ui-renderer.js"></script>
     <script src="js/main.js"></script>
+</body>
 </body>
 </html>
