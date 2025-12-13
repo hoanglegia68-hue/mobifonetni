@@ -403,7 +403,7 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    // HÀM RENDER CHÍNH CHO TAB SỐ LIỆU KINH DOANH (ĐÃ ĐƯỢC CẬP NHẬT HEADER 2 DÒNG)
+    // HÀM RENDER CHÍNH CHO TAB SỐ LIỆU KINH DOANH
     renderKPIActualTable(data, structure) {
         const tbody = document.getElementById('kpi-actual-tbody') || document.getElementById('body-thuchien');
         if (!tbody) return;
@@ -836,9 +836,6 @@ const UIRenderer = {
     /**
      * Vẽ toàn bộ báo cáo Biểu đồ & Số liệu KPI
      */
-    // ... (Giữ nguyên phần đầu file đến hết hàm renderDashboardCharts) ...
-// THAY THẾ HÀM renderKPIReport BẰNG CODE DƯỚI ĐÂY:
-
     renderKPIReport(data, filterInfo) {
         // Destroy old charts
         ['chartSubDaily', 'chartSubChannel', 'chartSubCluster', 'chartRevDaily', 'chartRevChannel', 'chartRevCluster'].forEach(id => {
@@ -951,7 +948,7 @@ const UIRenderer = {
 
 
     // ============================================================
-    // 7. MODAL CHI TIẾT (DRILL-DOWN)
+    // 7. MODAL CHI TIẾT (DRILL-DOWN) - ĐÃ FIX HOÀN TOÀN
     // ============================================================
 
     renderDetailModalContent(type, data) {
@@ -962,8 +959,10 @@ const UIRenderer = {
         let headerHtml = '';
         let bodyHtml = '';
 
+        // --------------------------------------------------------
+        // CASE 1: KPI BREAKDOWN (Số liệu Chi tiết)
+        // --------------------------------------------------------
         if (type === 'kpi-breakdown') {
-            // VIEW CHI TIẾT KPI
             headerHtml = `
                 <tr>
                     <th class="p-3 border-b text-center w-12 bg-slate-100">STT</th>
@@ -996,33 +995,155 @@ const UIRenderer = {
                     </td>
                 </tr>`;
             }).join('');
-
-        } else if (type === 'commune' || type === 'geo') {
-            // ... (GIỮ NGUYÊN CODE CŨ CỦA CÁC LOẠI KHÁC) ...
-            headerHtml = `...`; // (Code cũ)
-            // Copy lại phần logic cũ cho commune, store, gdv...
+        } 
+        
+        // --------------------------------------------------------
+        // CASE 2: PHƯỜNG XÃ (Địa lý / Dân số)
+        // --------------------------------------------------------
+        else if (type === 'commune' || type === 'geo') {
              headerHtml = `
                 <tr>
-                    <th class="p-3 text-left border-b font-bold text-slate-700 w-12">STT</th>
-                    <th class="p-3 text-left border-b font-bold text-slate-700">Tên Phường/Xã</th>
-                    <th class="p-3 text-right border-b font-bold text-slate-700">VLR (Thuê bao)</th>
-                    <th class="p-3 text-right border-b font-bold text-slate-700">Dân số</th>
-                    <th class="p-3 text-left border-b font-bold text-slate-700">Thông tin Lãnh đạo</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 w-12 bg-slate-100">STT</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Tên Phường/Xã</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Thuộc Đơn vị</th>
+                    <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">VLR (Thuê bao)</th>
+                    <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">Dân số</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Thông tin Lãnh đạo</th>
                 </tr>`;
-             bodyHtml = data.map((item, idx) => { /* Code cũ */ return `...` }).join('');
-             // Lưu ý: Nếu bạn copy paste, hãy đảm bảo giữ lại các logic if/else if cũ cho store, gdv, sales, bts...
-             // Để ngắn gọn tôi chỉ viết phần 'kpi-breakdown' mới ở trên.
-             // Dưới đây là logic cũ để bạn ghép vào nếu cần:
-             // ...
-        } else {
-             // Logic Fallback cho các bảng danh sách (Store, GDV, BTS...)
-             // Bạn có thể giữ nguyên logic cũ trong file ui-renderer.js của bạn
-             // Chỉ cần chèn đoạn if (type === 'kpi-breakdown') lên đầu hàm.
-             if (type === 'store') {
-                headerHtml = `<tr><th class="p-3 border-b text-center">STT</th><th class="p-3 border-b">Mã CH</th><th class="p-3 border-b">Tên Cửa Hàng</th><th class="p-3 border-b">Địa chỉ</th><th class="p-3 border-b">Diện tích</th></tr>`;
-                bodyHtml = data.map((i, idx) => `<tr class="border-b hover:bg-slate-50"><td class="p-3 text-center text-slate-500">${idx+1}</td><td class="p-3 font-bold text-blue-600">${i.id}</td><td class="p-3 font-bold">${i.ten}</td><td class="p-3 text-sm">${i.diaChi}</td><td class="p-3 text-sm">${i.dienTich || '-'}</td></tr>`).join('');
-            } 
-            // ... (Các loại khác tương tự)
+
+             bodyHtml = data.map((item, idx) => {
+                let leadersHtml = (item.lanhDao || []).map(ld => `
+                    <div class="text-[10px] mb-1 px-1.5 py-0.5 rounded border border-slate-200 w-fit bg-slate-50">
+                        <span class="font-bold text-slate-700">${ld.chucVu}:</span> ${ld.ten} <span class="text-slate-400 italic">(${ld.sdt})</span>
+                    </div>`).join('') || '<span class="text-xs text-slate-300 italic">Chưa cập nhật</span>';
+
+                return `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 font-bold text-blue-700">${item.ten}</td>
+                    <td class="p-3">
+                        <div class="text-xs font-bold text-slate-600">${item.tenCum || ''}</div>
+                        <div class="text-[10px] text-slate-400">${item.tenLienCum || ''}</div>
+                    </td>
+                    <td class="p-3 text-right font-mono text-slate-700">${this.formatNumber(item.vlr)}</td>
+                    <td class="p-3 text-right font-mono text-slate-500">${this.formatNumber(item.danSo)}</td>
+                    <td class="p-3">${leadersHtml}</td>
+                </tr>`;
+             }).join('');
+        }
+
+        // --------------------------------------------------------
+        // CASE 3: CỬA HÀNG
+        // --------------------------------------------------------
+        else if (type === 'store') {
+            headerHtml = `
+                <tr>
+                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
+                    <th class="p-3 border-b bg-slate-100">Mã CH</th>
+                    <th class="p-3 border-b bg-slate-100">Tên Cửa Hàng</th>
+                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100">Địa chỉ</th>
+                    <th class="p-3 border-b bg-slate-100">Diện tích</th>
+                </tr>`;
+            
+            bodyHtml = data.map((i, idx) => `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 font-bold text-blue-600 font-mono">${i.id}</td>
+                    <td class="p-3 font-bold text-slate-700">${i.ten}</td>
+                    <td class="p-3 text-xs">
+                        <div>${app.getNameCum(i.maCum)}</div>
+                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
+                    </td>
+                    <td class="p-3 text-sm">${i.diaChi}</td>
+                    <td class="p-3 text-sm font-bold text-slate-600">${i.dienTich || '-'}</td>
+                </tr>`).join('');
+        }
+
+        // --------------------------------------------------------
+        // CASE 4: NHÂN SỰ (GDV, SALES, B2B)
+        // --------------------------------------------------------
+        else if (type === 'gdv' || type === 'sales' || type === 'b2b') {
+            headerHtml = `
+                <tr>
+                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
+                    <th class="p-3 border-b bg-slate-100">Mã NV</th>
+                    <th class="p-3 border-b bg-slate-100">Họ Tên</th>
+                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100 text-center">Vùng</th>
+                    <th class="p-3 border-b bg-slate-100">Số ĐT</th>
+                    <th class="p-3 border-b bg-slate-100 text-center">Trạng thái</th>
+                </tr>`;
+            
+            bodyHtml = data.map((i, idx) => `
+                <tr class="border-b hover:bg-slate-50 transition ${i.trangThai==='Nghỉ việc'?'opacity-60 bg-slate-50':''}">
+                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 font-bold text-slate-600 font-mono">${i.ma}</td>
+                    <td class="p-3 font-medium text-slate-800">${i.ten}</td>
+                    <td class="p-3 text-xs">
+                        <div>${app.getNameCum(i.maCum)}</div>
+                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
+                    </td>
+                    <td class="p-3 text-center"><span class="badge-region">${i.vung||'-'}</span></td>
+                    <td class="p-3 text-sm font-mono">${i.sdt||''}</td>
+                    <td class="p-3 text-center">${this.getStatusBadge(i.trangThai, i.ngayNghi)}</td>
+                </tr>`).join('');
+        }
+
+        // --------------------------------------------------------
+        // CASE 5: TRẠM BTS
+        // --------------------------------------------------------
+        else if (type === 'bts') {
+            headerHtml = `
+                <tr>
+                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
+                    <th class="p-3 border-b bg-slate-100">Mã Trạm</th>
+                    <th class="p-3 border-b bg-slate-100">Tên Trạm</th>
+                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100">Địa chỉ</th>
+                    <th class="p-3 border-b bg-slate-100">Ghi chú</th>
+                </tr>`;
+            
+            bodyHtml = data.map((i, idx) => `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 font-bold text-slate-700 font-mono">${i.maTram}</td>
+                    <td class="p-3 font-medium text-blue-700">${i.tenTram}</td>
+                    <td class="p-3 text-xs">
+                        <div>${app.getNameCum(i.maCum)}</div>
+                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
+                    </td>
+                    <td class="p-3 text-xs text-slate-600 max-w-[200px] truncate" title="${i.diaChi}">${i.diaChi}</td>
+                    <td class="p-3 text-xs italic text-slate-500">${i.ghiChu||''}</td>
+                </tr>`).join('');
+        }
+
+        // --------------------------------------------------------
+        // CASE 6: KÊNH GIÁN TIẾP
+        // --------------------------------------------------------
+        else if (type === 'indirect') {
+            headerHtml = `
+                <tr>
+                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
+                    <th class="p-3 border-b bg-slate-100">Mã ĐL/ĐB</th>
+                    <th class="p-3 border-b bg-slate-100">Tên Điểm bán</th>
+                    <th class="p-3 border-b bg-slate-100">Loại</th>
+                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100">NV Phụ trách</th>
+                </tr>`;
+            
+            bodyHtml = data.map((i, idx) => `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 font-bold text-blue-600 font-mono">${i.maDL}</td>
+                    <td class="p-3 font-medium text-slate-700">${i.ten}</td>
+                    <td class="p-3"><span class="text-xs border px-1.5 py-0.5 rounded bg-slate-50">${i.loai}</span></td>
+                    <td class="p-3 text-xs">
+                        <div>${app.getNameCum(i.maCum)}</div>
+                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
+                    </td>
+                    <td class="p-3 text-xs font-mono text-slate-500">${i.maNV||''}</td>
+                </tr>`).join('');
         }
 
         thead.innerHTML = headerHtml;
