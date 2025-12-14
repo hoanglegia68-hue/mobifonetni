@@ -213,6 +213,12 @@ const app = {
         } catch (e) { console.error(e); }
     },
 
+    // Xử lý khi bộ lọc Dashboard thay đổi (All / Liên Cụm / Cụm)
+    handleDashboardFilter(scope) {
+        console.log("Dashboard Filter Changed:", scope);
+        // Gọi hàm renderDashboard với scope mới để vẽ lại toàn bộ dữ liệu (Thẻ số liệu + Bảng)
+        UIRenderer.renderDashboard(scope);
+    },
     // Hàm xử lý khi Click vào biểu đồ Kênh (Tỷ trọng)
     handleChannelChartClick(type, channelName) {
         if (!this.currentKPIReportData || !this.currentKPIReportData[type]) return;
