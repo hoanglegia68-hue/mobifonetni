@@ -836,6 +836,11 @@ const UIRenderer = {
     /**
      * Vẽ toàn bộ báo cáo Biểu đồ & Số liệu KPI
      */
+    // ... (Phần đầu giữ nguyên)
+
+    // ============================================================
+    // CẬP NHẬT HÀM VẼ BIỂU ĐỒ (SỬA LỖI 2 - BƯỚC 2)
+    // ============================================================
     renderKPIReport(data, filterInfo) {
         // Destroy old charts
         ['chartSubDaily', 'chartSubChannel', 'chartSubCluster', 'chartRevDaily', 'chartRevChannel', 'chartRevCluster'].forEach(id => {
@@ -845,7 +850,6 @@ const UIRenderer = {
             }
         });
 
-        // 1. UPDATE WIDGETS
         const updateWidget = (prefix, actual, plan) => {
             const elActual = document.getElementById(`stat-${prefix}-actual`);
             const elPlan = document.getElementById(`stat-${prefix}-plan`);
@@ -863,36 +867,26 @@ const UIRenderer = {
         updateWidget('sub', data.sub.actual, data.sub.plan);
         updateWidget('rev', data.rev.actual, data.rev.plan);
 
-        // 2. DRAW CHARTS
-        
-        // Helper: Create Line Chart (Daily)
+        // Helper: Line Chart
         const createLineChart = (canvasId, dailyData, color) => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
             const dates = Object.keys(dailyData).sort();
             const values = dates.map(d => dailyData[d]);
-            const labels = dates.map(d => d.split('-').slice(1).join('/')); // mm/dd
+            const labels = dates.map(d => d.split('-').slice(1).join('/')); 
 
             app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Thực hiện',
-                        data: values,
-                        borderColor: color,
-                        backgroundColor: color + '20', // Opacity
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3
-                    }]
+                    datasets: [{ label: 'Thực hiện', data: values, borderColor: color, backgroundColor: color + '20', fill: true, tension: 0.3, pointRadius: 3 }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
             });
         };
 
-        // Helper: Create Bar Chart (Channel)
-        const createChannelChart = (canvasId, channelData, color) => {
+        // Helper: Bar Chart (Channel) - CÓ SỰ KIỆN CLICK
+        const createChannelChart = (canvasId, channelData, color, type) => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
             const labels = Object.keys(channelData);
@@ -902,71 +896,113 @@ const UIRenderer = {
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Số lượng',
-                        data: values,
-                        backgroundColor: color,
-                        borderRadius: 4
-                    }]
+                    datasets: [{ label: 'Số lượng', data: values, backgroundColor: color, borderRadius: 4 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    indexAxis: 'y',
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const channelName = labels[index];
+                            // GỌI HÀM XỬ LÝ CLICK TRONG MAIN.JS
+                            app.handleChannelChartClick(type, channelName);
+                        }
+                    },
+                    onHover: (event, chartElement) => {
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    }
+                }
             });
         };
 
-        // Helper: Create Grouped Bar Chart (Cluster Comp)
+        // Helper: Cluster Chart
         const createClusterChart = (canvasId, clusterData, colorActual) => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
             const clusters = Object.keys(clusterData);
             const actuals = clusters.map(c => clusterData[c].actual);
             const plans = clusters.map(c => clusterData[c].plan);
-            // Map tên hiển thị
             const clusterNames = clusters.map(c => app.getNameLienCum(c) || app.getNameCum(c) || c);
 
             app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: clusterNames,
-                    datasets: [
-                        { label: 'Thực hiện', data: actuals, backgroundColor: colorActual },
-                        { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1' }
-                    ]
+                    datasets: [{ label: 'Thực hiện', data: actuals, backgroundColor: colorActual }, { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         };
 
-        // Execute Drawing
-        createLineChart('chartSubDaily', data.sub.daily, '#10b981'); // Emerald
-        createChannelChart('chartSubChannel', data.sub.channel, '#34d399');
+        createLineChart('chartSubDaily', data.sub.daily, '#10b981'); 
+        // Truyền thêm tham số 'sub' để biết đang click vào biểu đồ thuê bao
+        createChannelChart('chartSubChannel', data.sub.channel, '#34d399', 'sub');
         createClusterChart('chartSubCluster', data.sub.cluster, '#059669');
 
-        createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); // Blue
-        createChannelChart('chartRevChannel', data.rev.channel, '#60a5fa');
+        createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); 
+        // Truyền thêm tham số 'rev' để biết đang click vào biểu đồ doanh thu
+        createChannelChart('chartRevChannel', data.rev.channel, '#60a5fa', 'rev');
         createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8');
     },
 
-
     // ============================================================
-    // 7. MODAL CHI TIẾT (DRILL-DOWN) - ĐÃ FIX HOÀN TOÀN
+    // CẬP NHẬT HÀM RENDER MODAL (SỬA LỖI 2 - BƯỚC 4)
+    // ============================================================
+    // ============================================================
+    // 7. MODAL CHI TIẾT (DRILL-DOWN) - PHIÊN BẢN CHUẨN (MERGED)
     // ============================================================
 
-    renderDetailModalContent(type, data) {
+    renderDetailModalContent(type, data, meta = {}) {
         const thead = document.getElementById('modal-detail-thead');
         const tbody = document.getElementById('modal-detail-tbody');
         if(!thead || !tbody) return;
+
+        // --- 1. TẠO THANH CÔNG CỤ CHUYỂN ĐỔI (TOGGLE) ---
+        // Chỉ hiện khi type là báo cáo KPI
+        let toggleHtml = '';
+        if (type === 'kpi-breakdown' || type === 'kpi-channel-detail') {
+            const isCum = meta.viewLevel === 'cum'; // Mặc định là 'cum' nếu không truyền
+            
+            const btnClassBase = "px-3 py-1 text-xs font-bold rounded border transition-colors focus:outline-none";
+            const btnActive = "bg-blue-600 text-white border-blue-600 shadow-sm";
+            const btnInactive = "bg-white text-slate-600 border-slate-300 hover:bg-slate-50";
+
+            // Logic gọi hàm khi bấm nút
+            // Nếu là breakdown (Thực hiện/Kế hoạch)
+            const fnCallCum = type === 'kpi-breakdown' 
+                ? `app.showKPIBreakdown('${meta.type}', 'cum')` 
+                : `app.handleChannelChartClick('${meta.type}', '${meta.channelName}', 'cum')`;
+                
+            const fnCallLC = type === 'kpi-breakdown' 
+                ? `app.showKPIBreakdown('${meta.type}', 'liencum')` 
+                : `app.handleChannelChartClick('${meta.type}', '${meta.channelName}', 'liencum')`;
+
+            toggleHtml = `
+                <tr class="bg-slate-50 border-b">
+                    <td colspan="5" class="p-3">
+                        <div class="flex items-center justify-center gap-2">
+                            <button onclick="${fnCallCum}" class="${btnClassBase} ${isCum ? btnActive : btnInactive}">Xem theo Cụm</button>
+                            <button onclick="${fnCallLC}" class="${btnClassBase} ${!isCum ? btnActive : btnInactive}">Xem theo Liên Cụm</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
 
         let headerHtml = '';
         let bodyHtml = '';
 
         // --------------------------------------------------------
-        // CASE 1: KPI BREAKDOWN (Số liệu Chi tiết)
+        // CASE 1: KPI BREAKDOWN (Số liệu Chi tiết Thực hiện vs Kế hoạch)
         // --------------------------------------------------------
         if (type === 'kpi-breakdown') {
             headerHtml = `
+                ${toggleHtml}
                 <tr>
                     <th class="p-3 border-b text-center w-12 bg-slate-100">STT</th>
-                    <th class="p-3 border-b text-left bg-slate-100">Đơn vị (Cụm)</th>
+                    <th class="p-3 border-b text-left bg-slate-100">Đơn vị (${meta.viewLevel === 'liencum' ? 'Liên Cụm' : 'Cụm'})</th>
                     <th class="p-3 border-b text-right bg-slate-100">Thực hiện</th>
                     <th class="p-3 border-b text-right bg-slate-100">Kế hoạch</th>
                     <th class="p-3 border-b text-center bg-slate-100 w-32">% HT</th>
@@ -998,7 +1034,41 @@ const UIRenderer = {
         } 
         
         // --------------------------------------------------------
-        // CASE 2: PHƯỜNG XÃ (Địa lý / Dân số)
+        // CASE 2: KPI CHANNEL DETAIL (Chi tiết theo Kênh)
+        // --------------------------------------------------------
+        else if (type === 'kpi-channel-detail') {
+            headerHtml = `
+                ${toggleHtml}
+                <tr>
+                    <th class="p-3 border-b text-center w-12 bg-slate-100">STT</th>
+                    <th class="p-3 border-b text-left bg-slate-100">Đơn vị (${meta.viewLevel === 'liencum' ? 'Liên Cụm' : 'Cụm'})</th>
+                    <th class="p-3 border-b text-right bg-slate-100">Sản lượng Kênh</th>
+                    <th class="p-3 border-b text-right bg-slate-100">Tổng Đơn vị</th>
+                    <th class="p-3 border-b text-center bg-slate-100 w-32">Tỷ trọng</th>
+                </tr>`;
+            
+            bodyHtml = data.map((item, idx) => `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                    <td class="p-3">
+                        <div class="font-bold text-slate-700">${item.name}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">${item.code}</div>
+                    </td>
+                    <td class="p-3 text-right font-bold text-blue-700">${this.formatNumber(item.value)}</td>
+                    <td class="p-3 text-right text-slate-500">${this.formatNumber(item.total)}</td>
+                    <td class="p-3 align-middle">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-600 w-10 text-right">${item.percent}%</span>
+                            <div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500" style="width: ${Math.min(item.percent, 100)}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`).join('');
+        }
+
+        // --------------------------------------------------------
+        // CASE 3: PHƯỜNG XÃ (Địa lý / Dân số)
         // --------------------------------------------------------
         else if (type === 'commune' || type === 'geo') {
              headerHtml = `
@@ -1033,7 +1103,7 @@ const UIRenderer = {
         }
 
         // --------------------------------------------------------
-        // CASE 3: CỬA HÀNG
+        // CASE 4: CỬA HÀNG
         // --------------------------------------------------------
         else if (type === 'store') {
             headerHtml = `
@@ -1061,7 +1131,7 @@ const UIRenderer = {
         }
 
         // --------------------------------------------------------
-        // CASE 4: NHÂN SỰ (GDV, SALES, B2B)
+        // CASE 5: NHÂN SỰ (GDV, SALES, B2B)
         // --------------------------------------------------------
         else if (type === 'gdv' || type === 'sales' || type === 'b2b') {
             headerHtml = `
@@ -1091,7 +1161,7 @@ const UIRenderer = {
         }
 
         // --------------------------------------------------------
-        // CASE 5: TRẠM BTS
+        // CASE 6: TRẠM BTS
         // --------------------------------------------------------
         else if (type === 'bts') {
             headerHtml = `
@@ -1119,7 +1189,7 @@ const UIRenderer = {
         }
 
         // --------------------------------------------------------
-        // CASE 6: KÊNH GIÁN TIẾP
+        // CASE 7: KÊNH GIÁN TIẾP
         // --------------------------------------------------------
         else if (type === 'indirect') {
             headerHtml = `
@@ -1150,8 +1220,10 @@ const UIRenderer = {
         tbody.innerHTML = bodyHtml;
         lucide.createIcons();
     },
+    
 
     renderDashboardCharts(kpiData, instances) {
+        // ... (Giữ nguyên hàm này)
         if (instances.revenueChart) instances.revenueChart.destroy();
         if (instances.subChart) instances.subChart.destroy();
 
