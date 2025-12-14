@@ -651,7 +651,12 @@ const UIRenderer = {
     // 6. DASHBOARD CHÍNH (THẺ & BẢNG INTERACTIVE)
     // ============================================================
 
+    // ============================================================
+    // 6. DASHBOARD CHÍNH (NÂNG CẤP: LỌC CỤM & LIÊN CỤM)
+    // ============================================================
+
     async renderDashboard(filterScope = 'all') {
+        // Lấy dữ liệu
         const allClusters = await DataService.getClusters();
         const allStores = await DataService.getStores();
         const allBts = await DataService.getBTS();
@@ -660,21 +665,43 @@ const UIRenderer = {
         const allB2B = await DataService.getB2BStaff();
         const allIndirect = await DataService.getIndirectChannels(); 
 
-        // 1. Fill Data vào Dropdown
+        // --------------------------------------------------------
+        // 1. NÂNG CẤP DROPDOWN (Chia Group Cụm / Liên Cụm)
+        // --------------------------------------------------------
         const select = document.getElementById('dashboard-scope-select');
-        if (select && select.options.length === 1) { 
+        // Chỉ khởi tạo lại nếu chưa có dữ liệu hoặc đang ở trạng thái mặc định sơ sài
+        if (select && select.querySelectorAll('optgroup').length === 0) { 
+            select.innerHTML = '<option value="all">Toàn Công Ty</option>';
+            
+            // Group 1: LIÊN CỤM
+            const lcGroup = document.createElement('optgroup');
+            lcGroup.label = "--- LIÊN CỤM ---";
             allClusters.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.maLienCum;
-                opt.textContent = c.tenLienCum;
-                select.appendChild(opt);
+                lcGroup.innerHTML += `<option value="${c.maLienCum}">${c.tenLienCum}</option>`;
             });
+            select.appendChild(lcGroup);
+
+            // Group 2: CỤM (Flatten dữ liệu từ cây Clusters)
+            const cGroup = document.createElement('optgroup');
+            cGroup.label = "--- CỤM ---";
+            allClusters.forEach(lc => {
+                lc.cums.forEach(c => {
+                    cGroup.innerHTML += `<option value="${c.maCum}">${c.tenCum} (${lc.tenLienCum})</option>`;
+                });
+            });
+            select.appendChild(cGroup);
+
+            // Set lại giá trị đang chọn (để không bị reset về 'all' khi reload UI)
+            select.value = filterScope; 
         }
 
-        // 2. Filter dữ liệu
+        // --------------------------------------------------------
+        // 2. LOGIC LỌC DỮ LIỆU (Hỗ trợ cả Liên Cụm & Cụm)
+        // --------------------------------------------------------
         const filterByScope = (list) => {
             if (filterScope === 'all') return list;
-            return list.filter(item => item.maLienCum === filterScope);
+            // Kiểm tra item thuộc Liên Cụm OR thuộc Cụm được chọn
+            return list.filter(item => item.maLienCum === filterScope || item.maCum === filterScope);
         };
 
         const stores = filterByScope(allStores);
@@ -684,29 +711,38 @@ const UIRenderer = {
         const b2b = filterByScope(allB2B);
         const indirect = filterByScope(allIndirect);
         
-        // --- LOGIC TÍNH TOÁN VLR/DÂN SỐ ---
+        // --- Tính toán VLR/Dân số ---
         let communes = [];
         if (filterScope === 'all') {
-            allClusters.forEach(lc => {
-                lc.cums.forEach(c => communes.push(...c.phuongXas));
-            });
+            allClusters.forEach(lc => lc.cums.forEach(c => communes.push(...c.phuongXas)));
         } else {
-            const selectedLC = allClusters.find(c => c.maLienCum === filterScope);
-            if (selectedLC) selectedLC.cums.forEach(c => communes.push(...c.phuongXas));
+            // Tìm trong Liên Cụm
+            const foundLC = allClusters.find(c => c.maLienCum === filterScope);
+            if (foundLC) {
+                foundLC.cums.forEach(c => communes.push(...c.phuongXas));
+            } else {
+                // Nếu không phải Liên Cụm, tìm trong Cụm
+                allClusters.forEach(lc => {
+                    const foundCum = lc.cums.find(c => c.maCum === filterScope);
+                    if (foundCum) communes.push(...foundCum.phuongXas);
+                });
+            }
         }
 
         const totalVLR = communes.reduce((sum, px) => sum + (Number(px.vlr) || 0), 0);
         const totalPop = communes.reduce((sum, px) => sum + (Number(px.danSo) || 0), 0);
         const totalCommunes = communes.length;
         
-        // Count Active/Expiring
-        const storesExpiring = stores.filter(s => {
-            if(!s.ngayHetHan) return false;
-            return this.getDaysRemaining(s.ngayHetHan) < 30; 
-        }).length;
+        // Count Helpers
+        const storesExpiring = stores.filter(s => s.ngayHetHan && this.getDaysRemaining(s.ngayHetHan) < 30).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
-        // --- RENDER CARDS ---
+        // --------------------------------------------------------
+        // 3. VẼ LẠI CÁC THẺ (CARDS)
+        // --------------------------------------------------------
+        // ... (Giữ nguyên HTML phần Cards như cũ, chỉ thay đổi biến số liệu đã lọc ở trên)
+        // Để tiết kiệm không gian, tôi dùng lại cấu trúc cũ nhưng inject biến mới:
+        
         document.getElementById('dashboard-infrastructure').innerHTML = `
             <div onclick="app.showDashboardDetail('store', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
                 <div class="flex justify-between items-start">
@@ -778,34 +814,85 @@ const UIRenderer = {
             </div>
         `;
 
-        // --- BẢNG CHI TIẾT ---
-        let displayClusters = allClusters;
-        if (filterScope !== 'all') {
-            const selectedLC = allClusters.find(c => c.maLienCum === filterScope);
-            if (selectedLC) {
-                displayClusters = selectedLC.cums.map(c => ({
-                    isCum: true, maCode: c.maCum, tenHienThi: c.tenCum, parentCode: selectedLC.maLienCum, ...c
-                }));
-            }
-        } else {
-            displayClusters = displayClusters.map(lc => ({
-                isCum: false, maCode: lc.maLienCum, tenHienThi: lc.tenLienCum, ...lc
+        // --------------------------------------------------------
+        // 4. BẢNG CHI TIẾT PHÂN BỔ (Tự động chuyển view)
+        // --------------------------------------------------------
+        let displayItems = [];
+        let viewMode = 'liencum'; // Mặc định: liencum, cum, xaphuong
+
+        if (filterScope === 'all') {
+            // View All -> Hiển thị danh sách LIÊN CỤM
+            viewMode = 'liencum';
+            displayItems = allClusters.map(lc => ({
+                code: lc.maLienCum,
+                name: lc.tenLienCum,
+                subCount: lc.cums.length, // Số cụm
+                type: 'Liên Cụm',
+                filterKey: 'maLienCum' // Key dùng để lọc data con
             }));
+        } else {
+            // Kiểm tra xem Scope là Liên Cụm hay Cụm
+            const foundLC = allClusters.find(c => c.maLienCum === filterScope);
+            
+            if (foundLC) {
+                // View 1 Liên Cụm -> Hiển thị danh sách CỤM trực thuộc
+                viewMode = 'cum';
+                displayItems = foundLC.cums.map(c => ({
+                    code: c.maCum,
+                    name: c.tenCum,
+                    subCount: c.phuongXas.length, // Số Xã
+                    type: 'Cụm',
+                    filterKey: 'maCum'
+                }));
+            } else {
+                // View 1 Cụm -> Hiển thị chính CỤM đó (hoặc list Xã nếu muốn, ở đây hiển thị 1 dòng tổng hợp)
+                viewMode = 'cum_detail';
+                // Tìm Cụm trong toàn bộ data
+                let foundCum = null;
+                allClusters.forEach(lc => {
+                    const c = lc.cums.find(x => x.maCum === filterScope);
+                    if(c) foundCum = c;
+                });
+
+                if(foundCum) {
+                    displayItems = [{
+                        code: foundCum.maCum,
+                        name: foundCum.tenCum,
+                        subCount: foundCum.phuongXas.length,
+                        type: 'Cụm',
+                        filterKey: 'maCum'
+                    }];
+                }
+            }
+        }
+
+        // Update Table Header dựa trên View Mode
+        const tHeadLabel = viewMode === 'liencum' ? 'Liên Cụm' : 'Cụm / Đơn vị';
+        const tSubLabel = viewMode === 'liencum' ? 'Số Cụm' : 'Số Xã';
+        
+        // Cập nhật tiêu đề bảng (Thao tác DOM trực tiếp vào thẻ thead của bảng breakdown nếu cần, 
+        // ở đây ta giả định cấu trúc HTML header cố định, chỉ render body, 
+        // nhưng để UX tốt, ta nên update Text Header cột 2 và 3)
+        const tableHeaderRows = document.querySelectorAll('#view-dashboard table thead th');
+        if(tableHeaderRows.length > 2) {
+            tableHeaderRows[1].textContent = `Đơn vị (${tHeadLabel})`;
+            tableHeaderRows[2].textContent = tSubLabel;
         }
 
         const tbody = document.getElementById('dashboard-breakdown-body');
         if (tbody) {
-            tbody.innerHTML = displayClusters.map((item, idx) => {
-                const filterKey = item.isCum ? 'maCum' : 'maLienCum';
-                const code = item.maCode;
+            tbody.innerHTML = displayItems.map((item, idx) => {
+                const code = item.code;
+                const filterKey = item.filterKey;
 
+                // Đếm số liệu con tương ứng với Code này
                 const cStore = allStores.filter(i => i[filterKey] === code).length;
                 const cGdv = allGdvs.filter(i => i[filterKey] === code).length;
                 const cSale = allSales.filter(i => i[filterKey] === code).length;
                 const cAgency = allIndirect.filter(i => i[filterKey] === code).length;
                 const cBts = allBts.filter(i => i[filterKey] === code).length;
-                const countXa = item.isCum ? item.phuongXas.length : item.cums.reduce((sum, c) => sum + c.phuongXas.length, 0);
-
+                
+                // Helper tạo nút bấm xem chi tiết
                 const makeLink = (count, type, cssClass) => {
                     if(count === 0) return `<span class="text-slate-300">-</span>`;
                     return `<button onclick="app.showDashboardDetail('${type}', '${code}')" 
@@ -818,10 +905,12 @@ const UIRenderer = {
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
                     <td class="p-3 text-center text-slate-500">${idx + 1}</td>
                     <td class="p-3">
-                        <div class="font-bold text-slate-700">${item.tenHienThi}</div>
+                        <div class="font-bold text-slate-700">${item.name}</div>
                         <div class="text-[10px] text-slate-400 font-mono">${code}</div>
                     </td>
-                    <td class="p-3 text-center font-medium">${makeLink(countXa, 'commune', 'text-slate-700 font-bold bg-slate-100')} <span class="text-[10px] text-slate-400 block">Xã/Phường</span></td>
+                    <td class="p-3 text-center font-medium">
+                        <span class="text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded text-xs">${item.subCount}</span>
+                    </td>
                     <td class="p-3 text-center">${makeLink(cStore, 'store', 'text-blue-700 font-bold bg-blue-50')}</td>
                     <td class="p-3 text-center">${makeLink(cGdv, 'gdv', 'text-emerald-700 font-bold bg-emerald-50')}</td>
                     <td class="p-3 text-center">${makeLink(cSale, 'sales', 'text-orange-700 font-bold bg-orange-50')}</td>
@@ -836,8 +925,7 @@ const UIRenderer = {
     /**
      * Vẽ toàn bộ báo cáo Biểu đồ & Số liệu KPI
      */
-    // ... (Phần đầu giữ nguyên)
-
+    
     // ============================================================
     // CẬP NHẬT HÀM VẼ BIỂU ĐỒ (SỬA LỖI 2 - BƯỚC 2)
     // ============================================================
@@ -947,9 +1035,7 @@ const UIRenderer = {
         createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8');
     },
 
-    // ============================================================
-    // CẬP NHẬT HÀM RENDER MODAL (SỬA LỖI 2 - BƯỚC 4)
-    // ============================================================
+ 
     // ============================================================
     // 7. MODAL CHI TIẾT (DRILL-DOWN) - PHIÊN BẢN CHUẨN (MERGED)
     // ============================================================
