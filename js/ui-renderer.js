@@ -1027,7 +1027,65 @@ const UIRenderer = {
         createLineChart('chartSubDaily', data.sub.daily, '#10b981'); 
         // Truyền thêm tham số 'sub' để biết đang click vào biểu đồ thuê bao
         createChannelChart('chartSubChannel', data.sub.channel, '#34d399', 'sub');
-        createClusterChart('chartSubCluster', data.sub.cluster, '#059669');
+        // ---------------------------------------------------------
+        // THAY THẾ: BIỂU ĐỒ SUB - CLUSTER (Bar + Line)
+        // ---------------------------------------------------------
+        const ctxSubCluster = document.getElementById('chartSubCluster');
+        if (ctxSubCluster) {
+            const clusterKeys = Object.keys(data.sub.cluster);
+            const labels = clusterKeys.map(k => app.getNameLienCum(k) || app.getNameCum(k) || k);
+            const valActual = clusterKeys.map(k => data.sub.cluster[k].actual);
+            const valPlan = clusterKeys.map(k => data.sub.cluster[k].plan);
+
+            app.chartInstances['chartSubCluster'] = new Chart(ctxSubCluster.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line', // Kế hoạch là đường
+                            label: 'Kế hoạch',
+                            data: valPlan,
+                            borderColor: '#94a3b8', // Màu xám
+                            borderWidth: 2,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: '#94a3b8',
+                            pointRadius: 4,
+                            fill: false,
+                            tension: 0.1,
+                            order: 1 // Vẽ đè lên trên
+                        },
+                        {
+                            type: 'bar', // Thực hiện là cột
+                            label: 'Thực hiện',
+                            data: valActual,
+                            backgroundColor: '#059669', // Màu xanh Emerald
+                            borderRadius: 4,
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: { mode: 'index', intersect: false } // Hiện cả 2 số khi hover
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [2, 2] } },
+                        x: { grid: { display: false } }
+                    },
+                    onClick: (e, activeEls) => {
+                        if (activeEls.length > 0) {
+                            const index = activeEls[0].index;
+                            const code = clusterKeys[index];
+                            const viewLevel = code.startsWith('LC') ? 'liencum' : 'cum';
+                            if(app.showKPIBreakdown) app.showKPIBreakdown('sub', viewLevel);
+                        }
+                    }
+                }
+            });
+        }
 
         createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); 
         // Truyền thêm tham số 'rev' để biết đang click vào biểu đồ doanh thu
