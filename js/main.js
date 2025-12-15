@@ -61,8 +61,12 @@ const app = {
     // ============================================================
     // 3. LOGIC XỬ LÝ DỮ LIỆU KPI & BIỂU ĐỒ
     // ============================================================
+    // TRONG FILE main.js
+
     async handleKPIReportFilter() {
-        console.log("Loading Advanced Chart Data...");
+        console.log("Loading Staff & KPI Data...");
+        
+        // 1. Lấy giá trị bộ lọc
         const dFrom = document.getElementById('dash-date-from')?.value;
         const dTo = document.getElementById('dash-date-to')?.value;
         const scope = document.getElementById('filter-scope')?.value || 'all';
@@ -72,18 +76,22 @@ const app = {
         if (!dFrom || !dTo) return alert("Vui lòng chọn khoảng thời gian!");
 
         try {
-            const [raw, plans, struct, logs] = await Promise.all([
+            // 2. Tải tất cả dữ liệu cần thiết (KPI + Danh sách nhân viên)
+            const [raw, plans, struct, logs, listGDV, listSales, listB2B] = await Promise.all([
                 DataService.getKPIActual(dFrom.substring(0,7), dTo.substring(0,7), null),
                 DataService.getKPIPlanning(),
                 DataService.getKPIStructure(),
-                DataService.getKPILogs()
+                DataService.getKPILogs(),
+                DataService.getGDVs(),        // Lấy danh sách GDV
+                DataService.getSalesStaff(),  // Lấy danh sách Sales
+                DataService.getB2BStaff()     // Lấy danh sách B2B
             ]);
 
             const rawData = this.normalizeDataSet(raw);
             const planData = this.normalizeDataSet(plans);
             const logData = this.normalizeDataSet(logs);
 
-            // Map Nhân viên -> Kênh
+            // 3. Map & Init
             const userChannelMap = {};
             logData.forEach(l => {
                 const nv = l.maNV || l.MaNV;
@@ -91,39 +99,31 @@ const app = {
                 if(nv) userChannelMap[nv] = ch;
             });
 
-            // Map Cấu trúc KPI
-            const unitMap = {}; 
             const typeMap = {}; 
             struct.forEach(s => { 
                 if(s.active) {
                     const k = app.cleanCode(s.ma);
                     const u = (s.dvt || '').toLowerCase();
-                    unitMap[k] = u;
                     typeMap[k] = (u === 'tb' || u.includes('thuê bao')) ? 'sub' : 'rev';
                 }
             });
 
-            // Init data structure
-            const initData = () => ({ 
-                actual: 0, plan: 0, 
-                daily: {}, channel: {}, cluster: {}, 
-                breakdown: {} 
-            });
-            
+            // Init data structure cho Sub/Rev
+            const initData = () => ({ actual: 0, plan: 0, daily: {}, channel: {}, cluster: {}, breakdown: {} });
             const subData = initData();
             const revData = initData();
-            
-            // Helper init breakdown obj
-            const initBreakdownObj = () => ({ actual: 0, plan: 0, channels: {} });
             const initClusterObj = () => ({ actual: 0, plan: 0 });
+            const initBreakdownObj = () => ({ actual: 0, plan: 0, channels: {} });
 
-            // 1. PROCESS ACTUAL (Thực hiện)
+            // Init Map tổng hợp số liệu cho TỪNG NHÂN VIÊN (bất kể loại nào)
+            const staffMap = {}; 
+
+            // --- 4. TÍNH TOÁN KPI THỰC HIỆN (ACTUAL) ---
             rawData.forEach(row => {
                 const parsed = this.parseDateKey(row.date);
                 if (parsed.full < dFrom || parsed.full > dTo) return;
-                
                 if (!this.checkScope(row)) return;
-                // Filter theo Scope được chọn trên dropdown
+
                 if (scope !== 'all') {
                     if (scope.startsWith('LC-') && row.maLienCum !== scope) return;
                     if (scope.startsWith('C-') && row.maCum !== scope) return;
@@ -134,86 +134,230 @@ const app = {
                 const type = typeMap[kpi];
                 if (!type) return;
 
-                const nv = row.maNV;
+                const nv = row.maNV || row.MaNV;
                 const rowChannel = userChannelMap[nv] || 'KHÁC';
                 if (channelFilter !== 'all' && rowChannel !== channelFilter) return;
 
                 let val = Number(row.giaTri) || 0;
-                if (type === 'sub') val = 1; 
-                else val = val / 1000000; // Doanh thu -> Triệu đồng
+                if (type === 'sub') val = 1; else val = val / 1000000;
 
+                // Cộng dồn KPI Chung
                 const targetData = type === 'sub' ? subData : revData;
-                
                 targetData.actual += val;
-
-                // Daily Chart Data
                 const dKey = parsed.full;
                 if (!targetData.daily[dKey]) targetData.daily[dKey] = 0;
                 targetData.daily[dKey] += val;
-
-                // Channel Chart Data
                 if (!targetData.channel[rowChannel]) targetData.channel[rowChannel] = 0;
                 targetData.channel[rowChannel] += val;
-
-                // Cluster Chart Data
                 const cKey = row.maLienCum || 'KHÁC'; 
                 if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initClusterObj();
                 targetData.cluster[cKey].actual += val;
 
-                // Breakdown Detail (Popup) - Lưu chi tiết kênh vào từng Cụm
-                const cumCode = row.maCum || 'KHÁC';
-                if (!targetData.breakdown[cumCode]) targetData.breakdown[cumCode] = initBreakdownObj();
-                targetData.breakdown[cumCode].actual += val;
-                
-                // Lưu thêm chi tiết kênh trong cụm này để dùng khi click biểu đồ
-                if (!targetData.breakdown[cumCode].channels[rowChannel]) targetData.breakdown[cumCode].channels[rowChannel] = 0;
-                targetData.breakdown[cumCode].channels[rowChannel] += val;
+                // Cộng dồn KPI Nhân viên
+                if (nv) {
+                    if (!staffMap[nv]) staffMap[nv] = { actual: 0, plan: 0 };
+                    staffMap[nv].actual += val;
+                }
             });
 
-            // 2. PROCESS PLAN (Kế hoạch)
+            // --- 5. TÍNH TOÁN KPI KẾ HOẠCH (PLAN) - PHIÊN BẢN SMART ---
             const relevantMonths = new Set();
             let curr = new Date(dFrom);
-            const end = new Date(dTo);
-            while (curr <= end) {
-                relevantMonths.add(curr.toISOString().substring(0, 7));
+            const dateEnd = new Date(dTo);
+            
+            // Tạo danh sách các tháng cần lấy dữ liệu (VD: 2025-12)
+            while (curr <= dateEnd) {
+                const y = curr.getFullYear();
+                const m = String(curr.getMonth() + 1).padStart(2, '0');
+                relevantMonths.add(`${y}-${m}`);
                 curr.setMonth(curr.getMonth() + 1);
             }
 
+            console.log("Các tháng cần lấy Kế hoạch:", Array.from(relevantMonths));
+
             planData.forEach(row => {
-                const m = (row.month || row.thang || '').substring(0, 7);
-                if (!relevantMonths.has(m)) return;
-                
+                // A. XỬ LÝ NGÀY THÁNG THÔNG MINH (Chấp nhận cả 2025-12, 12/2025, hoặc Date Object)
+                let rawMonth = row.month || row.thang || '';
+                let mKey = '';
+
+                if (typeof rawMonth === 'string') {
+                    rawMonth = rawMonth.trim();
+                    // Trường hợp 1: Chuẩn "2025-12"
+                    if (rawMonth.match(/^\d{4}-\d{2}/)) {
+                        mKey = rawMonth.substring(0, 7);
+                    } 
+                    // Trường hợp 2: Viết ngược "12/2025"
+                    else if (rawMonth.includes('/')) {
+                        const parts = rawMonth.split('/');
+                        if (parts.length >= 2) {
+                            const p1 = parts[0].padStart(2,'0'); 
+                            const p2 = parts[1];
+                            // Nếu p2 là năm (4 số) -> 2025-12, ngược lại -> 2025-12
+                            mKey = p2.length === 4 ? `${p2}-${p1}` : `${parts[2]}-${parts[1]}`;
+                        }
+                    }
+                } 
+                // Trường hợp 3: Excel trả về đối tượng Date
+                else if (rawMonth instanceof Date && !isNaN(rawMonth)) {
+                    const y = rawMonth.getFullYear();
+                    const mt = String(rawMonth.getMonth() + 1).padStart(2, '0');
+                    mKey = `${y}-${mt}`;
+                }
+
+                // Nếu sau khi xử lý mà không khớp tháng nào trong bộ lọc -> Bỏ qua
+                if (!relevantMonths.has(mKey)) return;
+
+                // B. KIỂM TRA PHẠM VI (SCOPE)
                 if (scope !== 'all') {
                     if (scope.startsWith('LC-') && row.maLienCum !== scope) return;
                     if (scope.startsWith('C-') && row.maCum !== scope) return;
                 }
 
-                const kpi = app.cleanCode(row.maKpi);
+                // C. XỬ LÝ LOẠI KPI
+                const kpi = app.cleanCode(row.maKpi || row.maKPI);
                 if (kpiFilter !== 'all' && kpi !== kpiFilter) return;
+                
                 const type = typeMap[kpi];
-                if (!type) return;
+                if (!type) return; 
 
+                // D. LẤY GIÁ TRỊ (Xử lý số tiền / số lượng)
                 let val = Number(row.giaTri || row.keHoach) || 0;
-                const targetData = type === 'sub' ? subData : revData;
 
+                // --- LOGIC CỘNG DỒN CHUNG ---
+                const targetData = type === 'sub' ? subData : revData;
                 targetData.plan += val;
 
                 const cKey = row.maLienCum || 'KHÁC';
                 if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initClusterObj();
                 targetData.cluster[cKey].plan += val;
 
-                // Breakdown Detail
                 const cumCode = row.maCum || 'KHÁC';
                 if (!targetData.breakdown[cumCode]) targetData.breakdown[cumCode] = initBreakdownObj();
                 targetData.breakdown[cumCode].plan += val;
+
+                // E. XỬ LÝ NHÂN VIÊN (QUAN TRỌNG NHẤT)
+                // Tìm cột maNV với mọi biến thể viết hoa thường
+                const rawNV = row.maNV || row.MaNV || row.MANV || row.manv; 
+                
+                if (rawNV) {
+                    const nvCode = String(rawNV).trim().toUpperCase();
+
+                    // Khởi tạo nếu chưa có
+                    if (!staffMap[nvCode]) {
+                        staffMap[nvCode] = { 
+                            code: nvCode, 
+                            name: row.tenNV || row.TenNV || nvCode, 
+                            actual: 0, 
+                            plan: 0, 
+                            maCum: row.maCum 
+                        };
+                    }
+
+                    // Quy đổi đơn vị: Nếu là Doanh thu (rev) thì chia 1 triệu
+                    let valStaff = val;
+                    if (type !== 'sub') {
+                        // Kiểm tra thông minh: Nếu số quá nhỏ (< 1000) nghĩa là trong sheet đã nhập đơn vị triệu rồi
+                        // Nếu số lớn (> 1000) nghĩa là nhập VNĐ -> Cần chia
+                        if (val > 5000) { 
+                             valStaff = val / 1000000; 
+                        }
+                    }
+
+                    staffMap[nvCode].plan += valStaff;
+                }
             });
 
-            // LƯU DỮ LIỆU ĐỂ DÙNG CHO POPUP
-            this.currentKPIReportData = { sub: subData, rev: revData };
+            // --- 6. PHÂN LOẠI 3 LỰC LƯỢNG (GDV, SALES, B2B) ---
+            
+           // Hàm Helper để map danh sách NV với số liệu từ staffMap
+            const processStaffGroup = (sourceList) => {
+                const resultList = [];
+                let totalActual = 0;
+                let totalPlan = 0;
 
+                sourceList.forEach(staff => {
+                    // Filter theo Scope chung
+                    if (scope !== 'all') {
+                         if (scope.startsWith('LC-') && staff.maLienCum !== scope) return;
+                         if (scope.startsWith('C-') && staff.maCum !== scope) return;
+                    }
+                    
+                    // --- SỬA ĐỔI QUAN TRỌNG TẠI ĐÂY ---
+                    // 1. Lấy mã NV chuẩn từ danh sách (maNV) và viết hoa để khớp key
+                    const staffCode = String(staff.maNV || '').trim().toUpperCase();
+                    
+                    // 2. Tìm trong kho dữ liệu KPI (staffMap)
+                    const kpiData = staffMap[staffCode] || { actual: 0, plan: 0 };
+                    
+                    totalActual += kpiData.actual;
+                    totalPlan += kpiData.plan;
+
+                    resultList.push({
+                        code: staff.maNV, // <-- Đã sửa thành maNV để hiển thị đúng
+                        name: staff.ten,
+                        maCum: staff.maCum,
+                        actual: kpiData.actual,
+                        plan: kpiData.plan,
+                        percent: kpiData.plan > 0 ? ((kpiData.actual / kpiData.plan) * 100).toFixed(1) : (kpiData.actual > 0 ? 100 : 0)
+                    });
+                });
+
+                // Sắp xếp giảm dần theo %
+                resultList.sort((a, b) => Number(b.percent) - Number(a.percent));
+
+                return {
+                    list: resultList,
+                    totalActual,
+                    totalPlan,
+                    totalCount: resultList.length,
+                    totalPercent: totalPlan > 0 ? ((totalActual / totalPlan) * 100).toFixed(1) : 0
+                };
+            };
+
+            // Thực hiện process cho 3 nhóm
+            const groupGDV = processStaffGroup(listGDV);
+            const groupSales = processStaffGroup(listSales);
+            const groupB2B = processStaffGroup(listB2B);
+
+            // Lưu vào biến toàn cục để dùng cho Modal
+            this.currentStaffDataGroups = {
+                gdv: groupGDV.list,
+                sales: groupSales.list,
+                b2b: groupB2B.list
+            };
+
+            // --- 7. RENDER GIAO DIỆN ---
+            
+            // A. Biểu đồ chính (Sub/Rev)
             UIRenderer.renderKPIReport({ sub: subData, rev: revData }, { dFrom, dTo });
 
-        } catch (e) { console.error(e); }
+            // B. Khu vực 3 Thẻ Nhân viên
+            if (UIRenderer.renderStaffPerformance) {
+                UIRenderer.renderStaffPerformance({
+                    gdv: groupGDV,
+                    sales: groupSales,
+                    b2b: groupB2B
+                });
+            }
+
+        } catch (e) { console.error("Lỗi xử lý báo cáo:", e); }
+    },
+
+    // Hàm mở Modal chi tiết cho từng loại NV
+    showStaffDetailModal(type) {
+        if (!this.currentStaffDataGroups || !this.currentStaffDataGroups[type]) return alert("Không có dữ liệu!");
+        
+        const data = this.currentStaffDataGroups[type];
+        let title = "Chi tiết Nhân viên";
+        if(type === 'gdv') title = "Hiệu suất Giao Dịch Viên";
+        if(type === 'sales') title = "Hiệu suất NV Bán Hàng";
+        if(type === 'b2b') title = "Hiệu suất NV KHDN (B2B)";
+
+        document.getElementById('modal-detail-title').textContent = title;
+        document.getElementById('modal-detail-subtitle').textContent = `Số lượng: ${data.length} nhân sự`;
+        
+        UIRenderer.renderDetailModalContent('staff-performance', data);
+        document.getElementById('modal-detail-list').classList.add('open');
     },
 
     // Xử lý khi bộ lọc Dashboard thay đổi (All / Liên Cụm / Cụm)
