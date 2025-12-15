@@ -284,11 +284,94 @@
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2 border-l-4 border-indigo-500 pl-3">
+                                        <i data-lucide="award" class="w-5 h-5 text-indigo-500"></i> HIỆU SUẤT NHÂN VIÊN
+                                    </h3>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                        
+                                        <div onclick="app.showStaffDetailModal('gdv')" class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                            <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-emerald-100"></div>
+                                            <div class="relative z-10">
+                                                <div class="flex items-center gap-3 mb-3">
+                                                    <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><i data-lucide="users" class="w-5 h-5"></i></div>
+                                                    <h4 class="font-bold text-slate-700">Giao Dịch Viên</h4>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-y-2 text-sm">
+                                                    <div class="text-slate-500">Nhân sự:</div>
+                                                    <div class="font-bold text-right text-slate-800" id="gdv-count">0</div>
+                                                    
+                                                    <div class="text-slate-500">Thực hiện:</div>
+                                                    <div class="font-bold text-right text-blue-600" id="gdv-actual">0</div>
+    
+                                                    <div class="text-slate-500">Kế hoạch:</div>
+                                                    <div class="font-bold text-right text-slate-600" id="gdv-plan">0</div>
+                                                </div>
+                                                <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                                                    <span class="text-xs font-bold text-slate-400 uppercase">Hoàn thành</span>
+                                                    <span class="text-lg font-bold text-emerald-600" id="gdv-percent">0%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+    
+                                        <div onclick="app.showStaffDetailModal('sales')" class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                            <div class="absolute top-0 right-0 w-16 h-16 bg-orange-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-orange-100"></div>
+                                            <div class="relative z-10">
+                                                <div class="flex items-center gap-3 mb-3">
+                                                    <div class="p-2 bg-orange-100 text-orange-600 rounded-lg"><i data-lucide="shopping-bag" class="w-5 h-5"></i></div>
+                                                    <h4 class="font-bold text-slate-700">NV Bán Hàng</h4>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-y-2 text-sm">
+                                                    <div class="text-slate-500">Nhân sự:</div>
+                                                    <div class="font-bold text-right text-slate-800" id="sales-count">0</div>
+                                                    
+                                                    <div class="text-slate-500">Thực hiện:</div>
+                                                    <div class="font-bold text-right text-blue-600" id="sales-actual">0</div>
+    
+                                                    <div class="text-slate-500">Kế hoạch:</div>
+                                                    <div class="font-bold text-right text-slate-600" id="sales-plan">0</div>
+                                                </div>
+                                                <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                                                    <span class="text-xs font-bold text-slate-400 uppercase">Hoàn thành</span>
+                                                    <span class="text-lg font-bold text-orange-600" id="sales-percent">0%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+    
+                                        <div onclick="app.showStaffDetailModal('b2b')" class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                            <div class="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-purple-100"></div>
+                                            <div class="relative z-10">
+                                                <div class="flex items-center gap-3 mb-3">
+                                                    <div class="p-2 bg-purple-100 text-purple-600 rounded-lg"><i data-lucide="building-2" class="w-5 h-5"></i></div>
+                                                    <h4 class="font-bold text-slate-700">KHDN (B2B)</h4>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-y-2 text-sm">
+                                                    <div class="text-slate-500">Nhân sự:</div>
+                                                    <div class="font-bold text-right text-slate-800" id="b2b-count">0</div>
+                                                    
+                                                    <div class="text-slate-500">Thực hiện:</div>
+                                                    <div class="font-bold text-right text-blue-600" id="b2b-actual">0</div>
+    
+                                                    <div class="text-slate-500">Kế hoạch:</div>
+                                                    <div class="font-bold text-right text-slate-600" id="b2b-plan">0</div>
+                                                </div>
+                                                <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                                                    <span class="text-xs font-bold text-slate-400 uppercase">Hoàn thành</span>
+                                                    <span class="text-lg font-bold text-purple-600" id="b2b-percent">0%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+    
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
                     </div>
                 </section>
-
+                
                 <section id="view-clusters" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col h-full">
                         <div class="p-5 border-b border-slate-200 flex flex-wrap justify-between items-center gap-4 bg-white rounded-t-lg">
