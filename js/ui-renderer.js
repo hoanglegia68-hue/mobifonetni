@@ -243,8 +243,7 @@ const UIRenderer = {
         tbody.innerHTML = data.map(item => `
             <tr class="${this.getRowClass(item.trangThai)} border-b transition">
                 <td class="p-3 text-center text-slate-500">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-slate-600">${item.ma}</td>
-                <td class="p-3 font-medium">${item.ten}</td>
+                <td class="p-3 font-mono font-bold text-slate-600">${item.maNV}</td> <td class="p-3 font-medium">${item.ten}</td>
                 <td class="p-3 text-xs">
                     <div class="font-bold text-blue-600">${item.maCH}</div>
                     <div class="text-slate-500 truncate w-32">${item.tenCH}</div>
@@ -274,8 +273,7 @@ const UIRenderer = {
         tbody.innerHTML = data.map(item => `
             <tr class="${this.getRowClass(item.trangThai)} border-b transition">
                 <td class="p-3 text-center text-slate-500">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-slate-600">${item.ma}</td>
-                <td class="p-3 font-medium">${item.ten}</td>
+                <td class="p-3 font-mono font-bold text-slate-600">${item.maNV}</td> <td class="p-3 font-medium">${item.ten}</td>
                 <td class="p-3 text-xs" title="${item.maLienCum}">${app.getNameLienCum(item.maLienCum)}</td>
                 <td class="p-3 text-xs" title="${item.maCum}">${app.getNameCum(item.maCum)}</td>
                 <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
@@ -302,8 +300,7 @@ const UIRenderer = {
         tbody.innerHTML = data.map(item => `
             <tr class="${this.getRowClass(item.trangThai)} border-b transition">
                 <td class="p-3 text-center text-slate-500">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-slate-600">${item.ma}</td>
-                <td class="p-3 font-medium">${item.ten}</td>
+                <td class="p-3 font-mono font-bold text-slate-600">${item.maNV}</td> <td class="p-3 font-medium">${item.ten}</td>
                 <td class="p-3 text-xs" title="${item.maLienCum}">${app.getNameLienCum(item.maLienCum)}</td>
                 <td class="p-3 text-xs" title="${item.maCum}">${app.getNameCum(item.maCum)}</td>
                 <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
@@ -648,10 +645,6 @@ const UIRenderer = {
     },
   
     // ============================================================
-    // 6. DASHBOARD CHÍNH (THẺ & BẢNG INTERACTIVE)
-    // ============================================================
-
-    // ============================================================
     // 6. DASHBOARD CHÍNH (NÂNG CẤP: LỌC CỤM & LIÊN CỤM)
     // ============================================================
 
@@ -740,8 +733,6 @@ const UIRenderer = {
         // --------------------------------------------------------
         // 3. VẼ LẠI CÁC THẺ (CARDS)
         // --------------------------------------------------------
-        // ... (Giữ nguyên HTML phần Cards như cũ, chỉ thay đổi biến số liệu đã lọc ở trên)
-        // Để tiết kiệm không gian, tôi dùng lại cấu trúc cũ nhưng inject biến mới:
         
         document.getElementById('dashboard-infrastructure').innerHTML = `
             <div onclick="app.showDashboardDetail('store', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
@@ -870,9 +861,6 @@ const UIRenderer = {
         const tHeadLabel = viewMode === 'liencum' ? 'Liên Cụm' : 'Cụm / Đơn vị';
         const tSubLabel = viewMode === 'liencum' ? 'Số Cụm' : 'Số Xã';
         
-        // Cập nhật tiêu đề bảng (Thao tác DOM trực tiếp vào thẻ thead của bảng breakdown nếu cần, 
-        // ở đây ta giả định cấu trúc HTML header cố định, chỉ render body, 
-        // nhưng để UX tốt, ta nên update Text Header cột 2 và 3)
         const tableHeaderRows = document.querySelectorAll('#view-dashboard table thead th');
         if(tableHeaderRows.length > 2) {
             tableHeaderRows[1].textContent = `Đơn vị (${tHeadLabel})`;
@@ -922,10 +910,6 @@ const UIRenderer = {
         lucide.createIcons();
     },
 
-    /**
-     * Vẽ toàn bộ báo cáo Biểu đồ & Số liệu KPI
-     */
-    
     // ============================================================
     // CẬP NHẬT HÀM VẼ BIỂU ĐỒ (SỬA LỖI 2 - BƯỚC 2)
     // ============================================================
@@ -1005,28 +989,6 @@ const UIRenderer = {
             });
         };
 
-        // Helper: Cluster Chart
-        const createClusterChart = (canvasId, clusterData, colorActual) => {
-            const ctx = document.getElementById(canvasId);
-            if (!ctx) return;
-            const clusters = Object.keys(clusterData);
-            const actuals = clusters.map(c => clusterData[c].actual);
-            const plans = clusters.map(c => clusterData[c].plan);
-            const clusterNames = clusters.map(c => app.getNameLienCum(c) || app.getNameCum(c) || c);
-
-            app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: clusterNames,
-                    datasets: [{ label: 'Thực hiện', data: actuals, backgroundColor: colorActual }, { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        };
-
-        createLineChart('chartSubDaily', data.sub.daily, '#10b981'); 
-        // Truyền thêm tham số 'sub' để biết đang click vào biểu đồ thuê bao
-        createChannelChart('chartSubChannel', data.sub.channel, '#34d399', 'sub');
         // ---------------------------------------------------------
         // THAY THẾ: BIỂU ĐỒ SUB - CLUSTER (Bar + Line)
         // ---------------------------------------------------------
@@ -1087,34 +1049,85 @@ const UIRenderer = {
             });
         }
 
+        // Helper: Cluster Chart (Cho Doanh thu - giữ nguyên dạng Bar đôi)
+        const createClusterChart = (canvasId, clusterData, colorActual) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            const clusters = Object.keys(clusterData);
+            const actuals = clusters.map(c => clusterData[c].actual);
+            const plans = clusters.map(c => clusterData[c].plan);
+            const clusterNames = clusters.map(c => app.getNameLienCum(c) || app.getNameCum(c) || c);
+
+            app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: clusterNames,
+                    datasets: [{ label: 'Thực hiện', data: actuals, backgroundColor: colorActual }, { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        };
+
+        createLineChart('chartSubDaily', data.sub.daily, '#10b981'); 
+        // Truyền thêm tham số 'sub' để biết đang click vào biểu đồ thuê bao
+        createChannelChart('chartSubChannel', data.sub.channel, '#34d399', 'sub');
+
         createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); 
         // Truyền thêm tham số 'rev' để biết đang click vào biểu đồ doanh thu
         createChannelChart('chartRevChannel', data.rev.channel, '#60a5fa', 'rev');
         createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8');
     },
 
- 
     // ============================================================
-    // 7. MODAL CHI TIẾT (DRILL-DOWN) - PHIÊN BẢN CHUẨN (MERGED)
+    // VẼ KHU VỰC HIỆU SUẤT NHÂN VIÊN (3 NHÓM)
     // ============================================================
+    renderStaffPerformance(groups) {
+        // groups = { gdv: {totalCount, totalActual...}, sales: {...}, b2b: {...} }
 
+        const updateCard = (prefix, data) => {
+            const elCount = document.getElementById(`${prefix}-count`);
+            const elActual = document.getElementById(`${prefix}-actual`);
+            const elPlan = document.getElementById(`${prefix}-plan`);
+            const elPercent = document.getElementById(`${prefix}-percent`);
+
+            if (elCount) elCount.textContent = this.formatNumber(data.totalCount);
+            if (elActual) elActual.textContent = this.formatNumber(data.totalActual);
+            if (elPlan) elPlan.textContent = this.formatNumber(data.totalPlan);
+            if (elPercent) elPercent.textContent = `${data.totalPercent}%`;
+            
+            // Tô màu % hoàn thành chung
+            if (elPercent) {
+                elPercent.className = "text-lg font-bold " + (
+                    data.totalPercent >= 100 ? "text-emerald-600" : 
+                    (data.totalPercent >= 80 ? "text-orange-600" : "text-red-600")
+                );
+            }
+        };
+
+        if (groups.gdv) updateCard('gdv', groups.gdv);
+        if (groups.sales) updateCard('sales', groups.sales);
+        if (groups.b2b) updateCard('b2b', groups.b2b);
+    },
+
+    // ============================================================
+    // 7. MODAL CHI TIẾT (DRILL-DOWN) - PHIÊN BẢN FULL CHỨC NĂNG
+    // ============================================================
     renderDetailModalContent(type, data, meta = {}) {
         const thead = document.getElementById('modal-detail-thead');
         const tbody = document.getElementById('modal-detail-tbody');
         if(!thead || !tbody) return;
 
-        // --- 1. TẠO THANH CÔNG CỤ CHUYỂN ĐỔI (TOGGLE) ---
-        // Chỉ hiện khi type là báo cáo KPI
+        // --- A. TẠO THANH CÔNG CỤ CHUYỂN ĐỔI (TOGGLE) ---
+        // Chỉ hiện khi type là báo cáo KPI (Breakdown hoặc Channel Detail)
         let toggleHtml = '';
         if (type === 'kpi-breakdown' || type === 'kpi-channel-detail') {
-            const isCum = meta.viewLevel === 'cum'; // Mặc định là 'cum' nếu không truyền
+            const isCum = meta.viewLevel === 'cum'; // Mặc định là 'cum'
             
             const btnClassBase = "px-3 py-1 text-xs font-bold rounded border transition-colors focus:outline-none";
             const btnActive = "bg-blue-600 text-white border-blue-600 shadow-sm";
             const btnInactive = "bg-white text-slate-600 border-slate-300 hover:bg-slate-50";
 
-            // Logic gọi hàm khi bấm nút
-            // Nếu là breakdown (Thực hiện/Kế hoạch)
+            // Tạo lệnh gọi hàm JS khi bấm nút
             const fnCallCum = type === 'kpi-breakdown' 
                 ? `app.showKPIBreakdown('${meta.type}', 'cum')` 
                 : `app.handleChannelChartClick('${meta.type}', '${meta.channelName}', 'cum')`;
@@ -1125,7 +1138,7 @@ const UIRenderer = {
 
             toggleHtml = `
                 <tr class="bg-slate-50 border-b">
-                    <td colspan="5" class="p-3">
+                    <td colspan="6" class="p-3">
                         <div class="flex items-center justify-center gap-2">
                             <button onclick="${fnCallCum}" class="${btnClassBase} ${isCum ? btnActive : btnInactive}">Xem theo Cụm</button>
                             <button onclick="${fnCallLC}" class="${btnClassBase} ${!isCum ? btnActive : btnInactive}">Xem theo Liên Cụm</button>
@@ -1138,18 +1151,56 @@ const UIRenderer = {
         let headerHtml = '';
         let bodyHtml = '';
 
-        // --------------------------------------------------------
-        // CASE 1: KPI BREAKDOWN (Số liệu Chi tiết Thực hiện vs Kế hoạch)
-        // --------------------------------------------------------
-        if (type === 'kpi-breakdown') {
+        // --- B. XỬ LÝ CÁC TRƯỜNG HỢP HIỂN THỊ ---
+
+        // 1. CHI TIẾT HIỆU SUẤT NHÂN VIÊN (MỚI THÊM)
+        if (type === 'staff-performance') {
+            headerHtml = `
+                <tr>
+                    <th class="p-3 border-b text-center w-12 bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b text-left bg-slate-100 font-bold text-slate-700">Nhân viên</th>
+                    <th class="p-3 border-b text-left bg-slate-100 font-bold text-slate-700">Đơn vị</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Kế hoạch</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Thực hiện</th>
+                    <th class="p-3 border-b text-center bg-slate-100 w-32 font-bold text-slate-700">% HT</th>
+                </tr>`;
+            
+            bodyHtml = data.map((item, idx) => {
+                let colorClass = Number(item.percent) >= 100 ? 'bg-green-500' : (Number(item.percent) >= 80 ? 'bg-yellow-500' : 'bg-red-500');
+                let textClass = Number(item.percent) >= 100 ? 'text-green-600' : (Number(item.percent) >= 80 ? 'text-yellow-600' : 'text-red-600');
+                
+                return `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                    <td class="p-3">
+                        <div class="font-bold text-slate-700">${item.name}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">${item.code}</div>
+                    </td>
+                    <td class="p-3 text-sm text-slate-600">${app.getNameCum(item.maCum) || item.maCum || '-'}</td>
+                    <td class="p-3 text-right text-slate-500 font-mono">${this.formatNumber(item.plan)}</td>
+                    <td class="p-3 text-right font-bold text-slate-800 font-mono">${this.formatNumber(item.actual)}</td>
+                    <td class="p-3 align-middle">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold ${textClass} w-10 text-right">${item.percent}%</span>
+                            <div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden w-20">
+                                <div class="h-full ${colorClass}" style="width: ${Math.min(item.percent, 100)}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // 2. KPI BREAKDOWN (Thực hiện vs Kế hoạch - Sub/Rev)
+        else if (type === 'kpi-breakdown') {
             headerHtml = `
                 ${toggleHtml}
                 <tr>
-                    <th class="p-3 border-b text-center w-12 bg-slate-100">STT</th>
-                    <th class="p-3 border-b text-left bg-slate-100">Đơn vị (${meta.viewLevel === 'liencum' ? 'Liên Cụm' : 'Cụm'})</th>
-                    <th class="p-3 border-b text-right bg-slate-100">Thực hiện</th>
-                    <th class="p-3 border-b text-right bg-slate-100">Kế hoạch</th>
-                    <th class="p-3 border-b text-center bg-slate-100 w-32">% HT</th>
+                    <th class="p-3 border-b text-center w-12 bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b text-left bg-slate-100 font-bold text-slate-700">Đơn vị (${meta.viewLevel === 'liencum' ? 'Liên Cụm' : 'Cụm'})</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Thực hiện</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Kế hoạch</th>
+                    <th class="p-3 border-b text-center bg-slate-100 w-32 font-bold text-slate-700">% HT</th>
                 </tr>`;
             
             bodyHtml = data.map((item, idx) => {
@@ -1177,18 +1228,16 @@ const UIRenderer = {
             }).join('');
         } 
         
-        // --------------------------------------------------------
-        // CASE 2: KPI CHANNEL DETAIL (Chi tiết theo Kênh)
-        // --------------------------------------------------------
+        // 3. KPI CHANNEL DETAIL (Chi tiết theo Kênh)
         else if (type === 'kpi-channel-detail') {
             headerHtml = `
                 ${toggleHtml}
                 <tr>
-                    <th class="p-3 border-b text-center w-12 bg-slate-100">STT</th>
-                    <th class="p-3 border-b text-left bg-slate-100">Đơn vị (${meta.viewLevel === 'liencum' ? 'Liên Cụm' : 'Cụm'})</th>
-                    <th class="p-3 border-b text-right bg-slate-100">Sản lượng Kênh</th>
-                    <th class="p-3 border-b text-right bg-slate-100">Tổng Đơn vị</th>
-                    <th class="p-3 border-b text-center bg-slate-100 w-32">Tỷ trọng</th>
+                    <th class="p-3 border-b text-center w-12 bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b text-left bg-slate-100 font-bold text-slate-700">Đơn vị (${meta.viewLevel === 'liencum' ? 'Liên Cụm' : 'Cụm'})</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Sản lượng Kênh</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Tổng Đơn vị</th>
+                    <th class="p-3 border-b text-center bg-slate-100 w-32 font-bold text-slate-700">Tỷ trọng</th>
                 </tr>`;
             
             bodyHtml = data.map((item, idx) => `
@@ -1211,9 +1260,7 @@ const UIRenderer = {
                 </tr>`).join('');
         }
 
-        // --------------------------------------------------------
-        // CASE 3: PHƯỜNG XÃ (Địa lý / Dân số)
-        // --------------------------------------------------------
+        // 4. PHƯỜNG XÃ (Địa lý / Dân số)
         else if (type === 'commune' || type === 'geo') {
              headerHtml = `
                 <tr>
@@ -1225,7 +1272,7 @@ const UIRenderer = {
                     <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Thông tin Lãnh đạo</th>
                 </tr>`;
 
-             bodyHtml = data.map((item, idx) => {
+            bodyHtml = data.map((item, idx) => {
                 let leadersHtml = (item.lanhDao || []).map(ld => `
                     <div class="text-[10px] mb-1 px-1.5 py-0.5 rounded border border-slate-200 w-fit bg-slate-50">
                         <span class="font-bold text-slate-700">${ld.chucVu}:</span> ${ld.ten} <span class="text-slate-400 italic">(${ld.sdt})</span>
@@ -1246,18 +1293,16 @@ const UIRenderer = {
              }).join('');
         }
 
-        // --------------------------------------------------------
-        // CASE 4: CỬA HÀNG
-        // --------------------------------------------------------
+        // 5. CỬA HÀNG
         else if (type === 'store') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
-                    <th class="p-3 border-b bg-slate-100">Mã CH</th>
-                    <th class="p-3 border-b bg-slate-100">Tên Cửa Hàng</th>
-                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100">Địa chỉ</th>
-                    <th class="p-3 border-b bg-slate-100">Diện tích</th>
+                    <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã CH</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Tên Cửa Hàng</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Địa chỉ</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Diện tích</th>
                 </tr>`;
             
             bodyHtml = data.map((i, idx) => `
@@ -1274,26 +1319,23 @@ const UIRenderer = {
                 </tr>`).join('');
         }
 
-        // --------------------------------------------------------
-        // CASE 5: NHÂN SỰ (GDV, SALES, B2B)
-        // --------------------------------------------------------
+        // 6. NHÂN SỰ (GDV, SALES, B2B)
         else if (type === 'gdv' || type === 'sales' || type === 'b2b') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
-                    <th class="p-3 border-b bg-slate-100">Mã NV</th>
-                    <th class="p-3 border-b bg-slate-100">Họ Tên</th>
-                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100 text-center">Vùng</th>
-                    <th class="p-3 border-b bg-slate-100">Số ĐT</th>
-                    <th class="p-3 border-b bg-slate-100 text-center">Trạng thái</th>
+                    <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã NV</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Họ Tên</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100 text-center font-bold text-slate-700">Vùng</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Số ĐT</th>
+                    <th class="p-3 border-b bg-slate-100 text-center font-bold text-slate-700">Trạng thái</th>
                 </tr>`;
             
             bodyHtml = data.map((i, idx) => `
                 <tr class="border-b hover:bg-slate-50 transition ${i.trangThai==='Nghỉ việc'?'opacity-60 bg-slate-50':''}">
                     <td class="p-3 text-center text-slate-500">${idx+1}</td>
-                    <td class="p-3 font-bold text-slate-600 font-mono">${i.ma}</td>
-                    <td class="p-3 font-medium text-slate-800">${i.ten}</td>
+                    <td class="p-3 font-bold text-slate-600 font-mono">${i.maNV}</td> <td class="p-3 font-medium text-slate-800">${i.ten}</td>
                     <td class="p-3 text-xs">
                         <div>${app.getNameCum(i.maCum)}</div>
                         <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
@@ -1304,18 +1346,16 @@ const UIRenderer = {
                 </tr>`).join('');
         }
 
-        // --------------------------------------------------------
-        // CASE 6: TRẠM BTS
-        // --------------------------------------------------------
+        // 7. TRẠM BTS
         else if (type === 'bts') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
-                    <th class="p-3 border-b bg-slate-100">Mã Trạm</th>
-                    <th class="p-3 border-b bg-slate-100">Tên Trạm</th>
-                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100">Địa chỉ</th>
-                    <th class="p-3 border-b bg-slate-100">Ghi chú</th>
+                    <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã Trạm</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Tên Trạm</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Địa chỉ</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Ghi chú</th>
                 </tr>`;
             
             bodyHtml = data.map((i, idx) => `
@@ -1332,18 +1372,16 @@ const UIRenderer = {
                 </tr>`).join('');
         }
 
-        // --------------------------------------------------------
-        // CASE 7: KÊNH GIÁN TIẾP
-        // --------------------------------------------------------
+        // 8. KÊNH GIÁN TIẾP
         else if (type === 'indirect') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b text-center bg-slate-100">STT</th>
-                    <th class="p-3 border-b bg-slate-100">Mã ĐL/ĐB</th>
-                    <th class="p-3 border-b bg-slate-100">Tên Điểm bán</th>
-                    <th class="p-3 border-b bg-slate-100">Loại</th>
-                    <th class="p-3 border-b bg-slate-100">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100">NV Phụ trách</th>
+                    <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã ĐL/ĐB</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Tên Điểm bán</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Loại</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">NV Phụ trách</th>
                 </tr>`;
             
             bodyHtml = data.map((i, idx) => `
@@ -1362,34 +1400,8 @@ const UIRenderer = {
 
         thead.innerHTML = headerHtml;
         tbody.innerHTML = bodyHtml;
-        lucide.createIcons();
-    },
-    
-
-    renderDashboardCharts(kpiData, instances) {
-        // ... (Giữ nguyên hàm này)
-        if (instances.revenueChart) instances.revenueChart.destroy();
-        if (instances.subChart) instances.subChart.destroy();
-
-        const labels = [...new Set(kpiData.map(d => d.maLienCum || d.lienCum))];
-        const displayLabels = labels.map(code => app.getNameLienCum(code));
         
-        const dataPlan = labels.map(l => 600); // Demo data
-        const dataActual = labels.map(code => kpiData.filter(d => (d.maLienCum || d.lienCum) === code).reduce((sum, item) => sum + (Number(item.KPI_DT) || 0), 0));
-
-        const ctxRev = document.getElementById('chartRevenue');
-        if (ctxRev) {
-            instances.revenueChart = new Chart(ctxRev.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: displayLabels,
-                    datasets: [
-                        { label: 'Kế hoạch', data: dataPlan, backgroundColor: '#cbd5e1' },
-                        { label: 'Thực hiện', data: dataActual, backgroundColor: '#2563eb' }
-                    ]
-                },
-                options: { responsive: true, scales: { y: { beginAtZero: true } }, maintainAspectRatio: false }
-            });
-        }
+        // Vẽ lại icon sau khi render HTML mới
+        lucide.createIcons();
     }
 };
