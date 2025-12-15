@@ -67,6 +67,7 @@ const app = {
         const dTo = document.getElementById('dash-date-to')?.value;
         const scope = document.getElementById('filter-scope')?.value || 'all';
         const channelFilter = document.getElementById('filter-channel')?.value || 'all';
+        const kpiFilter = document.getElementById('filter-kpi')?.value || 'all';
 
         if (!dFrom || !dTo) return alert("Vui lòng chọn khoảng thời gian!");
 
@@ -129,6 +130,7 @@ const app = {
                 }
 
                 const kpi = app.cleanCode(row.maKpi);
+                if (kpiFilter !== 'all' && kpi !== kpiFilter) return;
                 const type = typeMap[kpi];
                 if (!type) return;
 
@@ -187,6 +189,7 @@ const app = {
                 }
 
                 const kpi = app.cleanCode(row.maKpi);
+                if (kpiFilter !== 'all' && kpi !== kpiFilter) return;
                 const type = typeMap[kpi];
                 if (!type) return;
 
@@ -670,23 +673,22 @@ const app = {
     // ============================================================
     // 7. MODAL & SEARCH & OTHERS
     // ============================================================
-
-    // Khởi tạo tab Báo cáo KPI (Dropdown)
+// ============================================================
+    // BỔ SUNG LOGIC NẠP DỮ LIỆU KPI VÀO DROPDOWN
+    // ============================================================
     async initKPIReportTab() {
         const selScope = document.getElementById('filter-scope');
-        // Chỉ khởi tạo nếu dropdown chưa có dữ liệu
+        const selKPI = document.getElementById('filter-kpi'); // Đã có
+        
+        // 1. Nạp Scope (Giữ nguyên code cũ của bạn)
         if (selScope && selScope.options.length <= 1) {
             selScope.innerHTML = '<option value="all">-- Tất cả Phạm vi --</option>';
-            
-            // Group Liên Cụm
             let lcGroup = document.createElement('optgroup');
             lcGroup.label = "--- LIÊN CỤM ---";
             Object.keys(this.mapLienCum).forEach(k => {
                 lcGroup.innerHTML += `<option value="${k}">${this.mapLienCum[k]}</option>`;
             });
             selScope.appendChild(lcGroup);
-
-            // Group Cụm
             let cGroup = document.createElement('optgroup');
             cGroup.label = "--- CỤM ---";
             Object.keys(this.mapCum).forEach(k => {
@@ -695,6 +697,23 @@ const app = {
             selScope.appendChild(cGroup);
         }
 
+        // 2. [QUAN TRỌNG] BỔ SUNG ĐOẠN NÀY ĐỂ NẠP KPI
+        if (selKPI && selKPI.options.length <= 1) {
+            try {
+                const struct = await DataService.getKPIStructure();
+                let html = '<option value="all">Tất cả Chỉ tiêu</option>';
+                struct.forEach(s => {
+                    if (s.active) {
+                        const code = this.cleanCode(s.ma);
+                        const label = s.tenHienThi || s.ten || code;
+                        html += `<option value="${code}">${label}</option>`;
+                    }
+                });
+                selKPI.innerHTML = html;
+            } catch (e) { console.error("Lỗi load KPI options:", e); }
+        }
+
+        // 3. Nạp Channel (Giữ nguyên code cũ của bạn)
         const logs = this.normalizeDataSet(await DataService.getKPILogs());
         const channels = new Set();
         logs.forEach(l => { if(l.channelType) channels.add(l.channelType.split('-')[0].trim()); });
@@ -705,7 +724,7 @@ const app = {
             channels.forEach(c => selChannel.innerHTML += `<option value="${c}">${c}</option>`);
         }
 
-        // Set default date if empty
+        // 4. Setup ngày tháng (Giữ nguyên code cũ của bạn)
         const now = new Date();
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -717,7 +736,6 @@ const app = {
         if(dTo && !dTo.value) dTo.value = `${y}-${m}-${d}`;
 
         const btn = document.getElementById('btn-apply-report-filter');
-        // Tránh gán sự kiện nhiều lần
         if (btn && !btn.hasAttribute('data-init')) {
             btn.addEventListener('click', () => this.handleKPIReportFilter());
             btn.setAttribute('data-init', 'true');
