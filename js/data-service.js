@@ -1,6 +1,6 @@
 // --- CẤU HÌNH KẾT NỐI (VERSION 01.26) ---
 // Link API Web App của bạn
-const API_URL = "https://script.google.com/macros/s/AKfycbwJMdHPD1476h-UDkXLAJ9iJrXiYj83rXEVfvcIlR_kGOnDPY-MWYi3CAqh6bVd0nJZmg/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbwctFpLYXbvgeNotRuq8Rb0BebFoGRBrFZP4rsDEJqEE_2mz0pkx8w9owtaIDNPMw65/exec"; 
 
 const DataService = {
     _cache: null, // Biến lưu trữ dữ liệu tạm thời (RAM)
@@ -144,6 +144,14 @@ const DataService = {
     async getKPILogs() { await this.ensureData(); return this._cache.kpi_logs || []; },
     async getKPIActual(monthFrom, monthTo, keyword) { await this.ensureData(); return this._cache.kpi_data || []; },
     async getKPIPlanning() { await this.ensureData(); return this._cache.kpi_planning || []; },
+    async getKPIEmpPlans() { 
+        await this.ensureData(); 
+        return this._cache.kpi_emp || []; 
+    },
     async getUsers() { await this.ensureData(); return this._cache.users || []; },
-    async getKPIUserLogs() { return []; }
+    
+    async getKPIUserLogs() { 
+        await this.ensureData(); 
+        return this._cache.kpi_logs || []; 
+    }
 };
