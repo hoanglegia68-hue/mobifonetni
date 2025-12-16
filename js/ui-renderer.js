@@ -921,21 +921,34 @@ const UIRenderer = {
                 delete app.chartInstances[id];
             }
         });
-
+// --- CẬP NHẬT HÀM NÀY ĐỂ SỐ LIỆU CÓ THỂ CLICK ĐƯỢC ---
         const updateWidget = (prefix, actual, plan) => {
             const elActual = document.getElementById(`stat-${prefix}-actual`);
             const elPlan = document.getElementById(`stat-${prefix}-plan`);
             const elPercent = document.getElementById(`stat-${prefix}-percent`);
             const elProg = document.getElementById(`prog-${prefix}`);
 
-            if (elActual) elActual.textContent = this.formatNumber(actual);
+            // 1. Cập nhật số liệu
+            if (elActual) {
+                elActual.textContent = this.formatNumber(actual);
+                
+                // [MỚI] Thêm sự kiện Click cho số Thực hiện
+                elActual.style.cursor = 'pointer'; // Biến con trỏ thành bàn tay
+                elActual.style.textDecoration = 'underline'; // Gạch chân nhẹ (tùy chọn)
+                elActual.title = "Bấm để xem chi tiết phân bổ";
+                elActual.onclick = () => {
+                    // Gọi hàm mở Popup (prefix là 'sub' hoặc 'rev')
+                    if (app.showKPIBreakdown) app.showKPIBreakdown(prefix, 'cum');
+                };
+            }
+
             if (elPlan) elPlan.textContent = this.formatNumber(plan);
             
             const percent = plan > 0 ? Math.round((actual / plan) * 100) : (actual > 0 ? 100 : 0);
             if (elPercent) elPercent.textContent = `${percent}%`;
             if (elProg) elProg.style.width = `${Math.min(percent, 100)}%`;
         };
-
+       
         updateWidget('sub', data.sub.actual, data.sub.plan);
         updateWidget('rev', data.rev.actual, data.rev.plan);
 
@@ -1049,22 +1062,59 @@ const UIRenderer = {
             });
         }
 
-        // Helper: Cluster Chart (Cho Doanh thu - giữ nguyên dạng Bar đôi)
-        const createClusterChart = (canvasId, clusterData, colorActual) => {
+        // ============================================================
+        // FIX LỖI: CẬP NHẬT HÀM NÀY ĐỂ CLICK ĐƯỢC BIỂU ĐỒ DOANH THU
+        // ============================================================
+        const createClusterChart = (canvasId, clusterData, colorActual, type = 'rev') => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
+            
             const clusters = Object.keys(clusterData);
             const actuals = clusters.map(c => clusterData[c].actual);
             const plans = clusters.map(c => clusterData[c].plan);
+            // Label hiển thị tên Cụm/Liên Cụm
             const clusterNames = clusters.map(c => app.getNameLienCum(c) || app.getNameCum(c) || c);
 
             app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: clusterNames,
-                    datasets: [{ label: 'Thực hiện', data: actuals, backgroundColor: colorActual }, { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1' }]
+                    datasets: [
+                        { 
+                            label: 'Thực hiện', 
+                            data: actuals, 
+                            backgroundColor: colorActual,
+                            order: 2
+                        }, 
+                        { 
+                            label: 'Kế hoạch', 
+                            data: plans, 
+                            backgroundColor: '#cbd5e1',
+                            order: 3
+                        }
+                    ]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    // --- THÊM PHẦN NÀY ĐỂ CLICK ĐƯỢC ---
+                    onHover: (event, chartElement) => {
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    },
+                    onClick: (e, activeEls) => {
+                        if (activeEls.length > 0) {
+                            const index = activeEls[0].index;
+                            const code = clusters[index]; // Lấy mã gốc (ví dụ: LC_HCM)
+                            
+                            // Tự động nhận diện xem đang xem ở cấp Cụm hay Liên Cụm
+                            const viewLevel = code.startsWith('LC') ? 'liencum' : 'cum';
+                            
+                            // Gọi hàm mở Popup trong main.js
+                            if(app.showKPIBreakdown) app.showKPIBreakdown(type, viewLevel);
+                        }
+                    }
+                    // ------------------------------------
+                }
             });
         };
 
@@ -1075,7 +1125,7 @@ const UIRenderer = {
         createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); 
         // Truyền thêm tham số 'rev' để biết đang click vào biểu đồ doanh thu
         createChannelChart('chartRevChannel', data.rev.channel, '#60a5fa', 'rev');
-        createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8');
+        createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8', 'rev');
     },
 
     // ============================================================
