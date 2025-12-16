@@ -65,8 +65,11 @@ const app = {
 // ============================================================
     // UPDATE: TÁCH RIÊNG PLAN CỤM (kpi_planning) VÀ NV (kpi_emp)
     // ============================================================
+    // ============================================================
+    // UPDATE: FIX LỖI POPUP KHÔNG CÓ SỐ LIỆU THỰC HIỆN & KÊNH
+    // ============================================================
     async handleKPIReportFilter() {
-        console.log("Loading Staff & KPI Data (Separated Logic)...");
+        console.log("Loading Staff & KPI Data (Final Fix)...");
         
         // 1. Lấy giá trị bộ lọc
         const dFrom = document.getElementById('dash-date-from')?.value;
@@ -78,11 +81,11 @@ const app = {
         if (!dFrom || !dTo) return alert("Vui lòng chọn khoảng thời gian!");
 
         try {
-            // 2. Tải dữ liệu: Thêm getKPIEmpPlans() vào Promise
+            // 2. Tải dữ liệu
             const [raw, plans, empPlans, struct, logs, listGDV, listSales, listB2B] = await Promise.all([
                 DataService.getKPIActual(dFrom.substring(0,7), dTo.substring(0,7), null),
-                DataService.getKPIPlanning(),  // Sheet kpi_planning (Chỉ chứa Cụm)
-                DataService.getKPIEmpPlans(),  // [MỚI] Sheet kpi_emp (Chỉ chứa Nhân viên)
+                DataService.getKPIPlanning(),  
+                DataService.getKPIEmpPlans(),  
                 DataService.getKPIStructure(),
                 DataService.getKPILogs(),
                 DataService.getGDVs(),
@@ -91,11 +94,11 @@ const app = {
             ]);
 
             const rawData = this.normalizeDataSet(raw);
-            const planData = this.normalizeDataSet(plans);     // Dữ liệu kế hoạch Cụm
-            const empPlanData = this.normalizeDataSet(empPlans); // Dữ liệu kế hoạch Nhân viên
+            const planData = this.normalizeDataSet(plans);     
+            const empPlanData = this.normalizeDataSet(empPlans); 
             const logData = this.normalizeDataSet(logs);
 
-            // 3. Map & Init (Giữ nguyên)
+            // 3. Map & Init 
             const userChannelMap = {};
             logData.forEach(l => {
                 const nv = l.maNV || l.MaNV;
@@ -117,11 +120,11 @@ const app = {
             const subData = initData();
             const revData = initData();
             const initClusterObj = () => ({ actual: 0, plan: 0 });
+            // [QUAN TRỌNG] Object Breakdown cần có cấu trúc channels bên trong
             const initBreakdownObj = () => ({ actual: 0, plan: 0, channels: {} });
-            const staffMap = {}; // Map lưu trữ KPI nhân viên
+            const staffMap = {}; 
 
             // --- 4. TÍNH TOÁN KPI THỰC HIỆN (ACTUAL) ---
-            // (Giữ nguyên Logic tính thực hiện)
             rawData.forEach(row => {
                 const parsed = this.parseDateKey(row.date);
                 if (parsed.full < dFrom || parsed.full > dTo) return;
@@ -147,14 +150,31 @@ const app = {
                 // Cộng dồn KPI Chung
                 const targetData = type === 'sub' ? subData : revData;
                 targetData.actual += val;
+                
                 const dKey = parsed.full;
                 if (!targetData.daily[dKey]) targetData.daily[dKey] = 0;
                 targetData.daily[dKey] += val;
+                
                 if (!targetData.channel[rowChannel]) targetData.channel[rowChannel] = 0;
                 targetData.channel[rowChannel] += val;
+                
                 const cKey = row.maLienCum || 'KHÁC'; 
                 if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initClusterObj();
                 targetData.cluster[cKey].actual += val;
+
+                // =============================================================
+                // [FIX LỖI POPUP] CỘNG DỒN VÀO BIẾN BREAKDOWN ĐỂ POPUP HIỂN THỊ
+                // =============================================================
+                const cumCode = row.maCum || 'KHÁC';
+                if (!targetData.breakdown[cumCode]) targetData.breakdown[cumCode] = initBreakdownObj();
+                
+                // 1. Cộng tổng thực hiện cho Cụm (Fix lỗi ô số to)
+                targetData.breakdown[cumCode].actual += val;
+                
+                // 2. Cộng chi tiết theo kênh cho Cụm (Fix lỗi biểu đồ kênh)
+                if (!targetData.breakdown[cumCode].channels[rowChannel]) targetData.breakdown[cumCode].channels[rowChannel] = 0;
+                targetData.breakdown[cumCode].channels[rowChannel] += val;
+                // =============================================================
 
                 // Cộng dồn KPI Nhân viên (Actual)
                 if (nv) {
@@ -164,11 +184,7 @@ const app = {
                 }
             });
 
-            // =========================================================
-            // 5. TÍNH TOÁN KPI KẾ HOẠCH (PLAN) - TÁCH 2 LUỒNG
-            // =========================================================
-            
-            // Xác định các tháng cần lấy
+            // --- 5. TÍNH TOÁN KPI KẾ HOẠCH (PLAN) ---
             const relevantMonths = new Set();
             let curr = new Date(dFrom);
             const dateEnd = new Date(dTo);
@@ -179,7 +195,6 @@ const app = {
                 curr.setMonth(curr.getMonth() + 1);
             }
 
-            // Hàm helper check tháng (Smart Parsing)
             const checkMonth = (rowMonth) => {
                 let mKey = '';
                 if (typeof rowMonth === 'string') {
@@ -195,11 +210,10 @@ const app = {
                 return relevantMonths.has(mKey);
             };
 
-            // --- LUỒNG 1: DUYỆT SHEET KPI_PLANNING (Cho Cụm/Liên Cụm) ---
+            // LUỒNG 1: PLAN CỤM
             planData.forEach(row => {
                 if (!checkMonth(row.month || row.thang)) return;
                 
-                // Check Scope
                 if (scope !== 'all') {
                     if (scope.startsWith('LC-') && row.maLienCum !== scope) return;
                     if (scope.startsWith('C-') && row.maCum !== scope) return;
@@ -212,7 +226,6 @@ const app = {
 
                 let val = Number(row.giaTri || row.keHoach) || 0;
 
-                // Chỉ cộng dồn vào Báo cáo Chung (Biểu đồ)
                 const targetData = type === 'sub' ? subData : revData;
                 targetData.plan += val;
 
@@ -220,12 +233,13 @@ const app = {
                 if (!targetData.cluster[cKey]) targetData.cluster[cKey] = initClusterObj();
                 targetData.cluster[cKey].plan += val;
 
+                // [FIX LỖI] Đảm bảo breakdown được khởi tạo khi tính Plan
                 const cumCode = row.maCum || 'KHÁC';
                 if (!targetData.breakdown[cumCode]) targetData.breakdown[cumCode] = initBreakdownObj();
                 targetData.breakdown[cumCode].plan += val;
             });
 
-            // --- LUỒNG 2: DUYỆT SHEET KPI_EMP (Cho Nhân viên) ---
+            // LUỒNG 2: PLAN NHÂN VIÊN
             empPlanData.forEach(row => {
                 if (!checkMonth(row.month || row.thang)) return;
 
@@ -236,35 +250,19 @@ const app = {
 
                 let val = Number(row.keHoach || row.giaTri) || 0;
                 
-                // Lấy mã NV
                 const rawNV = row.maNV || row.MaNV || row.manv; 
                 if (rawNV) {
                     const nvCode = String(rawNV).trim().toUpperCase();
+                    if (!staffMap[nvCode]) staffMap[nvCode] = { code: nvCode, actual: 0, plan: 0 };
 
-                    // Logic Scope cho Nhân viên (Nếu cần check NV này thuộc Cụm nào)
-                    // Lưu ý: Sheet kpi_emp có thể không có cột maCum, nên ta không lọc scope ở đây 
-                    // mà sẽ lọc ở bước hiển thị (processStaffGroup) dựa vào danh sách nhân sự gốc.
-
-                    if (!staffMap[nvCode]) {
-                        staffMap[nvCode] = { 
-                            code: nvCode, 
-                            actual: 0, 
-                            plan: 0
-                        };
-                    }
-
-                    // Quy đổi đơn vị cho nhân viên
                     let valStaff = val;
-                    if (type !== 'sub') {
-                        if (val > 5000) valStaff = val / 1000000; 
-                    }
+                    if (type !== 'sub' && val > 5000) valStaff = val / 1000000; 
                     
                     staffMap[nvCode].plan += valStaff;
                 }
             });
 
-            // --- 6. PHÂN LOẠI 3 LỰC LƯỢNG (GDV, SALES, B2B) ---
-            // (Đoạn này giữ nguyên logic chuẩn 100% đã sửa ở câu trước)
+            // --- 6. PHÂN LOẠI NV (Giữ nguyên) ---
             const processStaffGroup = (sourceList) => {
                 const resultList = [];
                 let totalActual = 0;
@@ -314,7 +312,7 @@ const app = {
             };
             this.currentKPIReportData = { sub: subData, rev: revData };
 
-            // --- 7. RENDER GIAO DIỆN ---
+            // --- 7. RENDER ---
             UIRenderer.renderKPIReport({ sub: subData, rev: revData }, { dFrom, dTo });
 
             if (UIRenderer.renderStaffPerformance) {
