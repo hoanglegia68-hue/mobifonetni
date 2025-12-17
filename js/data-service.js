@@ -1,5 +1,5 @@
-// --- CẤU HÌNH KẾT NỐI (VERSION 01.26) ---
-// Link API Web App của bạn
+
+
 const API_URL = "https://script.google.com/macros/s/AKfycbwctFpLYXbvgeNotRuq8Rb0BebFoGRBrFZP4rsDEJqEE_2mz0pkx8w9owtaIDNPMw65/exec"; 
 
 const DataService = {
