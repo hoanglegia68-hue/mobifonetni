@@ -99,6 +99,7 @@ const DataService = {
                 cum = {
                     maCum: codeCum,              // KEY
                     tenCum: row.tenCum || row.cum, // DISPLAY
+                    sdtCum: row.sdtCum || "",
                     phuTrach: row.phuTrach || "",
                     phuongXas: []
                 };
