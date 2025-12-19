@@ -1446,6 +1446,7 @@ const UIRenderer = {
                     </td>
                     <td class="p-3 text-xs font-mono text-slate-500">${i.maNV||''}</td>
                 </tr>`).join('');
+                
         }
 
         thead.innerHTML = headerHtml;
@@ -1453,5 +1454,95 @@ const UIRenderer = {
         
         // Vẽ lại icon sau khi render HTML mới
         lucide.createIcons();
+    },
+
+// [REPLACE] Thay thế hàm renderRankingTable cũ trong ui-renderer.js
+    renderRankingTable(containerId, data, options = {}) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm italic">Chưa có dữ liệu xếp hạng</div>`;
+            return;
+        }
+
+        // --- CẤU HÌNH GIAO DIỆN MỚI (SCROLLBAR) ---
+        // max-h-[350px]: Giới hạn chiều cao, quá thì cuộn
+        // overflow-auto: Tự động hiện thanh cuộn dọc/ngang
+        let html = `
+            <div class="overflow-auto max-h-[350px] custom-scrollbar relative bg-white rounded-b-xl w-full">
+                <table class="w-full text-sm text-left border-collapse min-w-[350px]">
+                    <thead class="text-[10px] text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                            <th class="px-3 py-2 text-center w-10 font-bold bg-slate-50">#</th>
+                            <th class="px-3 py-2 font-bold bg-slate-50">Đơn vị / Nhân viên</th>
+                            <th class="px-3 py-2 text-right font-bold bg-slate-50">Kế hoạch</th>
+                            <th class="px-3 py-2 text-right font-bold bg-slate-50">Thực hiện</th>
+                            <th class="px-3 py-2 text-center font-bold bg-slate-50">%</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">`;
+
+        data.forEach((item, index) => {
+            // Logic Top 3
+            let rankBadge = `<span class="text-slate-500 font-mono text-xs">#${index + 1}</span>`;
+            if (index === 0) rankBadge = `<div class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-xs mx-auto">1</div>`;
+            else if (index === 1) rankBadge = `<div class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs mx-auto">2</div>`;
+            else if (index === 2) rankBadge = `<div class="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs mx-auto">3</div>`;
+
+            // Logic màu sắc %
+            let percentClass = "text-slate-600 font-bold";
+            if (item.percent >= 100) percentClass = "text-emerald-600 font-bold bg-emerald-50 border-emerald-100";
+            else if (item.percent >= 80) percentClass = "text-blue-600 font-bold bg-blue-50 border-blue-100";
+            else if (item.percent < 50) percentClass = "text-red-500 font-bold bg-red-50 border-red-100";
+
+            // Sub info (Tên cụm hoặc chức danh)
+            let subInfoHtml = '';
+            if (item.sub) {
+                // Nếu là mã cụm (ví dụ C_TANAN) -> Hiển thị tên đẹp hơn nếu có trong map
+                let subDisplay = item.sub;
+                if(window.app && window.app.mapCum && window.app.mapCum[item.sub]) {
+                    subDisplay = window.app.mapCum[item.sub];
+                }
+              // Thay 'map-pin' bằng 'user' để hiển thị tên Trưởng Cụm/Liên Cụm hợp lý hơn
+                subInfoHtml = `<div class="text-[10px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
+                    <i data-lucide="user" class="w-2.5 h-2.5"></i> ${subDisplay}
+                </div>`;
+            }
+            
+            // Nút gọi điện (nếu có sđt)
+            if (item.phone) {
+                subInfoHtml += `
+                <div class="mt-1">
+                    <a href="tel:${item.phone}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-green-100 text-slate-500 hover:text-green-600 transition text-[10px]">
+                        <i data-lucide="phone" class="w-2.5 h-2.5"></i> ${item.phone}
+                    </a>
+                </div>`;
+            }
+
+            html += `
+                <tr class="hover:bg-slate-50 transition group">
+                    <td class="px-2 py-3 text-center align-top">${rankBadge}</td>
+                    <td class="px-3 py-3 align-top">
+                        <div class="font-bold text-slate-700 text-sm leading-tight mb-1">${item.name}</div>
+                        ${subInfoHtml}
+                    </td>
+                    <td class="px-3 py-3 text-right align-top text-slate-400 font-mono text-xs whitespace-nowrap">
+                        ${this.formatNumber(item.plan)}
+                    </td>
+                    <td class="px-3 py-3 text-right align-top font-bold text-slate-700 font-mono text-xs whitespace-nowrap">
+                        ${this.formatNumber(item.actual)}
+                    </td>
+                    <td class="px-3 py-3 text-center align-top">
+                        <span class="${percentClass} px-2 py-1 rounded border text-[11px] inline-block min-w-[45px] text-center">
+                            ${item.percent}%
+                        </span>
+                    </td>
+                </tr>`;
+        });
+
+        html += `</tbody></table></div>`; // Đóng div wrapper
+        container.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
     }
-};
+}; //
