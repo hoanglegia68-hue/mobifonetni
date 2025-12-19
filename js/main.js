@@ -24,6 +24,139 @@ const app = {
     // ============================================================
     // 2. INIT & AUTH (KHỞI TẠO & ĐĂNG NHẬP)
     // ============================================================
+
+    // [REPLACE] Thay thế toàn bộ hàm calculateAndRenderRankings cũ bằng hàm này
+    calculateAndRenderRankings() {
+        console.log("--- BẮT ĐẦU TÍNH TOÁN XẾP HẠNG (FIX DATA CỤM) ---");
+        
+        // 1. Kiểm tra dữ liệu đầu vào
+        if (!this.currentKPIReportData || !this.currentKPIReportData.sub) return;
+
+        const filterScope = this.currentFilterScope || 'all'; 
+        
+        // [FIX QUAN TRỌNG]: Tách nguồn dữ liệu ra làm 2 biến riêng biệt
+        // - Nguồn Liên Cụm: lấy từ .cluster
+        const kpiSourceLC = this.currentKPIReportData.sub.cluster; 
+        // - Nguồn Cụm: lấy từ .breakdown (Lúc trước bị trỏ nhầm vào .cluster nên không tìm thấy)
+        const kpiSourceCum = this.currentKPIReportData.sub.breakdown; 
+
+        // Hàm tính %
+        const calcPercent = (act, pln) => {
+            const a = Number(act) || 0;
+            const p = Number(pln) || 0;
+            if (p === 0) return a > 0 ? 100 : 0;
+            return Math.round((a / p) * 100);
+        };
+
+        // --- 2. LOOP TÍNH TOÁN ---
+        let listLC = [];
+        let listCum = [];
+
+        if (this.fullClusterData && this.fullClusterData.length > 0) {
+            this.fullClusterData.forEach(lc => {
+                // A. XỬ LÝ LIÊN CỤM
+                const lcKey = app.cleanCode(lc.maLienCum);
+                // Tìm trong kpiSourceLC
+                const kpiLC = kpiSourceLC[lc.maLienCum] || kpiSourceLC[lcKey] || { actual: 0, plan: 0 };
+                
+                listLC.push({
+                    id: lc.maLienCum,
+                    name: lc.tenLienCum,
+                    sub: lc.truongLienCum, 
+                    phone: lc.sdtLienCum,
+                    actual: kpiLC.actual,
+                    plan: kpiLC.plan,
+                    percent: calcPercent(kpiLC.actual, kpiLC.plan)
+                });
+
+                // B. XỬ LÝ CỤM CON
+                lc.cums.forEach(cum => {
+                    let isVisible = true;
+                    // Logic lọc theo Scope
+                    if (filterScope !== 'all') {
+                        if (filterScope.startsWith('LC_') && filterScope !== lc.maLienCum) isVisible = false;
+                        if (!filterScope.startsWith('LC_') && filterScope !== cum.maCum) isVisible = false;
+                    }
+
+                    if (isVisible) {
+                        const cumKey = app.cleanCode(cum.maCum); 
+                        const kpiCum = kpiSourceCum[cum.maCum] || kpiSourceCum[cumKey] || { actual: 0, plan: 0 };
+                        
+                        // --- GIẢI PHÁP THÔNG MINH: TRUY QUÉT TỪ KHÓA SDT ---
+                        const getPhoneSmart = (obj) => {
+                            if (!obj) return '';
+                            // 1. Thử lấy trực tiếp key sạch
+                            if (obj.sdtCum) return obj.sdtCum;
+                            
+                            // 2. Nếu không thấy, quét tất cả các keys để tìm key có chứa chữ 'sdt' hoặc 'phone'
+                            const allKeys = Object.keys(obj);
+                            const targetKey = allKeys.find(k => {
+                                const cleanK = k.trim().toLowerCase();
+                                return cleanK.includes('sdt') || cleanK.includes('phone') || cleanK === 'sodienthoai';
+                            });
+                            
+                            return targetKey ? obj[targetKey] : '';
+                        };
+
+                        listCum.push({
+                            id: cum.maCum,
+                            name: cum.tenCum,
+                            sub: cum.phuTrach,
+                            phone: getPhoneSmart(cum), // Dùng hàm truy quét thông minh ở đây
+                            actual: kpiCum.actual,
+                            plan: kpiCum.plan,
+                            percent: calcPercent(kpiCum.actual, kpiCum.plan)
+                        });
+                    }
+                });
+            });
+        }
+
+        // 3. SẮP XẾP & RENDER
+        listLC.sort((a, b) => b.percent - a.percent);
+        listCum.sort((a, b) => b.percent - a.percent);
+
+        UIRenderer.renderRankingTable('ranking-liencum-container', listLC);
+        UIRenderer.renderRankingTable('ranking-cum-container', listCum);
+
+        // --- 4. XỬ LÝ XẾP HẠNG NHÂN VIÊN (GIỮ NGUYÊN) ---
+        if (!this.currentStaffDataGroups) return;
+
+        const mapStaffRanking = (groupData, cachedSourceList) => {
+            if (!groupData || !Array.isArray(groupData)) return [];
+            
+            let filtered = groupData;
+            if (filterScope !== 'all') {
+                filtered = groupData.filter(s => {
+                    if (filterScope.startsWith('C_')) return s.maCum === filterScope;
+                    const parentLC = app.getParentLienCum(s.maCum);
+                    return parentLC === filterScope;
+                });
+            }
+
+            return filtered.map(s => {
+                const staticInfo = cachedSourceList.find(i => i.maNV === s.code) || {};
+                return {
+                    id: s.code,
+                    name: s.name,
+                    sub: s.maCum,
+                    phone: staticInfo.sdt || staticInfo.soDienThoai, 
+                    actual: s.actual,
+                    plan: s.plan,
+                    percent: Number(s.percent) || 0
+                };
+            });
+        };
+
+        const rankGDV = mapStaffRanking(this.currentStaffDataGroups.gdv, this.cachedData.gdvs || []);
+        const rankSales = mapStaffRanking(this.currentStaffDataGroups.sales, this.cachedData.sales || []);
+        const rankB2B = mapStaffRanking(this.currentStaffDataGroups.b2b, this.cachedData.b2b || []);
+
+        UIRenderer.renderRankingTable('ranking-gdv-container', rankGDV);
+        UIRenderer.renderRankingTable('ranking-sales-container', rankSales);
+        UIRenderer.renderRankingTable('ranking-b2b-container', rankB2B);
+    },
+
     async init() {
         console.log("App Starting... Version 05.06 (Fix Undefined & Zero Count)");
 
@@ -59,6 +192,7 @@ const app = {
         
         if (window.lucide) lucide.createIcons();
         this.navigate('dashboard');
+        this.calculateAndRenderRankings();
     },
 
     logout() {
@@ -306,6 +440,7 @@ const app = {
             if (UIRenderer.renderStaffPerformance) {
                 UIRenderer.renderStaffPerformance({ gdv: groupGDV, sales: groupSales, b2b: groupB2B });
             }
+            this.calculateAndRenderRankings();
 
         } catch (e) { console.error("Lỗi xử lý báo cáo:", e); }
     },
@@ -325,7 +460,16 @@ const app = {
         document.getElementById('modal-detail-list').classList.add('open');
     },
 
-    handleDashboardFilter(scope) { UIRenderer.renderDashboard(scope); },
+    handleDashboardFilter(scope) { 
+        // 1. Lưu scope vào biến global của app để hàm xếp hạng dùng
+        this.currentFilterScope = scope; 
+
+        // 2. Vẽ lại các biểu đồ/thẻ (Card)
+        UIRenderer.renderDashboard(scope); 
+        
+        // 3. Vẽ lại bảng xếp hạng theo scope mới
+        this.calculateAndRenderRankings(); 
+    },
 
     showKPIBreakdown(type, viewLevel = 'cum') {
         if (!this.currentKPIReportData || !this.currentKPIReportData[type]) return;
