@@ -234,3 +234,49 @@ body.is-manager .admin-only { display: none !important; }
 @media (max-width: 768px) {
     .overflow-x-auto::-webkit-scrollbar { height: 4px; }
 }
+/* --- FULL SCREEN WIDGET MODE --- */
+/* Class này sẽ được toggle bằng JS */
+.widget-fullscreen {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999; /* Đảm bảo đè lên tất cả */
+    background-color: #fff;
+    padding: 16px; /* Padding cho mobile */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0 !important; /* Bỏ bo góc khi full */
+}
+
+/* Khi full screen, phần chứa bảng sẽ tự co giãn */
+.widget-fullscreen .overflow-x-auto {
+    flex: 1;
+    overflow-y: auto; /* Cho phép cuộn dọc */
+    height: 100%;
+}
+
+/* Ẩn nút maximize khi đã full, hiện nút close */
+.widget-fullscreen .btn-maximize { display: none; }
+.widget-fullscreen .btn-minimize { display: inline-flex; }
+
+/* Mặc định ẩn nút minimize */
+.btn-minimize { display: none; }
+
+/* Tùy chỉnh thanh cuộn cho bảng full screen đẹp hơn */
+.widget-fullscreen .overflow-x-auto::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
