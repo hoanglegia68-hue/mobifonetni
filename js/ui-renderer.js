@@ -2,20 +2,20 @@ const UIRenderer = {
     // ============================================================
     // 1. CÁC HÀM HELPER DÙNG CHUNG
     // ============================================================
-    
+
     // Format số liệu (1.000.000)
     formatNumber(num) {
         if (num === null || num === undefined) return '0';
         return new Intl.NumberFormat('vi-VN').format(num);
     },
 
-    // Tạo Link Google Map
+    // Tạo Link Google Map (Đã fix lỗi cú pháp link)
     getMapLink(lat, lng, address) {
         if (!lat || !lng) return `<span class="text-slate-500 text-xs">${address}</span>`;
         return `
             <div class="flex flex-col">
                 <span class="text-xs font-medium text-slate-700 truncate max-w-[200px]" title="${address}">${address}</span>
-                <a href="http://maps.google.com/?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
                     <i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ
                 </a>
             </div>
@@ -43,41 +43,34 @@ const UIRenderer = {
         return parts[0][0] + parts[parts.length - 1][0];
     },
 
-    // Tính số ngày còn lại (Hỗ trợ cả dd/mm/yyyy và yyyy-mm-dd)
+    // Tính số ngày còn lại
     getDaysRemaining(endDateStr) {
         if (!endDateStr) return 9999;
         let end;
-        
-        // Xử lý ngày Việt Nam (31/12/2025)
         if (endDateStr.includes('/')) {
             const parts = endDateStr.split('/');
             if (parts.length === 3) {
-                // new Date(y, m-1, d)
                 end = new Date(parts[2], parts[1] - 1, parts[0]);
             }
-        } 
-        
+        }
         if (!end || isNaN(end.getTime())) {
             end = new Date(endDateStr);
         }
-        
         if (isNaN(end.getTime())) return 9999;
 
         const now = new Date();
-        now.setHours(0,0,0,0);
+        now.setHours(0, 0, 0, 0);
         const diffTime = end - now;
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     },
 
     // Format ngày VN (dd/mm/yyyy)
     formatDateVN(dateStr) {
-        if(!dateStr) return '';
+        if (!dateStr) return '';
         try {
-            // Check nếu là chuỗi dd/mm/yyyy sẵn rồi thì trả về luôn
             if (typeof dateStr === 'string' && dateStr.includes('/') && dateStr.split('/').length === 3) return dateStr;
-
             const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr; 
+            if (isNaN(date.getTime())) return dateStr;
             const d = String(date.getDate()).padStart(2, '0');
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const y = date.getFullYear();
@@ -92,7 +85,7 @@ const UIRenderer = {
     renderClusterTable(data) {
         const tbody = document.getElementById('cluster-table-body');
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu phù hợp</td></tr>`;
             return;
@@ -141,8 +134,8 @@ const UIRenderer = {
                     }
 
                     let leadersHtml = px.lanhDao && px.lanhDao.length > 0 ? px.lanhDao.map(ld => {
-                        let badgeClass = (ld.chucVu.includes('Chủ tịch') || ld.chucVu.includes('Bí thư')) ? 'text-blue-700 bg-blue-50' : 
-                                         (ld.chucVu.includes('CA') || ld.chucVu.includes('Công an')) ? 'text-red-700 bg-red-50' : 'text-slate-600 bg-slate-100';
+                        let badgeClass = (ld.chucVu.includes('Chủ tịch') || ld.chucVu.includes('Bí thư')) ? 'text-blue-700 bg-blue-50' :
+                            (ld.chucVu.includes('CA') || ld.chucVu.includes('Công an')) ? 'text-red-700 bg-red-50' : 'text-slate-600 bg-slate-100';
                         return `<div class="text-[10px] mb-1 px-1.5 py-0.5 rounded border border-slate-200 w-fit ${badgeClass}" title="SĐT: ${ld.sdt}">
                             <span class="opacity-75 font-semibold">${ld.chucVu}:</span> <span>${ld.ten}</span>
                         </div>`;
@@ -167,7 +160,7 @@ const UIRenderer = {
         });
 
         tbody.innerHTML = html;
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     // ============================================================
@@ -177,10 +170,10 @@ const UIRenderer = {
     renderStoresTable(data) {
         const tbody = document.getElementById('store-list-body');
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
-             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
-             return;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            return;
         }
 
         tbody.innerHTML = data.map((item, idx) => {
@@ -228,16 +221,16 @@ const UIRenderer = {
                 <td class="p-3 border-b text-sm text-slate-500 italic max-w-[200px] truncate" title="${item.ghiChu || ''}">${item.ghiChu || ''}</td>
             </tr>`;
         }).join('');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     renderGDVTable(data) {
         const tbody = document.getElementById('gdv-list-body');
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
-             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
-             return;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            return;
         }
 
         tbody.innerHTML = data.map(item => `
@@ -253,21 +246,19 @@ const UIRenderer = {
                 <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
                 <td class="p-3 text-xs font-mono">${item.sdt}</td>
                 <td class="p-3 text-center">${this.getStatusBadge(item.trangThai, item.ngayNghi)}</td>
-                <td class="p-3 text-center">
-                    <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                </td>
+                
             </tr>
         `).join('');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     renderSalesTable(data) {
         const tbody = document.getElementById('sales-list-body');
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
-             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
-             return;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            return;
         }
 
         tbody.innerHTML = data.map(item => `
@@ -280,21 +271,19 @@ const UIRenderer = {
                 <td class="p-3"><div class="flex flex-wrap gap-1">${(item.phuongXas || []).map(px => `<span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-100 text-[10px]">${px}</span>`).join('')}</div></td>
                 <td class="p-3 text-xs font-mono">${item.sdt}</td>
                 <td class="p-3 text-center">${this.getStatusBadge(item.trangThai, item.ngayNghi)}</td>
-                <td class="p-3 text-center">
-                    <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                </td>
+                
             </tr>
         `).join('');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     renderB2BTable(data) {
         const tbody = document.getElementById('b2b-list-body');
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
-             tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
-             return;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            return;
         }
 
         tbody.innerHTML = data.map(item => `
@@ -306,18 +295,16 @@ const UIRenderer = {
                 <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
                 <td class="p-3 text-xs font-mono">${item.sdt}</td>
                 <td class="p-3 text-center">${this.getStatusBadge(item.trangThai, item.ngayNghi)}</td>
-                <td class="p-3 text-center">
-                    <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                </td>
+               
             </tr>
         `).join('');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     renderIndirectTable(data) {
         const tbody = document.getElementById('indirect-list-body');
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
             return;
@@ -331,9 +318,9 @@ const UIRenderer = {
                 <td class="p-3 font-mono text-xs text-slate-500">${item.maNV}</td>
                 <td class="p-3 text-center">
                     <span class="px-2 py-1 rounded text-[10px] font-bold border 
-                        ${(item.loai || '').includes('UQ') ? 'bg-blue-50 text-blue-600 border-blue-100' : 
-                          (item.loai || '').includes('C2C') ? 'bg-orange-50 text-orange-600 border-orange-100' : 
-                          'bg-slate-50 text-slate-600 border-slate-200'}">
+                        ${(item.loai || '').includes('UQ') ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                (item.loai || '').includes('C2C') ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                    'bg-slate-50 text-slate-600 border-slate-200'}">
                         ${item.loai}
                     </span>
                 </td>
@@ -347,36 +334,104 @@ const UIRenderer = {
                 </td>
             </tr>
         `).join('');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     renderBTSTable(data) {
         const tbody = document.getElementById('bts-list-body');
         if (!tbody) return;
 
+        const COLSPAN = 24; // 22 cột dữ liệu + Ghi chú + Tác vụ
+
+        // Helper: lấy giá trị theo nhiều alias (hỗ trợ header sheet có viết hoa/thường, có dấu, có khoảng trắng...)
+        const pick = (row, ...aliases) => {
+            if (!row) return '';
+            const lmap = {};
+            Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+
+            for (const a of aliases) {
+                if (!a) continue;
+                if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
+                const lk = lmap[String(a).toLowerCase()];
+                if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') return row[lk];
+            }
+            return '';
+        };
+
+        // Helper: hiển thị rỗng thành '-' (để bảng dễ đọc)
+        const safe = (v) => {
+            if (v === null || v === undefined) return '-';
+            const s = String(v).trim();
+            return s === '' ? '-' : s;
+        };
+
         if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = data.map((item, idx) => `
-             <tr class="bg-white border-b hover:bg-slate-50 transition">
-                <td class="p-3 text-center text-slate-500">${idx + 1}</td>
-                <td class="p-3 font-mono font-bold text-slate-700">${item.maTram}</td>
-                <td class="p-3 font-medium text-blue-700">${item.tenTram}</td>
-                <td class="p-3 text-xs" title="${item.maLienCum}">${app.getNameLienCum(item.maLienCum)}</td>
-                <td class="p-3 text-xs" title="${item.maCum}">${app.getNameCum(item.maCum)}</td>
-                <td class="p-3">${this.getMapLink(item.lat, item.lng, item.diaChi)}</td>
-                <td class="p-3 text-sm italic text-slate-500">${item.ghiChu}</td>
-                <td class="p-3 text-center">
-                    <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only">
-                        <i data-lucide="edit-3" class="w-4 h-4"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-        lucide.createIcons();
+        tbody.innerHTML = data.map((item, idx) => {
+            const maTram = pick(item, 'maTram', 'Mã Trạm', 'matram');
+            const loaiTram = pick(item, 'loaitram', 'loaiTram', 'Loại trạm', 'loai tram');
+            const maLienCum = pick(item, 'maLienCum', 'Mã Liên Cụm', 'maliencum');
+            const maCum = pick(item, 'maCum', 'Mã Cụm', 'macum');
+            const diaChi = pick(item, 'diaChi', 'Địa chỉ', 'dia chi', 'DiaChi');
+            const lat = pick(item, 'lat', 'Lat', 'LAT', 'latitude', 'vĩ độ', 'vi do');
+            const lng = pick(item, 'lng', 'Lng', 'LNG', 'longitude', 'kinh độ', 'kinh do');
+
+            const vlr3g = pick(item, 'VLR 3G', 'VLR3G', 'VLR_3G', 'VLR 3g');
+            const vlr4g = pick(item, 'VLR 4G', 'VLR4G', 'VLR_4G', 'VLR 4g');
+            const asim = pick(item, 'ASIM', 'asim');
+            const gtel = pick(item, 'GTEL', 'gtel');
+            const vnsky = pick(item, 'VNSKY', 'vnsky');
+            const saymee = pick(item, 'SAYMEE', 'saymee');
+            const m2mTong = pick(item, 'M2M - Tổng', 'M2M - Tong', 'M2M Tổng', 'M2M_TONG', 'M2M');
+            const dataGb = pick(item, 'Data (GB/BQN)', 'Data(GB/BQN)', 'DATA (GB/BQN)', 'Data GB/BQN', 'DATA_GB_BQN');
+            const csg = pick(item, 'CSG', 'csg');
+
+            const tbaon = pick(item, 'TBAON_ACTIVE', 'TBAON ACTIVE', 'TBAON-ACTIVE');
+            const portaon = pick(item, 'PORTAON_EMTY', 'PORTAON_EMPTY', 'PORTAON EMTY', 'PORTAON-EMTY');
+            const olt = pick(item, 'OLT', 'olt');
+            const tbgpon = pick(item, 'TBGPON_ACTIVE', 'TBGPON ACTIVE', 'TBGPON-ACTIVE');
+            const linegpon = pick(item, 'LINEGPON_EMTY', 'LINEGPON_EMPTY', 'LINEGPON EMTY', 'LINEGPON-EMTY');
+
+            const ghiChu = pick(item, 'ghiChu', 'Ghi chú', 'Ghi Chu', 'note');
+
+            return `
+                <tr class="bg-white border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                    <td class="p-3 font-mono font-bold text-slate-700">${safe(maTram)}</td>
+                    <td class="p-3 text-sm">${safe(loaiTram)}</td>
+                    <td class="p-3 text-xs" title="${safe(maLienCum)}">${app.getNameLienCum(maLienCum) || safe(maLienCum)}</td>
+                    <td class="p-3 text-xs" title="${safe(maCum)}">${app.getNameCum(maCum) || safe(maCum)}</td>
+                    <td class="p-3">${this.getMapLink(lat, lng, diaChi)}</td>
+                    <td class="p-3 text-right">${safe(vlr3g)}</td>
+                    <td class="p-3 text-right">${safe(vlr4g)}</td>
+                    <td class="p-3 text-right">${safe(asim)}</td>
+                    <td class="p-3 text-right">${safe(gtel)}</td>
+                    <td class="p-3 text-right">${safe(vnsky)}</td>
+                    <td class="p-3 text-right">${safe(saymee)}</td>
+                    <td class="p-3 text-right font-semibold">${safe(m2mTong)}</td>
+                    <td class="p-3 text-right">${safe(dataGb)}</td>
+                    <td class="p-3 text-right">${safe(csg)}</td>
+                    <td class="p-3 text-right">${safe(tbaon)}</td>
+                    <td class="p-3 text-right">${safe(portaon)}</td>
+                    <td class="p-3 text-right">${safe(olt)}</td>
+                    <td class="p-3 text-right">${safe(tbgpon)}</td>
+                    <td class="p-3 text-right">${safe(linegpon)}</td>
+                    <td class="p-3 text-sm italic text-slate-500">${safe(ghiChu)}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
     },
+
 
     // ============================================================
     // 4. SỐ LIỆU KINH DOANH (KPI) 
@@ -387,7 +442,7 @@ const UIRenderer = {
         if (tbody) {
             tbody.innerHTML = structure.map((item, i) => `
                 <tr class="bg-white border-b hover:bg-slate-50">
-                    <td class="p-3 text-center">${i+1}</td>
+                    <td class="p-3 text-center">${i + 1}</td>
                     <td class="p-3 font-mono font-bold text-blue-600">${item.ma}</td>
                     <td class="p-3 font-semibold">${item.tenHienThi}</td>
                     <td class="p-3 text-sm text-slate-500">${item.dvt}</td>
@@ -397,21 +452,20 @@ const UIRenderer = {
                 </tr>
             `).join('');
         }
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
-    // HÀM RENDER CHÍNH CHO TAB SỐ LIỆU KINH DOANH
     renderKPIActualTable(data, structure) {
         const tbody = document.getElementById('kpi-actual-tbody') || document.getElementById('body-thuchien');
         if (!tbody) return;
-        
+
         tbody.innerHTML = '';
         if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="100" class="text-center py-8 text-slate-400 italic">Không có dữ liệu phù hợp với bộ lọc</td></tr>`;
             return;
         }
 
-        // Tạo lại Header động để khớp với cấu trúc KPI mới
+        // Tạo lại Header động
         const thead = document.getElementById('kpi-header');
         if (thead) {
             let headerHtml = `
@@ -443,7 +497,7 @@ const UIRenderer = {
                 tr.className = "bg-blue-100 font-bold border-t-2 border-blue-300 text-blue-900 sticky bottom-0 z-10 shadow-lg";
             } else {
                 tr.className = "bg-white border-b hover:bg-slate-50 cursor-pointer transition-colors";
-                tr.onclick = () => app.handleRowClick(item.hienThi); 
+                if (app.handleRowClick) tr.onclick = () => app.handleRowClick(item.hienThi);
             }
 
             let sttHtml = item.isTotal ? 'TỔNG' : (index + 1);
@@ -457,18 +511,17 @@ const UIRenderer = {
                 const cleanKey = app.cleanCode(kpi.ma);
                 const actual = item[`${cleanKey}_TH`] || 0;
                 const plan = item[`${cleanKey}_KH`] || 0;
-                
+
                 let actualVal = this.formatNumber(actual);
                 let planVal = this.formatNumber(plan);
-                
-                // Tô màu nếu là %
+
                 if (kpi.dvt && kpi.dvt.toLowerCase().includes('%')) {
-                     let percent = actual; // Với % thì giá trị chính là số
-                     let percentClass = percent >= 100 ? 'text-green-600' : (percent >= 80 ? 'text-orange-600' : 'text-red-600');
-                     actualVal = `<span class="${percentClass}">${percent}%</span>`;
-                     planVal = '-';
+                    let percent = actual;
+                    let percentClass = percent >= 100 ? 'text-green-600' : (percent >= 80 ? 'text-orange-600' : 'text-red-600');
+                    actualVal = `<span class="${percentClass}">${percent}%</span>`;
+                    planVal = '-';
                 }
-                
+
                 rowHtml += `
                     <td class="p-3 text-right font-bold border-r ${item.isTotal ? 'bg-blue-100' : 'text-slate-800'}">${actualVal}</td>
                     <td class="p-3 text-right font-medium border-r ${item.isTotal ? 'bg-blue-100' : 'text-slate-500'}">${planVal}</td>
@@ -483,10 +536,9 @@ const UIRenderer = {
     },
 
     renderPlanningTable(rows, kpiStructure, planMap = {}) {
-        const table = document.getElementById('table-kehoach'); 
+        const table = document.getElementById('table-kehoach');
         if (!table) return;
 
-        // Tính tổng cột
         const colTotals = {};
         kpiStructure.forEach(k => colTotals[k.ma] = 0);
         rows.forEach(row => {
@@ -497,7 +549,6 @@ const UIRenderer = {
             });
         });
 
-        // Render Header
         let theadHtml = `
             <tr>
                 <th class="w-12 text-center p-3 border font-bold text-slate-800 bg-slate-200 sticky top-0 left-0 z-[60] shadow-md border-b-2 border-slate-300">STT</th>
@@ -509,20 +560,19 @@ const UIRenderer = {
             theadHtml += `<th class="p-3 border font-bold text-slate-800 bg-slate-200 text-right min-w-[140px] sticky top-0 z-50 shadow-sm border-b-2 border-slate-300">${kpi.tenHienThi} <br> <span class="text-[10px] font-normal text-slate-600 italic">(${kpi.dvt})</span></th>`;
         });
         theadHtml += `</tr>`;
-        
+
         let thead = table.querySelector('thead');
-        if(!thead) { thead = document.createElement('thead'); table.appendChild(thead); }
+        if (!thead) { thead = document.createElement('thead'); table.appendChild(thead); }
         thead.innerHTML = theadHtml;
 
         const tbody = document.getElementById('body-kehoach');
         if (!tbody) return;
-        
+
         if (rows.length === 0) {
             tbody.innerHTML = `<tr><td colspan="${3 + kpiStructure.length}" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
             return;
         }
 
-        // Render Body Input
         tbody.innerHTML = rows.map((row, index) => {
             let rowHtml = `
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors group">
@@ -541,9 +591,8 @@ const UIRenderer = {
             return rowHtml;
         }).join('');
 
-        // Render Footer (Tổng)
         let tfoot = table.querySelector('tfoot');
-        if(tfoot) tfoot.remove();
+        if (tfoot) tfoot.remove();
         tfoot = document.createElement('tfoot');
         table.appendChild(tfoot);
 
@@ -567,7 +616,7 @@ const UIRenderer = {
     // ============================================================
 
     renderUserLogFilter(listCum, selectedCum = "") {
-        const container = document.getElementById('filter-container-user'); 
+        const container = document.getElementById('filter-container-user');
         if (!container) return;
 
         let options = `<option value="">-- Chọn Đơn vị (Cụm) --</option>`;
@@ -586,7 +635,7 @@ const UIRenderer = {
                 <div class="h-6 w-px bg-slate-300 mx-2"></div>
                 <div class="text-sm text-slate-600 flex items-center gap-1"><i data-lucide="info" class="w-4 h-4 text-blue-500"></i><span>Dữ liệu trích xuất từ lịch sử ghi nhận KPI thực tế</span></div>
             </div>`;
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     renderClusterStats(statsData) {
@@ -614,26 +663,26 @@ const UIRenderer = {
     renderKPIUserLogs(data) {
         const tbody = document.getElementById('body-user-ghinhan');
         let statDiv = document.getElementById('user-stat-summary');
-        
+
         if (statDiv) {
-            statDiv.innerHTML = (data && data.length > 0) 
+            statDiv.innerHTML = (data && data.length > 0)
                 ? `<div class="text-sm font-bold text-blue-800 mb-2">➤ Chi tiết: <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded ml-1 border border-blue-200">${data.length} Mã NV</span></div>`
                 : '';
         }
 
         if (!tbody) return;
-        
+
         if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" class="text-center p-12 text-slate-400 italic bg-slate-50/50">
                 <div class="flex flex-col items-center gap-2"><i data-lucide="filter" class="w-8 h-8 opacity-50"></i><span>Vui lòng chọn Cụm (hoặc click vào ô thống kê) để xem chi tiết</span></div>
             </td></tr>`;
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
             return;
         }
 
         tbody.innerHTML = data.map((item, i) => `
             <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
-                <td class="p-3 text-center text-slate-500 font-medium border-r">${i+1}</td>
+                <td class="p-3 text-center text-slate-500 font-medium border-r">${i + 1}</td>
                 <td class="p-3 font-bold text-blue-700 font-mono text-sm border-r">${item.maNV}</td>
                 <td class="p-3 text-sm text-slate-700 border-r">${item.channelStr || '-'}</td>
                 <td class="p-3 text-sm text-slate-600 border-r">${app.getNameCum(item.maCum)}</td>
@@ -641,32 +690,27 @@ const UIRenderer = {
                 <td class="p-3 text-right"><span class="text-xs font-bold text-slate-400">${item.totalLogs} records</span></td>
             </tr>
         `).join('');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
-  
+
     // ============================================================
-    // 6. DASHBOARD CHÍNH (NÂNG CẤP: LỌC CỤM & LIÊN CỤM)
+    // 6. DASHBOARD CHÍNH
     // ============================================================
 
     async renderDashboard(filterScope = 'all') {
-        // Lấy dữ liệu
         const allClusters = await DataService.getClusters();
         const allStores = await DataService.getStores();
         const allBts = await DataService.getBTS();
         const allGdvs = await DataService.getGDVs();
         const allSales = await DataService.getSalesStaff();
         const allB2B = await DataService.getB2BStaff();
-        const allIndirect = await DataService.getIndirectChannels(); 
+        const allIndirect = await DataService.getIndirectChannels();
 
-        // --------------------------------------------------------
         // 1. NÂNG CẤP DROPDOWN (Chia Group Cụm / Liên Cụm)
-        // --------------------------------------------------------
         const select = document.getElementById('dashboard-scope-select');
-        // Chỉ khởi tạo lại nếu chưa có dữ liệu hoặc đang ở trạng thái mặc định sơ sài
-        if (select && select.querySelectorAll('optgroup').length === 0) { 
+        if (select && select.querySelectorAll('optgroup').length === 0) {
             select.innerHTML = '<option value="all">Toàn Công Ty</option>';
-            
-            // Group 1: LIÊN CỤM
+
             const lcGroup = document.createElement('optgroup');
             lcGroup.label = "--- LIÊN CỤM ---";
             allClusters.forEach(c => {
@@ -674,7 +718,6 @@ const UIRenderer = {
             });
             select.appendChild(lcGroup);
 
-            // Group 2: CỤM (Flatten dữ liệu từ cây Clusters)
             const cGroup = document.createElement('optgroup');
             cGroup.label = "--- CỤM ---";
             allClusters.forEach(lc => {
@@ -683,17 +726,12 @@ const UIRenderer = {
                 });
             });
             select.appendChild(cGroup);
-
-            // Set lại giá trị đang chọn (để không bị reset về 'all' khi reload UI)
-            select.value = filterScope; 
+            select.value = filterScope;
         }
 
-        // --------------------------------------------------------
-        // 2. LOGIC LỌC DỮ LIỆU (Hỗ trợ cả Liên Cụm & Cụm)
-        // --------------------------------------------------------
+        // 2. LOGIC LỌC DỮ LIỆU
         const filterByScope = (list) => {
             if (filterScope === 'all') return list;
-            // Kiểm tra item thuộc Liên Cụm OR thuộc Cụm được chọn
             return list.filter(item => item.maLienCum === filterScope || item.maCum === filterScope);
         };
 
@@ -703,18 +741,15 @@ const UIRenderer = {
         const sales = filterByScope(allSales);
         const b2b = filterByScope(allB2B);
         const indirect = filterByScope(allIndirect);
-        
-        // --- Tính toán VLR/Dân số ---
+
         let communes = [];
         if (filterScope === 'all') {
             allClusters.forEach(lc => lc.cums.forEach(c => communes.push(...c.phuongXas)));
         } else {
-            // Tìm trong Liên Cụm
             const foundLC = allClusters.find(c => c.maLienCum === filterScope);
             if (foundLC) {
                 foundLC.cums.forEach(c => communes.push(...c.phuongXas));
             } else {
-                // Nếu không phải Liên Cụm, tìm trong Cụm
                 allClusters.forEach(lc => {
                     const foundCum = lc.cums.find(c => c.maCum === filterScope);
                     if (foundCum) communes.push(...foundCum.phuongXas);
@@ -725,15 +760,11 @@ const UIRenderer = {
         const totalVLR = communes.reduce((sum, px) => sum + (Number(px.vlr) || 0), 0);
         const totalPop = communes.reduce((sum, px) => sum + (Number(px.danSo) || 0), 0);
         const totalCommunes = communes.length;
-        
-        // Count Helpers
+
         const storesExpiring = stores.filter(s => s.ngayHetHan && this.getDaysRemaining(s.ngayHetHan) < 30).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
-        // --------------------------------------------------------
-        // 3. VẼ LẠI CÁC THẺ (CARDS)
-        // --------------------------------------------------------
-        
+        // 3. VẼ CÁC CARDS
         document.getElementById('dashboard-infrastructure').innerHTML = `
             <div onclick="app.showDashboardDetail('store', '${filterScope}')" class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow relative overflow-hidden group cursor-pointer">
                 <div class="flex justify-between items-start">
@@ -805,47 +836,40 @@ const UIRenderer = {
             </div>
         `;
 
-        // --------------------------------------------------------
-        // 4. BẢNG CHI TIẾT PHÂN BỔ (Tự động chuyển view)
-        // --------------------------------------------------------
+        // 4. BẢNG CHI TIẾT PHÂN BỔ
         let displayItems = [];
-        let viewMode = 'liencum'; // Mặc định: liencum, cum, xaphuong
+        let viewMode = 'liencum';
 
         if (filterScope === 'all') {
-            // View All -> Hiển thị danh sách LIÊN CỤM
             viewMode = 'liencum';
             displayItems = allClusters.map(lc => ({
                 code: lc.maLienCum,
                 name: lc.tenLienCum,
-                subCount: lc.cums.length, // Số cụm
+                subCount: lc.cums.length,
                 type: 'Liên Cụm',
-                filterKey: 'maLienCum' // Key dùng để lọc data con
+                filterKey: 'maLienCum'
             }));
         } else {
-            // Kiểm tra xem Scope là Liên Cụm hay Cụm
             const foundLC = allClusters.find(c => c.maLienCum === filterScope);
-            
+
             if (foundLC) {
-                // View 1 Liên Cụm -> Hiển thị danh sách CỤM trực thuộc
                 viewMode = 'cum';
                 displayItems = foundLC.cums.map(c => ({
                     code: c.maCum,
                     name: c.tenCum,
-                    subCount: c.phuongXas.length, // Số Xã
+                    subCount: c.phuongXas.length,
                     type: 'Cụm',
                     filterKey: 'maCum'
                 }));
             } else {
-                // View 1 Cụm -> Hiển thị chính CỤM đó (hoặc list Xã nếu muốn, ở đây hiển thị 1 dòng tổng hợp)
                 viewMode = 'cum_detail';
-                // Tìm Cụm trong toàn bộ data
                 let foundCum = null;
                 allClusters.forEach(lc => {
                     const c = lc.cums.find(x => x.maCum === filterScope);
-                    if(c) foundCum = c;
+                    if (c) foundCum = c;
                 });
 
-                if(foundCum) {
+                if (foundCum) {
                     displayItems = [{
                         code: foundCum.maCum,
                         name: foundCum.tenCum,
@@ -857,12 +881,11 @@ const UIRenderer = {
             }
         }
 
-        // Update Table Header dựa trên View Mode
         const tHeadLabel = viewMode === 'liencum' ? 'Liên Cụm' : 'Cụm / Đơn vị';
         const tSubLabel = viewMode === 'liencum' ? 'Số Cụm' : 'Số Xã';
-        
+
         const tableHeaderRows = document.querySelectorAll('#view-dashboard table thead th');
-        if(tableHeaderRows.length > 2) {
+        if (tableHeaderRows.length > 2) {
             tableHeaderRows[1].textContent = `Đơn vị (${tHeadLabel})`;
             tableHeaderRows[2].textContent = tSubLabel;
         }
@@ -873,21 +896,26 @@ const UIRenderer = {
                 const code = item.code;
                 const filterKey = item.filterKey;
 
-                // Đếm số liệu con tương ứng với Code này
                 const cStore = allStores.filter(i => i[filterKey] === code).length;
                 const cGdv = allGdvs.filter(i => i[filterKey] === code).length;
                 const cSale = allSales.filter(i => i[filterKey] === code).length;
                 const cAgency = allIndirect.filter(i => i[filterKey] === code).length;
                 const cBts = allBts.filter(i => i[filterKey] === code).length;
-                
-                // Helper tạo nút bấm xem chi tiết
+
                 const makeLink = (count, type, cssClass) => {
-                    if(count === 0) return `<span class="text-slate-300">-</span>`;
+                    if (count === 0) return `<span class="text-slate-300">-</span>`;
                     return `<button onclick="app.showDashboardDetail('${type}', '${code}')" 
                             class="${cssClass} hover:underline hover:scale-110 transition-transform cursor-pointer px-2 py-0.5 rounded shadow-sm text-xs border border-transparent hover:border-slate-300">
                             ${count}
                             </button>`;
                 };
+                
+                // Logic nút subCount
+                const subType = item.type === 'Liên Cụm' ? 'list_cum' : 'commune';
+                const subCountHtml = `<button onclick="app.showDashboardDetail('${subType}', '${item.code}')" 
+                    class="text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded text-xs hover:bg-slate-200 hover:scale-110 transition-transform cursor-pointer border border-transparent hover:border-slate-300">
+                    ${item.subCount}
+                </button>`;
 
                 return `
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
@@ -896,9 +924,7 @@ const UIRenderer = {
                         <div class="font-bold text-slate-700">${item.name}</div>
                         <div class="text-[10px] text-slate-400 font-mono">${code}</div>
                     </td>
-                    <td class="p-3 text-center font-medium">
-                        <span class="text-slate-700 font-bold bg-slate-100 px-2 py-1 rounded text-xs">${item.subCount}</span>
-                    </td>
+                    <td class="p-3 text-center font-medium">${subCountHtml}</td>
                     <td class="p-3 text-center">${makeLink(cStore, 'store', 'text-blue-700 font-bold bg-blue-50')}</td>
                     <td class="p-3 text-center">${makeLink(cGdv, 'gdv', 'text-emerald-700 font-bold bg-emerald-50')}</td>
                     <td class="p-3 text-center">${makeLink(cSale, 'sales', 'text-orange-700 font-bold bg-orange-50')}</td>
@@ -907,58 +933,121 @@ const UIRenderer = {
                 </tr>`;
             }).join('');
         }
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
     // ============================================================
-    // CẬP NHẬT HÀM VẼ BIỂU ĐỒ (SỬA LỖI 2 - BƯỚC 2)
+    // 7. VẼ BIỂU ĐỒ (KPI REPORT)
     // ============================================================
+
     renderKPIReport(data, filterInfo) {
-        // Destroy old charts
         ['chartSubDaily', 'chartSubChannel', 'chartSubCluster', 'chartRevDaily', 'chartRevChannel', 'chartRevCluster'].forEach(id => {
             if (app.chartInstances[id]) {
                 app.chartInstances[id].destroy();
                 delete app.chartInstances[id];
             }
         });
-// --- CẬP NHẬT HÀM NÀY ĐỂ SỐ LIỆU CÓ THỂ CLICK ĐƯỢC ---
+
         const updateWidget = (prefix, actual, plan) => {
             const elActual = document.getElementById(`stat-${prefix}-actual`);
             const elPlan = document.getElementById(`stat-${prefix}-plan`);
             const elPercent = document.getElementById(`stat-${prefix}-percent`);
             const elProg = document.getElementById(`prog-${prefix}`);
 
-            // 1. Cập nhật số liệu
             if (elActual) {
                 elActual.textContent = this.formatNumber(actual);
-                
-                // [MỚI] Thêm sự kiện Click cho số Thực hiện
-                elActual.style.cursor = 'pointer'; // Biến con trỏ thành bàn tay
-                elActual.style.textDecoration = 'underline'; // Gạch chân nhẹ (tùy chọn)
+                elActual.style.cursor = 'pointer';
+                elActual.style.textDecoration = 'underline';
                 elActual.title = "Bấm để xem chi tiết phân bổ";
                 elActual.onclick = () => {
-                    // Gọi hàm mở Popup (prefix là 'sub' hoặc 'rev')
                     if (app.showKPIBreakdown) app.showKPIBreakdown(prefix, 'cum');
                 };
             }
 
             if (elPlan) elPlan.textContent = this.formatNumber(plan);
-            
+
             const percent = plan > 0 ? Math.round((actual / plan) * 100) : (actual > 0 ? 100 : 0);
             if (elPercent) elPercent.textContent = `${percent}%`;
             if (elProg) elProg.style.width = `${Math.min(percent, 100)}%`;
         };
-       
+
         updateWidget('sub', data.sub.actual, data.sub.plan);
         updateWidget('rev', data.rev.actual, data.rev.plan);
 
-        // Helper: Line Chart
+        // ============================================================
+        // [NEW] Thống kê mở rộng cho khu vực "Phát triển thuê bao"
+        // ============================================================
+        const updateSubMetrics = (metrics, fInfo) => {
+            if (!metrics) return;
+            const fmt1 = (n) => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(n ?? 0);
+            const fmtPct = (pct) => (pct === null || pct === undefined) ? '—' : `${pct >= 0 ? '+' : ''}${Number(pct).toFixed(1)}%`;
+            const fmtDelta = (delta) => `${delta >= 0 ? '+' : ''}${this.formatNumber(delta ?? 0)}`;
+            const md = (ymd) => {
+                if (!ymd) return '';
+                const p = String(ymd).split('-');
+                if (p.length !== 3) return ymd;
+                return `${p[2]}/${p[1]}`;
+            };
+            const setCompare = (el, delta, pct, prefixText) => {
+                if (!el) return;
+                el.textContent = `${prefixText}: ${fmtDelta(delta)}${pct !== null && pct !== undefined ? ` (${fmtPct(pct)})` : ''}`;
+                el.classList.remove('text-emerald-600', 'text-rose-600', 'text-slate-600');
+                if (delta > 0) el.classList.add('text-emerald-600');
+                else if (delta < 0) el.classList.add('text-rose-600');
+                else el.classList.add('text-slate-600');
+            };
+
+            // TB ngày
+            const elAvg = document.getElementById('stat-sub-avgday');
+            const elAvgNote = document.getElementById('stat-sub-avgday-note');
+            if (elAvg) elAvg.textContent = fmt1(metrics.avgDaily?.value || 0);
+            if (elAvgNote) {
+                const days = metrics.avgDaily?.days || 0;
+                const from = fInfo?.dFrom || metrics.avgDaily?.range?.from;
+                const to = fInfo?.dTo || metrics.avgDaily?.range?.to;
+                elAvgNote.textContent = `Theo khoảng lọc (${days} ngày)${from && to ? `: ${md(from)}–${md(to)}` : ''}`;
+            }
+
+            // WTD
+            const elWtd = document.getElementById('stat-sub-wtd');
+            if (elWtd) elWtd.textContent = this.formatNumber(metrics.week?.curr || 0);
+            setCompare(document.getElementById('stat-sub-wtd-compare'), metrics.week?.delta || 0, metrics.week?.pct, 'So tuần trước');
+            const elWtdRange = document.getElementById('stat-sub-wtd-range');
+            if (elWtdRange && metrics.week?.range) {
+                elWtdRange.textContent = `Tuần này: ${md(metrics.week.range.from)}–${md(metrics.week.range.to)}`;
+            }
+
+            // MTD
+            const elMtd = document.getElementById('stat-sub-mtd');
+            if (elMtd) elMtd.textContent = this.formatNumber(metrics.month?.curr || 0);
+            const elMtdAvg = document.getElementById('stat-sub-mtd-avg');
+            if (elMtdAvg) elMtdAvg.textContent = `BQ tháng này: ${fmt1(metrics.month?.avg || 0)}/ngày`;
+            const elMtdPrevAvg = document.getElementById('stat-sub-mtd-prevavg');
+            if (elMtdPrevAvg) elMtdPrevAvg.textContent = `BQ tháng trước: ${fmt1(metrics.month?.prevAvg || 0)}/ngày`;
+            setCompare(document.getElementById('stat-sub-mtd-compare'), metrics.month?.delta || 0, metrics.month?.pct, 'So tháng trước');
+            const elMtdRange = document.getElementById('stat-sub-mtd-range');
+            if (elMtdRange && metrics.month?.range) {
+                elMtdRange.textContent = `Tháng này: ${md(metrics.month.range.from)}–${md(metrics.month.range.to)}`;
+            }
+
+            // YTD
+            const elYtd = document.getElementById('stat-sub-ytd');
+            if (elYtd) elYtd.textContent = this.formatNumber(metrics.year?.curr || 0);
+            setCompare(document.getElementById('stat-sub-ytd-compare'), metrics.year?.delta || 0, metrics.year?.pct, 'So cùng kỳ năm trước');
+            const elYtdRange = document.getElementById('stat-sub-ytd-range');
+            if (elYtdRange && metrics.year?.range) {
+                elYtdRange.textContent = `Năm nay: ${md(metrics.year.range.from)}–${md(metrics.year.range.to)}`;
+            }
+        };
+
+        updateSubMetrics(data?.sub?.metrics, filterInfo);
+
         const createLineChart = (canvasId, dailyData, color) => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
             const dates = Object.keys(dailyData).sort();
             const values = dates.map(d => dailyData[d]);
-            const labels = dates.map(d => d.split('-').slice(1).join('/')); 
+            const labels = dates.map(d => d.split('-').slice(1).join('/'));
 
             app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
                 type: 'line',
@@ -970,7 +1059,6 @@ const UIRenderer = {
             });
         };
 
-        // Helper: Bar Chart (Channel) - CÓ SỰ KIỆN CLICK
         const createChannelChart = (canvasId, channelData, color, type) => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
@@ -983,15 +1071,14 @@ const UIRenderer = {
                     labels: labels,
                     datasets: [{ label: 'Số lượng', data: values, backgroundColor: color, borderRadius: 4 }]
                 },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
                     indexAxis: 'y',
                     onClick: (e, elements) => {
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const channelName = labels[index];
-                            // GỌI HÀM XỬ LÝ CLICK TRONG MAIN.JS
                             app.handleChannelChartClick(type, channelName);
                         }
                     },
@@ -1002,9 +1089,6 @@ const UIRenderer = {
             });
         };
 
-        // ---------------------------------------------------------
-        // THAY THẾ: BIỂU ĐỒ SUB - CLUSTER (Bar + Line)
-        // ---------------------------------------------------------
         const ctxSubCluster = document.getElementById('chartSubCluster');
         if (ctxSubCluster) {
             const clusterKeys = Object.keys(data.sub.cluster);
@@ -1017,62 +1101,34 @@ const UIRenderer = {
                 data: {
                     labels: labels,
                     datasets: [
-                        {
-                            type: 'line', // Kế hoạch là đường
-                            label: 'Kế hoạch',
-                            data: valPlan,
-                            borderColor: '#94a3b8', // Màu xám
-                            borderWidth: 2,
-                            pointBackgroundColor: '#fff',
-                            pointBorderColor: '#94a3b8',
-                            pointRadius: 4,
-                            fill: false,
-                            tension: 0.1,
-                            order: 1 // Vẽ đè lên trên
-                        },
-                        {
-                            type: 'bar', // Thực hiện là cột
-                            label: 'Thực hiện',
-                            data: valActual,
-                            backgroundColor: '#059669', // Màu xanh Emerald
-                            borderRadius: 4,
-                            order: 2
-                        }
+                        { type: 'line', label: 'Kế hoạch', data: valPlan, borderColor: '#94a3b8', borderWidth: 2, pointBackgroundColor: '#fff', pointBorderColor: '#94a3b8', pointRadius: 4, fill: false, tension: 0.1, order: 1 },
+                        { type: 'bar', label: 'Thực hiện', data: valActual, backgroundColor: '#059669', borderRadius: 4, order: 2 }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: { mode: 'index', intersect: false } // Hiện cả 2 số khi hover
-                    },
-                    scales: {
-                        y: { beginAtZero: true, grid: { borderDash: [2, 2] } },
-                        x: { grid: { display: false } }
-                    },
+                    plugins: { tooltip: { mode: 'index', intersect: false } },
+                    scales: { y: { beginAtZero: true, grid: { borderDash: [2, 2] } }, x: { grid: { display: false } } },
                     onClick: (e, activeEls) => {
                         if (activeEls.length > 0) {
                             const index = activeEls[0].index;
                             const code = clusterKeys[index];
                             const viewLevel = code.startsWith('LC') ? 'liencum' : 'cum';
-                            if(app.showKPIBreakdown) app.showKPIBreakdown('sub', viewLevel);
+                            if (app.showKPIBreakdown) app.showKPIBreakdown('sub', viewLevel);
                         }
                     }
                 }
             });
         }
 
-        // ============================================================
-        // FIX LỖI: CẬP NHẬT HÀM NÀY ĐỂ CLICK ĐƯỢC BIỂU ĐỒ DOANH THU
-        // ============================================================
         const createClusterChart = (canvasId, clusterData, colorActual, type = 'rev') => {
             const ctx = document.getElementById(canvasId);
             if (!ctx) return;
-            
+
             const clusters = Object.keys(clusterData);
             const actuals = clusters.map(c => clusterData[c].actual);
             const plans = clusters.map(c => clusterData[c].plan);
-            // Label hiển thị tên Cụm/Liên Cụm
             const clusterNames = clusters.map(c => app.getNameLienCum(c) || app.getNameCum(c) || c);
 
             app.chartInstances[canvasId] = new Chart(ctx.getContext('2d'), {
@@ -1080,60 +1136,36 @@ const UIRenderer = {
                 data: {
                     labels: clusterNames,
                     datasets: [
-                        { 
-                            label: 'Thực hiện', 
-                            data: actuals, 
-                            backgroundColor: colorActual,
-                            order: 2
-                        }, 
-                        { 
-                            label: 'Kế hoạch', 
-                            data: plans, 
-                            backgroundColor: '#cbd5e1',
-                            order: 3
-                        }
+                        { label: 'Thực hiện', data: actuals, backgroundColor: colorActual, order: 2 },
+                        { label: 'Kế hoạch', data: plans, backgroundColor: '#cbd5e1', order: 3 }
                     ]
                 },
-                options: { 
-                    responsive: true, 
+                options: {
+                    responsive: true,
                     maintainAspectRatio: false,
-                    // --- THÊM PHẦN NÀY ĐỂ CLICK ĐƯỢC ---
                     onHover: (event, chartElement) => {
                         event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
                     },
                     onClick: (e, activeEls) => {
                         if (activeEls.length > 0) {
                             const index = activeEls[0].index;
-                            const code = clusters[index]; // Lấy mã gốc (ví dụ: LC_HCM)
-                            
-                            // Tự động nhận diện xem đang xem ở cấp Cụm hay Liên Cụm
+                            const code = clusters[index];
                             const viewLevel = code.startsWith('LC') ? 'liencum' : 'cum';
-                            
-                            // Gọi hàm mở Popup trong main.js
-                            if(app.showKPIBreakdown) app.showKPIBreakdown(type, viewLevel);
+                            if (app.showKPIBreakdown) app.showKPIBreakdown(type, viewLevel);
                         }
                     }
-                    // ------------------------------------
                 }
             });
         };
 
-        createLineChart('chartSubDaily', data.sub.daily, '#10b981'); 
-        // Truyền thêm tham số 'sub' để biết đang click vào biểu đồ thuê bao
+        createLineChart('chartSubDaily', data.sub.daily, '#10b981');
         createChannelChart('chartSubChannel', data.sub.channel, '#34d399', 'sub');
-
-        createLineChart('chartRevDaily', data.rev.daily, '#2563eb'); 
-        // Truyền thêm tham số 'rev' để biết đang click vào biểu đồ doanh thu
+        createLineChart('chartRevDaily', data.rev.daily, '#2563eb');
         createChannelChart('chartRevChannel', data.rev.channel, '#60a5fa', 'rev');
         createClusterChart('chartRevCluster', data.rev.cluster, '#1d4ed8', 'rev');
     },
 
-    // ============================================================
-    // VẼ KHU VỰC HIỆU SUẤT NHÂN VIÊN (3 NHÓM)
-    // ============================================================
     renderStaffPerformance(groups) {
-        // groups = { gdv: {totalCount, totalActual...}, sales: {...}, b2b: {...} }
-
         const updateCard = (prefix, data) => {
             const elCount = document.getElementById(`${prefix}-count`);
             const elActual = document.getElementById(`${prefix}-actual`);
@@ -1143,13 +1175,11 @@ const UIRenderer = {
             if (elCount) elCount.textContent = this.formatNumber(data.totalCount);
             if (elActual) elActual.textContent = this.formatNumber(data.totalActual);
             if (elPlan) elPlan.textContent = this.formatNumber(data.totalPlan);
-            if (elPercent) elPercent.textContent = `${data.totalPercent}%`;
-            
-            // Tô màu % hoàn thành chung
             if (elPercent) {
+                elPercent.textContent = `${data.totalPercent}%`;
                 elPercent.className = "text-lg font-bold " + (
-                    data.totalPercent >= 100 ? "text-emerald-600" : 
-                    (data.totalPercent >= 80 ? "text-orange-600" : "text-red-600")
+                    data.totalPercent >= 100 ? "text-emerald-600" :
+                        (data.totalPercent >= 80 ? "text-orange-600" : "text-red-600")
                 );
             }
         };
@@ -1160,30 +1190,27 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 7. MODAL CHI TIẾT (DRILL-DOWN) - PHIÊN BẢN FULL CHỨC NĂNG
+    // 8. MODAL CHI TIẾT
     // ============================================================
+
     renderDetailModalContent(type, data, meta = {}) {
         const thead = document.getElementById('modal-detail-thead');
         const tbody = document.getElementById('modal-detail-tbody');
-        if(!thead || !tbody) return;
+        if (!thead || !tbody) return;
 
-        // --- A. TẠO THANH CÔNG CỤ CHUYỂN ĐỔI (TOGGLE) ---
-        // Chỉ hiện khi type là báo cáo KPI (Breakdown hoặc Channel Detail)
         let toggleHtml = '';
         if (type === 'kpi-breakdown' || type === 'kpi-channel-detail') {
-            const isCum = meta.viewLevel === 'cum'; // Mặc định là 'cum'
-            
+            const isCum = meta.viewLevel === 'cum';
             const btnClassBase = "px-3 py-1 text-xs font-bold rounded border transition-colors focus:outline-none";
             const btnActive = "bg-blue-600 text-white border-blue-600 shadow-sm";
             const btnInactive = "bg-white text-slate-600 border-slate-300 hover:bg-slate-50";
 
-            // Tạo lệnh gọi hàm JS khi bấm nút
-            const fnCallCum = type === 'kpi-breakdown' 
-                ? `app.showKPIBreakdown('${meta.type}', 'cum')` 
+            const fnCallCum = type === 'kpi-breakdown'
+                ? `app.showKPIBreakdown('${meta.type}', 'cum')`
                 : `app.handleChannelChartClick('${meta.type}', '${meta.channelName}', 'cum')`;
-                
-            const fnCallLC = type === 'kpi-breakdown' 
-                ? `app.showKPIBreakdown('${meta.type}', 'liencum')` 
+
+            const fnCallLC = type === 'kpi-breakdown'
+                ? `app.showKPIBreakdown('${meta.type}', 'liencum')`
                 : `app.handleChannelChartClick('${meta.type}', '${meta.channelName}', 'liencum')`;
 
             toggleHtml = `
@@ -1201,10 +1228,8 @@ const UIRenderer = {
         let headerHtml = '';
         let bodyHtml = '';
 
-        // --- B. XỬ LÝ CÁC TRƯỜNG HỢP HIỂN THỊ ---
-
-        // 1. CHI TIẾT HIỆU SUẤT NHÂN VIÊN (MỚI THÊM)
         if (type === 'staff-performance') {
+            // 1. Tạo Header
             headerHtml = `
                 <tr>
                     <th class="p-3 border-b text-center w-12 bg-slate-100 font-bold text-slate-700">STT</th>
@@ -1214,11 +1239,20 @@ const UIRenderer = {
                     <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Thực hiện</th>
                     <th class="p-3 border-b text-center bg-slate-100 w-32 font-bold text-slate-700">% HT</th>
                 </tr>`;
-            
+
+            // 2. Khởi tạo biến tính tổng [NEW]
+            let sumPlan = 0;
+            let sumActual = 0;
+
+            // 3. Tạo các dòng dữ liệu (Body)
             bodyHtml = data.map((item, idx) => {
+                // Cộng dồn vào biến tổng [NEW]
+                sumPlan += Number(item.plan) || 0;
+                sumActual += Number(item.actual) || 0;
+
                 let colorClass = Number(item.percent) >= 100 ? 'bg-green-500' : (Number(item.percent) >= 80 ? 'bg-yellow-500' : 'bg-red-500');
                 let textClass = Number(item.percent) >= 100 ? 'text-green-600' : (Number(item.percent) >= 80 ? 'text-yellow-600' : 'text-red-600');
-                
+
                 return `
                 <tr class="border-b hover:bg-slate-50 transition">
                     <td class="p-3 text-center text-slate-500">${idx + 1}</td>
@@ -1239,9 +1273,30 @@ const UIRenderer = {
                     </td>
                 </tr>`;
             }).join('');
-        }
 
-        // 2. KPI BREAKDOWN (Thực hiện vs Kế hoạch - Sub/Rev)
+            // 4. Thêm Hàng TỔNG CỘNG vào cuối bảng [NEW]
+            const totalPercent = sumPlan > 0 ? ((sumActual / sumPlan) * 100).toFixed(1) : 0;
+            
+            // Logic màu sắc cho hàng tổng
+            let totalColorClass = totalPercent >= 100 ? 'bg-green-600' : (totalPercent >= 80 ? 'bg-blue-600' : 'bg-red-500');
+            let totalTextClass = totalPercent >= 100 ? 'text-green-700' : (totalPercent >= 80 ? 'text-blue-700' : 'text-red-600');
+
+            bodyHtml += `
+                <tr class="bg-blue-50 border-t-2 border-blue-200">
+                    <td colspan="3" class="p-3 text-center font-bold text-blue-800 uppercase tracking-wider">TỔNG CỘNG</td>
+                    <td class="p-3 text-right font-bold text-slate-600 font-mono">${this.formatNumber(sumPlan)}</td>
+                    <td class="p-3 text-right font-bold text-blue-800 font-mono text-base">${this.formatNumber(sumActual)}</td>
+                    <td class="p-3 align-middle">
+                         <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold ${totalTextClass} w-10 text-right">${totalPercent}%</span>
+                            <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden w-20">
+                                <div class="h-full ${totalColorClass}" style="width: ${Math.min(totalPercent, 100)}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
         else if (type === 'kpi-breakdown') {
             headerHtml = `
                 ${toggleHtml}
@@ -1252,11 +1307,11 @@ const UIRenderer = {
                     <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Kế hoạch</th>
                     <th class="p-3 border-b text-center bg-slate-100 w-32 font-bold text-slate-700">% HT</th>
                 </tr>`;
-            
+
             bodyHtml = data.map((item, idx) => {
                 let colorClass = item.percent >= 100 ? 'bg-green-500' : (item.percent >= 80 ? 'bg-blue-500' : 'bg-red-500');
                 let textClass = item.percent >= 100 ? 'text-green-600' : (item.percent >= 80 ? 'text-blue-600' : 'text-red-600');
-                
+
                 return `
                 <tr class="border-b hover:bg-slate-50 transition">
                     <td class="p-3 text-center text-slate-500">${idx + 1}</td>
@@ -1276,9 +1331,7 @@ const UIRenderer = {
                     </td>
                 </tr>`;
             }).join('');
-        } 
-        
-        // 3. KPI CHANNEL DETAIL (Chi tiết theo Kênh)
+        }
         else if (type === 'kpi-channel-detail') {
             headerHtml = `
                 ${toggleHtml}
@@ -1289,7 +1342,7 @@ const UIRenderer = {
                     <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Tổng Đơn vị</th>
                     <th class="p-3 border-b text-center bg-slate-100 w-32 font-bold text-slate-700">Tỷ trọng</th>
                 </tr>`;
-            
+
             bodyHtml = data.map((item, idx) => `
                 <tr class="border-b hover:bg-slate-50 transition">
                     <td class="p-3 text-center text-slate-500">${idx + 1}</td>
@@ -1309,10 +1362,8 @@ const UIRenderer = {
                     </td>
                 </tr>`).join('');
         }
-
-        // 4. PHƯỜNG XÃ (Địa lý / Dân số)
         else if (type === 'commune' || type === 'geo') {
-             headerHtml = `
+            headerHtml = `
                 <tr>
                     <th class="p-3 text-left border-b font-bold text-slate-700 w-12 bg-slate-100">STT</th>
                     <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Tên Phường/Xã</th>
@@ -1330,7 +1381,7 @@ const UIRenderer = {
 
                 return `
                 <tr class="border-b hover:bg-slate-50 transition">
-                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
                     <td class="p-3 font-bold text-blue-700">${item.ten}</td>
                     <td class="p-3">
                         <div class="text-xs font-bold text-slate-600">${item.tenCum || ''}</div>
@@ -1340,89 +1391,159 @@ const UIRenderer = {
                     <td class="p-3 text-right font-mono text-slate-500">${this.formatNumber(item.danSo)}</td>
                     <td class="p-3">${leadersHtml}</td>
                 </tr>`;
-             }).join('');
+            }).join('');
         }
-
-        // 5. CỬA HÀNG
         else if (type === 'store') {
             headerHtml = `
                 <tr>
                     <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã CH</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Tên Cửa Hàng</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Cửa hàng</th>
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Địa chỉ</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Diện tích</th>
+                    <th class="p-3 border-b text-right bg-slate-100 font-bold text-slate-700">Diện tích</th>
                 </tr>`;
-            
+
             bodyHtml = data.map((i, idx) => `
                 <tr class="border-b hover:bg-slate-50 transition">
-                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
-                    <td class="p-3 font-bold text-blue-600 font-mono">${i.id}</td>
-                    <td class="p-3 font-bold text-slate-700">${i.ten}</td>
-                    <td class="p-3 text-xs">
-                        <div>${app.getNameCum(i.maCum)}</div>
-                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-800">${i.ten || '-'}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">Mã: ${i.id || '-'}</div>
                     </td>
-                    <td class="p-3 text-sm">${i.diaChi}</td>
-                    <td class="p-3 text-sm font-bold text-slate-600">${i.dienTich || '-'}</td>
+                    <td class="p-3 text-xs">
+                        <div class="font-semibold text-slate-700">${app.getNameCum(i.maCum) || i.maCum || '-'}</div>
+                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum) || i.maLienCum || '-'}</div>
+                    </td>
+                    <td class="p-3 text-xs max-w-[360px]">
+                        <div class="text-slate-700">${i.diaChi || '-'}</div>
+                    </td>
+                    <td class="p-3 text-right font-bold text-blue-600">${i.dienTich || '-'}</td>
                 </tr>`).join('');
         }
-
-        // 6. NHÂN SỰ (GDV, SALES, B2B)
         else if (type === 'gdv' || type === 'sales' || type === 'b2b') {
             headerHtml = `
                 <tr>
                     <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã NV</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Họ Tên</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Nhân viên</th>
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
                     <th class="p-3 border-b bg-slate-100 text-center font-bold text-slate-700">Vùng</th>
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Số ĐT</th>
                     <th class="p-3 border-b bg-slate-100 text-center font-bold text-slate-700">Trạng thái</th>
                 </tr>`;
-            
+
             bodyHtml = data.map((i, idx) => `
-                <tr class="border-b hover:bg-slate-50 transition ${i.trangThai==='Nghỉ việc'?'opacity-60 bg-slate-50':''}">
-                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
-                    <td class="p-3 font-bold text-slate-600 font-mono">${i.maNV}</td> <td class="p-3 font-medium text-slate-800">${i.ten}</td>
+                <tr class="border-b hover:bg-slate-50 transition ${i.trangThai === 'Nghỉ việc' ? 'opacity-60 bg-slate-50' : ''}">
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-800">${i.ten || '-'}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">Mã: ${i.maNV || '-'}</div>
+                    </td>
                     <td class="p-3 text-xs">
                         <div>${app.getNameCum(i.maCum)}</div>
                         <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
                     </td>
-                    <td class="p-3 text-center"><span class="badge-region">${i.vung||'-'}</span></td>
-                    <td class="p-3 text-sm font-mono">${i.sdt||''}</td>
+                    <td class="p-3 text-center"><span class="badge-region">${i.vung || '-'}</span></td>
+                    <td class="p-3 text-sm font-mono">${i.sdt || ''}</td>
                     <td class="p-3 text-center">${this.getStatusBadge(i.trangThai, i.ngayNghi)}</td>
                 </tr>`).join('');
         }
-
-        // 7. TRẠM BTS
         else if (type === 'bts') {
+            const pick = (obj, ...keys) => {
+                for (const k of keys) {
+                    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k];
+                }
+                return undefined;
+            };
+            const safe = (v) => {
+                if (v === null || v === undefined) return '-';
+                const s = String(v).trim();
+                return s === '' ? '-' : s;
+            };
+
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700">STT</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Mã Trạm</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Tên Trạm</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
+                    <th class="p-3 border-b text-center bg-slate-100 font-bold text-slate-700 w-10">STT</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Trạm BTS</th>
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Địa chỉ</th>
-                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Ghi chú</th>
+                    <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Số liệu</th>
                 </tr>`;
-            
-            bodyHtml = data.map((i, idx) => `
-                <tr class="border-b hover:bg-slate-50 transition">
-                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
-                    <td class="p-3 font-bold text-slate-700 font-mono">${i.maTram}</td>
-                    <td class="p-3 font-medium text-blue-700">${i.tenTram}</td>
-                    <td class="p-3 text-xs">
-                        <div>${app.getNameCum(i.maCum)}</div>
-                        <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
-                    </td>
-                    <td class="p-3 text-xs text-slate-600 max-w-[200px] truncate" title="${i.diaChi}">${i.diaChi}</td>
-                    <td class="p-3 text-xs italic text-slate-500">${i.ghiChu||''}</td>
-                </tr>`).join('');
-        }
 
-        // 8. KÊNH GIÁN TIẾP
+            const metricCell = (label, value) => `
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-slate-400">${label}</span>
+                    <span class="font-mono font-semibold text-slate-700">${safe(value)}</span>
+                </div>`;
+
+            bodyHtml = data.map((i, idx) => {
+                const maTram = pick(i, 'maTram', 'Mã Trạm', 'matram');
+                const loaiTram = pick(i, 'loaitram', 'loaiTram', 'Loại trạm', 'loai tram');
+                const maLienCum = pick(i, 'maLienCum', 'Mã Liên Cụm', 'maliencum');
+                const maCum = pick(i, 'maCum', 'Mã Cụm', 'macum');
+                const diaChi = pick(i, 'diaChi', 'Địa chỉ', 'dia chi', 'DiaChi');
+                const lat = pick(i, 'lat', 'Lat', 'LAT', 'latitude');
+                const lng = pick(i, 'lng', 'Lng', 'LNG', 'longitude');
+
+                const vlr3g = pick(i, 'VLR 3G', 'VLR3G', 'VLR_3G', 'VLR 3g');
+                const vlr4g = pick(i, 'VLR 4G', 'VLR4G', 'VLR_4G', 'VLR 4g');
+                const asim = pick(i, 'ASIM', 'asim');
+                const gtel = pick(i, 'GTEL', 'gtel');
+                const vnsky = pick(i, 'VNSKY', 'vnsky');
+                const saymee = pick(i, 'SAYMEE', 'saymee');
+                const m2mTong = pick(i, 'M2M - Tổng', 'M2M - Tong', 'M2M Tổng', 'M2M_TONG', 'M2M');
+                const dataGb = pick(i, 'Data (GB/BQN)', 'Data(GB/BQN)', 'DATA (GB/BQN)', 'Data GB/BQN', 'DATA_GB_BQN');
+                const csg = pick(i, 'CSG', 'csg');
+
+                const tbaon = pick(i, 'TBAON_ACTIVE', 'TBAON ACTIVE', 'TBAON-ACTIVE');
+                const portaon = pick(i, 'PORTAON_EMTY', 'PORTAON_EMPTY', 'PORTAON EMTY', 'PORTAON-EMTY');
+                const olt = pick(i, 'OLT', 'olt');
+                const tbgpon = pick(i, 'TBGPON_ACTIVE', 'TBGPON ACTIVE', 'TBGPON-ACTIVE');
+                const linegpon = pick(i, 'LINEGPON_EMTY', 'LINEGPON_EMPTY', 'LINEGPON EMTY', 'LINEGPON-EMTY');
+
+                const ghiChu = pick(i, 'ghiChu', 'Ghi chú', 'Ghi Chu', 'note');
+
+                const mapLink = app.getMapLink(lat, lng, diaChi);
+
+                return `
+                    <tr class="border-b hover:bg-slate-50 transition">
+                        <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                        <td class="p-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="font-bold text-slate-800 font-mono">${safe(maTram)}</div>
+                                    <div class="mt-1 flex flex-wrap items-center gap-1">
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">${safe(loaiTram)}</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">${app.getNameLienCum(maLienCum) || safe(maLienCum)}</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-slate-50 text-slate-600 font-bold">${app.getNameCum(maCum) || safe(maCum)}</span>
+                                    </div>
+                                    ${ghiChu ? `<div class="mt-2 text-xs italic text-slate-400">Ghi chú: ${safe(ghiChu)}</div>` : ``}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-3 text-xs">
+                            <div class="font-semibold text-blue-700">${mapLink}</div>
+                            <div class="text-slate-600 mt-1">${safe(diaChi)}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-x-6 gap-y-1 text-[11px]">
+                                ${metricCell('VLR 3G', vlr3g)}
+                                ${metricCell('VLR 4G', vlr4g)}
+                                ${metricCell('ASIM', asim)}
+                                ${metricCell('GTEL', gtel)}
+                                ${metricCell('VNSKY', vnsky)}
+                                ${metricCell('SAYMEE', saymee)}
+                                ${metricCell('M2M Tổng', m2mTong)}
+                                ${metricCell('Data (GB/BQN)', dataGb)}
+                                ${metricCell('CSG', csg)}
+                                ${metricCell('TBAON_ACTIVE', tbaon)}
+                                ${metricCell('PORTAON_EMTY', portaon)}
+                                ${metricCell('OLT', olt)}
+                                ${metricCell('TBGPON_ACTIVE', tbgpon)}
+                                ${metricCell('LINEGPON_EMTY', linegpon)}
+                            </div>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
         else if (type === 'indirect') {
             headerHtml = `
                 <tr>
@@ -1433,10 +1554,10 @@ const UIRenderer = {
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">Đơn vị</th>
                     <th class="p-3 border-b bg-slate-100 font-bold text-slate-700">NV Phụ trách</th>
                 </tr>`;
-            
+
             bodyHtml = data.map((i, idx) => `
                 <tr class="border-b hover:bg-slate-50 transition">
-                    <td class="p-3 text-center text-slate-500">${idx+1}</td>
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
                     <td class="p-3 font-bold text-blue-600 font-mono">${i.maDL}</td>
                     <td class="p-3 font-medium text-slate-700">${i.ten}</td>
                     <td class="p-3"><span class="text-xs border px-1.5 py-0.5 rounded bg-slate-50">${i.loai}</span></td>
@@ -1444,19 +1565,19 @@ const UIRenderer = {
                         <div>${app.getNameCum(i.maCum)}</div>
                         <div class="text-slate-400">${app.getNameLienCum(i.maLienCum)}</div>
                     </td>
-                    <td class="p-3 text-xs font-mono text-slate-500">${i.maNV||''}</td>
+                    <td class="p-3 text-xs font-mono text-slate-500">${i.maNV || ''}</td>
                 </tr>`).join('');
-                
         }
 
         thead.innerHTML = headerHtml;
         tbody.innerHTML = bodyHtml;
-        
-        // Vẽ lại icon sau khi render HTML mới
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     },
 
-// [REPLACE] Thay thế hàm renderRankingTable cũ trong ui-renderer.js
+    // ============================================================
+    // 9. BẢNG XẾP HẠNG (CHÍNH THỨC)
+    // ============================================================
+
     renderRankingTable(containerId, data, options = {}) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -1466,9 +1587,6 @@ const UIRenderer = {
             return;
         }
 
-        // --- CẤU HÌNH GIAO DIỆN MỚI (SCROLLBAR) ---
-        // max-h-[350px]: Giới hạn chiều cao, quá thì cuộn
-        // overflow-auto: Tự động hiện thanh cuộn dọc/ngang
         let html = `
             <div class="overflow-auto max-h-[350px] custom-scrollbar relative bg-white rounded-b-xl w-full">
                 <table class="w-full text-sm text-left border-collapse min-w-[350px]">
@@ -1484,33 +1602,27 @@ const UIRenderer = {
                     <tbody class="divide-y divide-slate-100">`;
 
         data.forEach((item, index) => {
-            // Logic Top 3
             let rankBadge = `<span class="text-slate-500 font-mono text-xs">#${index + 1}</span>`;
             if (index === 0) rankBadge = `<div class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-xs mx-auto">1</div>`;
             else if (index === 1) rankBadge = `<div class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs mx-auto">2</div>`;
             else if (index === 2) rankBadge = `<div class="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs mx-auto">3</div>`;
 
-            // Logic màu sắc %
             let percentClass = "text-slate-600 font-bold";
             if (item.percent >= 100) percentClass = "text-emerald-600 font-bold bg-emerald-50 border-emerald-100";
             else if (item.percent >= 80) percentClass = "text-blue-600 font-bold bg-blue-50 border-blue-100";
             else if (item.percent < 50) percentClass = "text-red-500 font-bold bg-red-50 border-red-100";
 
-            // Sub info (Tên cụm hoặc chức danh)
             let subInfoHtml = '';
             if (item.sub) {
-                // Nếu là mã cụm (ví dụ C_TANAN) -> Hiển thị tên đẹp hơn nếu có trong map
                 let subDisplay = item.sub;
-                if(window.app && window.app.mapCum && window.app.mapCum[item.sub]) {
+                if (window.app && window.app.mapCum && window.app.mapCum[item.sub]) {
                     subDisplay = window.app.mapCum[item.sub];
                 }
-              // Thay 'map-pin' bằng 'user' để hiển thị tên Trưởng Cụm/Liên Cụm hợp lý hơn
                 subInfoHtml = `<div class="text-[10px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
                     <i data-lucide="user" class="w-2.5 h-2.5"></i> ${subDisplay}
                 </div>`;
             }
-            
-            // Nút gọi điện (nếu có sđt)
+
             if (item.phone) {
                 subInfoHtml += `
                 <div class="mt-1">
@@ -1541,8 +1653,150 @@ const UIRenderer = {
                 </tr>`;
         });
 
-        html += `</tbody></table></div>`; // Đóng div wrapper
+        html += `</tbody></table></div>`;
         container.innerHTML = html;
         if (window.lucide) lucide.createIcons();
+    },
+ 
+// ============================================================
+    // 10. RENDER TAB VLR & DOANH THU (ĐÃ CẬP NHẬT)
+    // ============================================================
+
+    /**
+     * Render bảng thống kê chi tiết VLR & PSC từ dữ liệu sheet vlr_psc
+     * Data input: Array các dòng có cột: maLienCum, tenLienCum, tenPX, tbvlr, tbpsc, date
+     */
+    renderVlrPscTable(data) {
+        const tbody = document.getElementById('vlr-details-body'); // ID này cần có trong HTML
+        if (!tbody) return;
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-400">Không có dữ liệu</td></tr>`;
+            return;
+        }
+
+        // Render từng dòng dữ liệu
+        tbody.innerHTML = data.map((item, idx) => `
+            <tr class="border-b hover:bg-slate-50 transition">
+                <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                <td class="p-3">
+                    <div class="font-bold text-slate-700">${item.tenPX || '-'}</div>
+                    <div class="text-[10px] text-slate-400">${item.tenLienCum || '-'} (${item.maLienCum})</div>
+                </td>
+                <td class="p-3 text-center text-sm text-slate-600 font-mono">
+                     ${item.date ? this.formatDateVN(item.date) : '-'}
+                </td>
+                <td class="p-3 text-right font-bold text-blue-700 font-mono">
+                    ${this.formatNumber(item.tbvlr)}
+                </td>
+                <td class="p-3 text-right font-bold text-emerald-700 font-mono">
+                    ${this.formatNumber(item.tbpsc)}
+                </td>
+            </tr>
+        `).join('');
+    },
+
+    /**
+     * Render các thẻ Card tổng hợp (Summary Cards) cho VLR/PSC
+     * metrics input format: { 
+     * vlr: { weekThis, weekPrev, monthThis, monthPrev }, 
+     * psc: { weekThis, weekPrev, monthThis, monthPrev } 
+     * }
+     */
+    renderVlrPscStats(metrics) {
+        // Helper để vẽ so sánh tăng giảm
+        const getDelta = (curr, prev) => {
+            if(!prev) return '';
+            const delta = curr - prev;
+            const color = delta >= 0 ? 'text-green-600' : 'text-red-600';
+            const icon = delta >= 0 ? '↑' : '↓';
+            return `<span class="text-xs ${color} ml-1 font-medium">(${icon} ${this.formatNumber(Math.abs(delta))})</span>`;
+        };
+
+        // Render VLR
+        const vlrContainer = document.getElementById('vlr-stats-container');
+        if(vlrContainer && metrics.vlr) {
+            vlrContainer.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                        <div class="text-xs text-slate-500 uppercase font-bold">VLR BQ Tuần này</div>
+                        <div class="text-xl font-bold text-blue-700">${this.formatNumber(metrics.vlr.weekThis)}</div>
+                        <div class="text-xs text-slate-400 mt-1">Tuần trước: ${this.formatNumber(metrics.vlr.weekPrev)} ${getDelta(metrics.vlr.weekThis, metrics.vlr.weekPrev)}</div>
+                    </div>
+                    <div class="bg-indigo-50 p-3 rounded border border-indigo-100">
+                        <div class="text-xs text-slate-500 uppercase font-bold">VLR BQ Tháng này</div>
+                        <div class="text-xl font-bold text-indigo-700">${this.formatNumber(metrics.vlr.monthThis)}</div>
+                        <div class="text-xs text-slate-400 mt-1">Tháng trước: ${this.formatNumber(metrics.vlr.monthPrev)} ${getDelta(metrics.vlr.monthThis, metrics.vlr.monthPrev)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render PSC
+        const pscContainer = document.getElementById('psc-stats-container');
+        if(pscContainer && metrics.psc) {
+            pscContainer.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-emerald-50 p-3 rounded border border-emerald-100">
+                        <div class="text-xs text-slate-500 uppercase font-bold">PSC BQ Tuần này</div>
+                        <div class="text-xl font-bold text-emerald-700">${this.formatNumber(metrics.psc.weekThis)}</div>
+                        <div class="text-xs text-slate-400 mt-1">Tuần trước: ${this.formatNumber(metrics.psc.weekPrev)} ${getDelta(metrics.psc.weekThis, metrics.psc.weekPrev)}</div>
+                    </div>
+                    <div class="bg-teal-50 p-3 rounded border border-teal-100">
+                        <div class="text-xs text-slate-500 uppercase font-bold">PSC BQ Tháng này</div>
+                        <div class="text-xl font-bold text-teal-700">${this.formatNumber(metrics.psc.monthThis)}</div>
+                        <div class="text-xs text-slate-400 mt-1">Tháng trước: ${this.formatNumber(metrics.psc.monthPrev)} ${getDelta(metrics.psc.monthThis, metrics.psc.monthPrev)}</div>
+                    </div>
+                </div>
+            `;
+        }
+    },
+
+    /**
+     * Render Bảng Doanh Thu (Hạ tầng số, Data, Saymee)
+     * metrics input format: {
+     * hts: { this: 0, prev: 0, ytd: 0 },
+     * data: { this: 0, prev: 0, ytd: 0 },
+     * saymee: { this: 0, prev: 0, ytd: 0 }
+     * }
+     */
+    renderDoanhThuSummary(metrics) {
+        const tbody = document.getElementById('revenue-summary-body');
+        if (!tbody) return;
+
+        const rows = [
+            { label: 'Doanh thu Hạ tầng số (Ko Data)', key: 'hts', icon: 'server', color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Doanh thu Data', key: 'data', icon: 'wifi', color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'Doanh thu Saymee', key: 'saymee', icon: 'smile', color: 'text-pink-600', bg: 'bg-pink-50' }
+        ];
+
+        tbody.innerHTML = rows.map(row => {
+            const m = metrics[row.key] || { this: 0, prev: 0, ytd: 0 };
+            const delta = m.this - m.prev;
+            const percent = m.prev > 0 ? ((delta / m.prev) * 100).toFixed(1) : 0;
+            const trendColor = delta >= 0 ? 'text-green-600' : 'text-red-500';
+            const trendIcon = delta >= 0 ? '▲' : '▼';
+
+            return `
+            <tr class="border-b hover:bg-slate-50">
+                <td class="p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg ${row.bg} ${row.color}">
+                            <i data-lucide="${row.icon}" class="w-5 h-5"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">${row.label}</span>
+                    </div>
+                </td>
+                <td class="p-4 text-right font-mono text-slate-600">${this.formatNumber(m.prev)}</td>
+                <td class="p-4 text-right">
+                    <div class="font-bold font-mono text-lg text-slate-800">${this.formatNumber(m.this)}</div>
+                    <div class="text-[10px] ${trendColor} font-bold">${trendIcon} ${Math.abs(percent)}%</div>
+                </td>
+                <td class="p-4 text-right font-bold font-mono ${row.color}">${this.formatNumber(m.ytd)}</td>
+            </tr>
+            `;
+        }).join('');
+        
+        if (window.lucide) lucide.createIcons();
     }
-}; //
+};
