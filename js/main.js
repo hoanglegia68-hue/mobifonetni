@@ -278,6 +278,18 @@ const app = {
         // Cập nhật % (nếu có thẻ hiển thị %)
         const elPercent = document.getElementById(`${type}-percent`);
         if (elPercent) elPercent.textContent = `${percent}%`;
+
+        // Cập nhật TBPTM BQ ngày/1 nhân viên nếu có
+        const elAvgDay = document.getElementById(`${type}-tbptm-avgday`);
+        if (elAvgDay) {
+            const v = Number(this.currentTBPTMAvgDay?.[type]) || 0;
+            const isInt = Math.abs(v - Math.round(v)) < 1e-9;
+            elAvgDay.textContent = new Intl.NumberFormat('vi-VN', {
+                minimumFractionDigits: isInt ? 0 : 1,
+                maximumFractionDigits: 1
+            }).format(v);
+        }
+
     },
 
 // Thêm biến này vào đầu file main.js hoặc trong object app (nếu chưa có)
@@ -381,8 +393,24 @@ const app = {
                         typeMap[k] = (u.includes('tb') || u.includes('thuê bao') || u.includes('sim')) ? 'sub' : 'rev';
                     }
                 });
-
-                const userChannelMap = {};
+                // TBPTM (Thuê bao phát triển mới) - dùng để tính "TBPTM BQ ngày" cho Summary (không phụ thuộc KPI filter)
+                const tbptmCode = (() => {
+                    let best = null;
+                    try {
+                        (struct || []).forEach(s => {
+                            if (!s || !s.active) return;
+                            const code = app.cleanCode(s.ma);
+                            const name = String(s.tenHienThi || s.ten || s.moTa || '').toUpperCase();
+                            if (code === 'TBPTM') best = code;
+                            if (!best && code.includes('TBPTM')) best = code;
+                            if (!best && name.includes('TBPTM')) best = code;
+                            if (!best && name.includes('PHÁT') && name.includes('MỚI') && (name.includes('THUÊ BAO') || name.includes('SIM'))) best = code;
+                        });
+                    } catch (e) { /* ignore */ }
+                    return best || 'TBPTM';
+                })();
+                const tbptmStaffMap = {}; // { MANV: totalTBPTMWithinSelectedRange }
+const userChannelMap = {};
                 if (logData.length > 0) {
                     const lSample = logData[0];
                     const kLogNV = detectKey(lSample, 'maNV', 'MaNV', 'user');
@@ -452,20 +480,33 @@ const app = {
                             else { if (maC !== scope) continue; }
                         }
 
-                        const kpiCode = app.cleanCode(row[kKPI]);
-                        if (kpiFilter !== 'all' && kpiCode !== kpiFilter) continue;
                         
-                        const type = typeMap[kpiCode];
-                        if (!type) continue;
+                        const kpiCode = app.cleanCode(row[kKPI]);
+                        const isSelectedKPI = (kpiFilter === 'all' || kpiCode === kpiFilter);
+                        const isTBPTMRow = (kpiCode === tbptmCode);
+
+                        // Không phải KPI đang lọc và cũng không phải TBPTM => bỏ qua
+                        if (!isSelectedKPI && !isTBPTMRow) continue;
 
                         const nvRaw = row[kNV];
                         const rowChannel = userChannelMap[nvRaw] || 'KHÁC';
                         if (channelFilter !== 'all' && rowChannel !== channelFilter) continue;
 
+                        // TBPTM BQ ngày: luôn đếm TBPTM trong khoảng ngày đang chọn (không phụ thuộc KPI filter)
+                        if (isTBPTMRow && parsed.full >= dFrom && nvRaw) {
+                            const nvCode = String(nvRaw).trim().toUpperCase();
+                            tbptmStaffMap[nvCode] = (tbptmStaffMap[nvCode] || 0) + 1;
+                        }
+
+                        // Các tính toán còn lại chỉ dành cho KPI đang lọc
+                        if (!isSelectedKPI) continue;
+
+                        const type = typeMap[kpiCode];
+                        if (!type) continue;
+
                         if (type === 'sub') subDailyAll[parsed.full] = (subDailyAll[parsed.full] || 0) + 1;
                         if (parsed.full < dFrom) continue;
-
-                        let val = 0;
+let val = 0;
                         if (type === 'sub') val = 1;
                         else {
                             val = Number(row[kVal]) || 0;
@@ -608,6 +649,42 @@ const app = {
                 const gGDV = processStaffList(listGDV);
                 const gSales = processStaffList(listSales);
                 const gB2B = processStaffList(listB2B);
+
+
+                // --- TBPTM BQ ngày/1 nhân viên (Summary NVBH/GDV/KHDN) ---
+                const sumTBPTM = (lst) => {
+                    if (!lst || lst.length === 0) return 0;
+                    let total = 0;
+                    for (const s of lst) {
+                        const code = String(s.code || '').trim().toUpperCase();
+                        total += tbptmStaffMap[code] || 0;
+                    }
+                    return total;
+                };
+                const tbptmTotals = {
+                    gdv: sumTBPTM(gGDV.list),
+                    sales: sumTBPTM(gSales.list),
+                    b2b: sumTBPTM(gB2B.list)
+                };
+                // TBPTM BQ ngày/1 nhân viên = Tổng TBPTM / (Số ngày trong khoảng lọc * Số nhân viên trong nhóm)
+// Lưu ý: nếu muốn xử lý biến động nhân sự theo "person-days" (nhân sự thực tế từng ngày), cần dữ liệu HR (ngày vào/nghỉ) hoặc quy ước khác.
+const _hc = {
+    gdv: (gGDV.list || []).length,
+    sales: (gSales.list || []).length,
+    b2b: (gB2B.list || []).length
+};
+const _safePerEmpPerDay = (total, days, hc) => {
+    const d = Math.max(1, Number(days) || 0);
+    const h = Number(hc) || 0;
+    if (h <= 0) return 0;
+    return (Number(total) || 0) / (d * h);
+};
+this.currentTBPTMAvgDay = {
+    gdv: _safePerEmpPerDay(tbptmTotals.gdv, selectedDays, _hc.gdv),
+    sales: _safePerEmpPerDay(tbptmTotals.sales, selectedDays, _hc.sales),
+    b2b: _safePerEmpPerDay(tbptmTotals.b2b, selectedDays, _hc.b2b)
+};
+                this.currentTBPTMCode = tbptmCode;
 
                 this.currentStaffDataGroups = { gdv: gGDV.list, sales: gSales.list, b2b: gB2B.list };
                 this.currentKPIReportData = { sub: subData, rev: revData };
