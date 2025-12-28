@@ -1805,8 +1805,48 @@ this.currentTBPTMAvgDay = {
         UIRenderer.renderClusterTable(res);
     },
     handleSearchIndirect(k) {
-        let d = this.filterDataByScope(this.cachedData.indirect);
-        UIRenderer.renderIndirectTable(k ? d.filter(i => (i.ten || '').toLowerCase().includes(k.toLowerCase())) : d);
+        // 1. Chuẩn hóa từ khóa đầu vào
+        const keyword = (k || '').toString().toLowerCase().trim();
+        
+        // 2. Lấy dữ liệu gốc đã được lọc theo quyền hạn (Scope) của user
+        const sourceData = this.filterDataByScope(this.cachedData.indirect);
+
+        // 3. Nếu không có từ khóa thì hiển thị toàn bộ
+        if (!keyword) {
+            UIRenderer.renderIndirectTable(sourceData);
+            return;
+        }
+
+        // 4. Hàm hỗ trợ lấy giá trị chuỗi an toàn từ object
+        const getVal = (val) => String(val || '').toLowerCase();
+
+        // 5. Thực hiện lọc đa tiêu chí
+        const filtered = sourceData.filter(item => {
+            // Nhóm 1: Tìm theo Tên (Điểm bán / Chủ kênh)
+            if (getVal(item.ten).includes(keyword)) return true;
+            if (getVal(item.hoTen).includes(keyword)) return true;
+
+            // Nhóm 2: Tìm theo Mã (Mã NV / Mã Kênh / Mã Điểm Bán)
+            if (getVal(item.maNV).includes(keyword)) return true;
+            if (getVal(item.maKenh).includes(keyword)) return true; 
+            if (getVal(item.code).includes(keyword)) return true;
+
+            // Nhóm 3: Tìm theo Cụm / Liên Cụm (Dành cho quản lý muốn lọc nhanh)
+            if (getVal(item.maCum).includes(keyword)) return true;
+            if (getVal(item.cum).includes(keyword)) return true; // Phòng trường hợp key là 'cum'
+            
+            if (getVal(item.maLienCum).includes(keyword)) return true;
+            if (getVal(item.lienCum).includes(keyword)) return true; // Phòng trường hợp key là 'lienCum'
+
+            // Nhóm 4: Tìm theo SĐT (Rất hữu ích thực tế)
+            if (getVal(item.sdt).includes(keyword)) return true;
+            if (getVal(item.soDienThoai).includes(keyword)) return true;
+
+            return false;
+        });
+
+        // 6. Render lại bảng với dữ liệu đã lọc
+        UIRenderer.renderIndirectTable(filtered);
     },
     handleSearchBTS(k) {
         this.btsFilterState.keyword = (k || '').toString();
