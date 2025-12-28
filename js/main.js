@@ -394,29 +394,38 @@ const app = {
                     }
                 });
                 // TBPTM (Thuê bao phát triển mới) - dùng để tính "TBPTM BQ ngày" cho Summary (không phụ thuộc KPI filter)
-                const tbptmCode = (() => {
+                let tbptmCode = (() => {
+                    // Tự động nhận diện KPI "Thuê bao PTM" (mỗi dòng = 1 thuê bao).
+                    // Ưu tiên: TBPTM rõ ràng > code có PTM > name có PTM + (thuê bao/sim/tb).
                     let best = null;
-                    try {
-                        (struct || []).forEach(s => {
-                            if (!s || !s.active) return;
-                            const code = app.cleanCode(s.ma);
-                            const name = String(s.tenHienThi || s.ten || s.moTa || '').toUpperCase();
-                            if (code === 'TBPTM') best = code;
-                            if (!best && code.includes('TBPTM')) best = code;
-                            if (!best && name.includes('TBPTM')) best = code;
-                            if (!best && name.includes('PHÁT') && name.includes('MỚI') && (name.includes('THUÊ BAO') || name.includes('SIM'))) best = code;
-                        });
-                    } catch (e) { /* ignore */ }
+                    let bestScore = -1;
+                    const scoreOne = (codeRaw, nameRaw) => {
+                        const code = String(codeRaw || '').trim().toUpperCase();
+                        const name = String(nameRaw || '').trim().toUpperCase();
+                        if (!code) return;
+                        const hasTBPTM = (code === 'TBPTM') || code.includes('TBPTM') || name.includes('TBPTM');
+                        const hasPTM = code.includes('PTM') || name.includes('PTM');
+                        const hasSubWords = name.includes('THUÊ BAO') || name.includes('THUE BAO') || name.includes('SIM') || name.includes(' TB ' ) || name.endsWith(' TB') || name.startsWith('TB ') || name.includes(' TB');
+                        let sc = 0;
+                        if (hasTBPTM) sc += 200;
+                        if (code === 'PTM') sc += 120;
+                        if (hasPTM) sc += 80;
+                        if (hasSubWords) sc += 40;
+                        if (sc > bestScore) { bestScore = sc; best = code; }
+                    };
+                    if (Array.isArray(struct)) { 
+                        for (const it of struct) scoreOne(it.maKPI, it.moTa || it.tenKPI || it.name);
+                    }
                     return best || 'TBPTM';
                 })();
                 const tbptmStaffMap = {}; // { MANV: totalTBPTMWithinSelectedRange }
-const userChannelMap = {};
+const userChannelMap = Object.create(null);
                 if (logData.length > 0) {
                     const lSample = logData[0];
                     const kLogNV = detectKey(lSample, 'maNV', 'MaNV', 'user');
                     const kLogCh = detectKey(lSample, 'channelType', 'kenh');
                     logData.forEach(l => {
-                        const nv = l[kLogNV];
+                        const nv = String(l[kLogNV] ?? '').trim().toUpperCase();
                         if (nv) {
                             const chVal = l[kLogCh] || 'KHÁC';
                             userChannelMap[nv] = String(chVal).split('-')[0].trim();
@@ -463,6 +472,18 @@ const userChannelMap = {};
                     const kCum = detectKey(sample, 'maCum', 'cum');
                     const kKPI = detectKey(sample, 'maKpi', 'kpi');
                     const kVal = detectKey(sample, 'giaTri', 'thucHien', 'revenue');
+                    // Refine tbptmCode dựa trên dữ liệu raw (phòng trường hợp KPI struct thiếu / đổi tên code)
+                    try {
+                        const seen = new Set();
+                        for (const row of (rawData || [])) {
+                            const c = app.cleanCode(row[kKPI]);
+                            if (c) seen.add(c);
+                        }
+                        const candidates = Array.from(seen).filter(c => c.includes('PTM'));
+                        if (candidates.includes('TBPTM')) tbptmCode = 'TBPTM';
+                        else if (candidates.length === 1) tbptmCode = candidates[0];
+                        else if (candidates.length > 1) tbptmCode = candidates.sort((a, b) => b.length - a.length)[0];
+                    } catch (e) { /* ignore */ }
                     const kNV = detectKey(sample, 'maNV', 'MaNV', 'user');
 
                     for (let i = 0; i < rawData.length; i++) {
@@ -489,12 +510,18 @@ const userChannelMap = {};
                         if (!isSelectedKPI && !isTBPTMRow) continue;
 
                         const nvRaw = row[kNV];
-                        const rowChannel = userChannelMap[nvRaw] || 'KHÁC';
+                        
+                        // [FIX] Khai báo nvCode ngay tại đây để dùng cho việc tra cứu kênh
+                        const nvCode = nvRaw ? String(nvRaw).trim().toUpperCase() : '';
+
+                        // Bây giờ nvCode đã tồn tại, dòng này sẽ hoạt động
+                        const rowChannel = userChannelMap[nvCode] || 'KHÁC';
+                        
                         if (channelFilter !== 'all' && rowChannel !== channelFilter) continue;
 
                         // TBPTM BQ ngày: luôn đếm TBPTM trong khoảng ngày đang chọn (không phụ thuộc KPI filter)
                         if (isTBPTMRow && parsed.full >= dFrom && nvRaw) {
-                            const nvCode = String(nvRaw).trim().toUpperCase();
+                            // [FIX] Không cần khai báo lại const nvCode ở đây nữa, dùng luôn biến ở trên
                             tbptmStaffMap[nvCode] = (tbptmStaffMap[nvCode] || 0) + 1;
                         }
 
@@ -679,10 +706,12 @@ const _safePerEmpPerDay = (total, days, hc) => {
     if (h <= 0) return 0;
     return (Number(total) || 0) / (d * h);
 };
+const sumActual = (list) => (list || []).reduce((acc, item) => acc + (Number(item.actual) || 0), 0);
+
 this.currentTBPTMAvgDay = {
-    gdv: _safePerEmpPerDay(tbptmTotals.gdv, selectedDays, _hc.gdv),
-    sales: _safePerEmpPerDay(tbptmTotals.sales, selectedDays, _hc.sales),
-    b2b: _safePerEmpPerDay(tbptmTotals.b2b, selectedDays, _hc.b2b)
+    gdv: _safePerEmpPerDay(sumActual(gGDV.list), selectedDays, _hc.gdv),
+    sales: _safePerEmpPerDay(sumActual(gSales.list), selectedDays, _hc.sales),
+    b2b: _safePerEmpPerDay(sumActual(gB2B.list), selectedDays, _hc.b2b)
 };
                 this.currentTBPTMCode = tbptmCode;
 
