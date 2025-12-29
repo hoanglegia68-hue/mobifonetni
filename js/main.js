@@ -472,6 +472,7 @@ const userChannelMap = Object.create(null);
                     const kCum = detectKey(sample, 'maCum', 'cum');
                     const kKPI = detectKey(sample, 'maKpi', 'kpi');
                     const kVal = detectKey(sample, 'giaTri', 'thucHien', 'revenue');
+                    const kCh = detectKey(sample, 'channelType'); // ✅ NEW
                     // Refine tbptmCode dựa trên dữ liệu raw (phòng trường hợp KPI struct thiếu / đổi tên code)
                     try {
                         const seen = new Set();
@@ -514,8 +515,11 @@ const userChannelMap = Object.create(null);
                         // [FIX] Khai báo nvCode ngay tại đây để dùng cho việc tra cứu kênh
                         const nvCode = nvRaw ? String(nvRaw).trim().toUpperCase() : '';
 
-                        // Bây giờ nvCode đã tồn tại, dòng này sẽ hoạt động
-                        const rowChannel = userChannelMap[nvCode] || 'KHÁC';
+                       const chFromRow = row[kCh];
+                        const rowChannel = (chFromRow && String(chFromRow).trim())
+                        ? String(chFromRow).split('-')[0].trim()
+                        : (userChannelMap[nvCode] || 'KHÁC'); // fallback
+
                         
                         if (channelFilter !== 'all' && rowChannel !== channelFilter) continue;
 
@@ -1174,32 +1178,347 @@ this.currentTBPTMAvgDay = {
     // 4. BUSINESS DATA & USER LOGS (CÁC TRANG DỮ LIỆU KHÁC)
     // ============================================================
 
-    // [DISABLED] USER REQUEST: Loại bỏ 4 tab ở menu số liệu kinh doanh
+    // MENU "SỐ LIỆU KINH DOANH" — Tra cứu chi tiết (sheet kpi_data)
+initBusinessDataControls() {
+    if (this._bizControlsInited) return;
+    this._bizControlsInited = true;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const elFrom = document.getElementById('biz-month-from');
+    const elTo = document.getElementById('biz-month-to');
+    if (elFrom && !elFrom.value) elFrom.value = currentMonth;
+    if (elTo && !elTo.value) elTo.value = currentMonth;
+
+    const modeEl = document.getElementById('view-mode');
+    const scopeInput = document.getElementById('biz-scope-input');
+
+    const uScope = (this.currentUser?.scope || 'all').toString().trim();
+    const isAdmin = (this.currentUser?.role === 'admin' || uScope === 'all');
+
+    // Default mode theo phạm vi user (NV/Cụm/Liên cụm)
+    const defaultMode = (() => {
+        if (isAdmin) return 'cum';
+        if (this.mapCum && this.mapCum[uScope]) return 'cum';
+        if (this.mapLienCum && this.mapLienCum[uScope]) return 'liencum';
+        return 'employee';
+    })();
+
+    if (modeEl) modeEl.value = modeEl.value || defaultMode;
+
+    // Auto fill scope cho user không phải admin (để khỏi phải nhập lại)
+    if (scopeInput && !scopeInput.value && !isAdmin) {
+        scopeInput.value = uScope;
+    }
+
+    this.handleBusinessModeChange(modeEl?.value || defaultMode);
+},
+
+handleBusinessModeChange(mode) {
+    const scopeInput = document.getElementById('biz-scope-input');
+    const list = document.getElementById('biz-scope-list');
+    if (!scopeInput || !list) return;
+
+    const allowedClusters = this.filterDataByScope(this.fullClusterData) || [];
+
+    const setPlaceholder = (ph) => { scopeInput.placeholder = ph; };
+    const addOption = (value, label) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        if (label) opt.label = label; // datalist label (trình duyệt hỗ trợ 1 phần)
+        list.appendChild(opt);
+    };
+
+    list.innerHTML = '';
+
+    if (mode === 'liencum') {
+        setPlaceholder('Nhập mã Liên Cụm (vd: LC-DHO)');
+        allowedClusters.forEach(lc => addOption(lc.maLienCum, `${lc.maLienCum} - ${lc.tenLienCum}`));
+    } else if (mode === 'cum') {
+        setPlaceholder('Nhập mã Cụm (vd: C-DHO)');
+        allowedClusters.forEach(lc => {
+            (lc.cums || []).forEach(c => addOption(c.maCum, `${c.maCum} - ${c.tenCum} (${lc.tenLienCum})`));
+        });
+    } else {
+        setPlaceholder('Nhập mã NV (vd: 8LAN10002_DHO_015)');
+        // Không auto load danh sách NV để tránh nặng (NV có thể nhập/tìm theo mã)
+    }
+
+    // Nếu user đang dùng scope tự động (scope = maCum/maLienCum/maNV) mà mode đổi khác loại
+    // thì giữ nguyên input, user có thể sửa lại nếu cần.
+},
+
+_checkScopeKpiRow(row) {
+    const uScope = (this.currentUser?.scope || 'all').toString().trim();
+    const isAdmin = (this.currentUser?.role === 'admin' || uScope === 'all');
+    if (isAdmin) return true;
+
+    const maLC = (row?.maLienCum || row?.maliencum || row?.lienCum || '').toString().trim();
+    const maC = (row?.maCum || row?.macum || row?.cum || '').toString().trim();
+    const maNV = (row?.maNV || row?.manv || '').toString().trim();
+
+    return maLC === uScope || maC === uScope || maNV === uScope;
+},
+
+_filterKpiRowsClientSide(rows, keyword) {
+    const kw = (keyword || '').toString().trim().toLowerCase();
+    if (!kw) return rows;
+
+    return (rows || []).filter(r => {
+        const date = (r.date || r.ngay || '').toString();
+        const maNV = (r.maNV || r.manv || '').toString();
+        const maLC = (r.maLienCum || r.maliencum || r.lienCum || '').toString();
+        const maC = (r.maCum || r.macum || r.cum || '').toString();
+        const maKpi = (r.maKpi || r.maKPI || r.makpi || '').toString();
+        const ch = (r.channelTy || r.channelType || r.channel || '').toString();
+        const gt = (r.giaTri || r.giatri || r.value || '').toString();
+        const blob = `${date}|${maNV}|${maLC}|${maC}|${maKpi}|${ch}|${gt}`.toLowerCase();
+        return blob.includes(kw);
+    });
+},
+
+_applyBusinessScopeFilter(rows, mode, scopeValue) {
+    const val = (scopeValue || '').toString().trim();
+    if (!val) return rows;
+
+    const cmp = (s) => (s || '').toString().trim().toLowerCase();
+    const v = cmp(val);
+
+    if (mode === 'liencum') {
+        return (rows || []).filter(r => cmp(r.maLienCum || r.maliencum || r.lienCum) === v || cmp(r.maLienCum || r.maliencum || r.lienCum).includes(v));
+    }
+    if (mode === 'cum') {
+        return (rows || []).filter(r => cmp(r.maCum || r.macum || r.cum) === v || cmp(r.maCum || r.macum || r.cum).includes(v));
+    }
+    // employee
+    return (rows || []).filter(r => cmp(r.maNV || r.manv) === v || cmp(r.maNV || r.manv).includes(v));
+},
+
+// ============================
+    // CẬP NHẬT: loadBusinessDataPage
+    // Fix: Hiển thị đúng cột Thuê bao (giaTri) và Kênh (channelType)
+    // ============================
     async loadBusinessDataPage() {
-        console.log("Business Data Page functionality has been disabled by request.");
-        // Code cũ đã được vô hiệu hóa để không tải dữ liệu và không render tab.
-        /*
-        console.log("Loading Business Data...");
+        this.initBusinessDataControls();
+
+        const container = document.getElementById('business-data-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="flex items-center justify-center py-16 text-slate-500">
+                    <div class="flex items-center gap-2">
+                        <span class="animate-spin inline-block w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full"></span>
+                        <span class="text-sm font-medium">Đang tải dữ liệu KPI (kpi_data)...</span>
+                    </div>
+                </div>`;
+        }
+
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-        const elFrom = document.getElementById('biz-month-from');
-        const elTo = document.getElementById('biz-month-to');
-        if (elFrom && !elFrom.value) elFrom.value = currentMonth;
-        if (elTo && !elTo.value) elTo.value = currentMonth;
+        const mFrom = document.getElementById('biz-month-from')?.value || currentMonth;
+        const mTo = document.getElementById('biz-month-to')?.value || currentMonth;
+        const mode = document.getElementById('view-mode')?.value || 'cum';
+        const scopeValue = document.getElementById('biz-scope-input')?.value || '';
+        const keyword = document.getElementById('business-search')?.value || '';
 
-        const mFrom = elFrom?.value || currentMonth;
-        const mTo = elTo?.value || currentMonth;
-        const viewMode = document.getElementById('view-mode')?.value || 'cluster';
+        try {
+            // Cache theo tháng để tránh tải lại
+            const cacheKey = `${mFrom}|${mTo}`;
+            if (!this.businessCache) this.businessCache = {};
+            if (!this.businessCache[cacheKey]) {
+                const raw = await DataService.getKPIActual(mFrom, mTo, null);
+                this.businessCache[cacheKey] = this.normalizeDataSet(raw);
+            }
+            
+            // Lấy dữ liệu thô từ cache
+            let baseRows = this.businessCache[cacheKey] || [];
 
-        const [raw, plans, struct] = await Promise.all([
-            DataService.getKPIActual(mFrom, mTo, null),
-            DataService.getKPIPlanning(),
-            DataService.getKPIStructure()
-        ]);
-        // ... (phần xử lý cũ đã ẩn)
-        */
+            // --- [FIX LOGIC BẮT ĐẦU] --- 
+            // Hàm hỗ trợ tìm giá trị bất chấp tên cột (viết hoa/thường/alias)
+            const getVal = (obj, ...candidates) => {
+                if (!obj) return '';
+                // 1. Tìm chính xác
+                for (const k of candidates) {
+                    if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return obj[k];
+                }
+                // 2. Tìm không phân biệt hoa thường
+                const keys = Object.keys(obj);
+                const lowerKeys = keys.map(k => k.toLowerCase());
+                for (const k of candidates) {
+                    const idx = lowerKeys.indexOf(k.toLowerCase());
+                    if (idx > -1) return obj[keys[idx]];
+                }
+                return '';
+            };
+
+            // CHUẨN HÓA DỮ LIỆU TRƯỚC KHI HIỂN THỊ
+            // Đảm bảo cột 'giaTri' và 'channelType' luôn có dữ liệu nếu source có
+            baseRows = baseRows.map(r => {
+                const valKenh = getVal(r, 'channelType');
+                const valGiaTri = getVal(r, 'giaTri');
+                const valNgay = getVal(r, 'date', 'ngay', 'thoiGian');
+                const valMaNV = getVal(r, 'maNV', 'manv', 'user');
+                const valMaKpi = getVal(r, 'maKpi', 'makpi', 'kpi');
+                const valMaLC = getVal(r, 'maLienCum', 'lienCum', 'maliencum');
+                const valMaCum = getVal(r, 'maCum', 'cum', 'macum');
+
+                return {
+                    ...r, // Giữ lại các trường gốc
+                    channelType: valKenh, // Cột Kênh hiển thị
+                    giaTri: valGiaTri,    // Cột Giá trị (Thuê bao) hiển thị
+                    date: valNgay,
+                    maNV: valMaNV,
+                    maKpi: valMaKpi,
+                    maLienCum: valMaLC,
+                    maCum: valMaCum
+                };
+            });
+            // --- [FIX LOGIC KẾT THÚC] ---
+
+            // KPI name map (1 lần)
+            if (!this.kpiNameMap) {
+                const struct = await DataService.getKPIStructure();
+                const map = {};
+                (struct || []).forEach(k => {
+                    const raw = (k.ma ?? '').toString().trim();
+                    if (!raw) return;
+                    const name = k.tenHienThi || k.moTa || raw;
+                    map[raw] = name;
+                    map[this.cleanCode(raw)] = name;
+                });
+                this.kpiNameMap = map;
+            }
+
+            // 1) Quyền truy cập (scope)
+            let rows = baseRows.filter(r => this._checkScopeKpiRow(r));
+
+            // 2) Lọc theo phạm vi tra cứu (NV/Cụm/Liên cụm)
+            rows = this._applyBusinessScopeFilter(rows, mode, scopeValue);
+
+            // 3) Lọc keyword (client-side)
+            rows = this._filterKpiRowsClientSide(rows, keyword);
+
+            // 4) Sort: ngày giảm dần, sau đó mã NV
+            rows.sort((a, b) => {
+                const da = (a.date || '').toString();
+                const db = (b.date || '').toString();
+                if (da !== db) return db.localeCompare(da);
+                const na = (a.maNV || '').toString();
+                const nb = (b.maNV || '').toString();
+                return na.localeCompare(nb);
+            });
+
+            // State + pagination
+            const prevSize = this.businessKpiState?.pageSize || 50;
+            this.businessKpiState = {
+                rows,
+                page: 1,
+                pageSize: prevSize,
+                mode,
+                scopeValue,
+                keyword,
+                mFrom, mTo
+            };
+
+            UIRenderer.renderBusinessKPIDetailTable(rows, {
+                page: 1,
+                pageSize: prevSize,
+                mode,
+                scopeValue,
+                keyword,
+                mFrom, mTo,
+                kpiNameMap: this.kpiNameMap
+            });
+
+        } catch (err) {
+            console.error("Business KPI load error:", err);
+            if (container) {
+                container.innerHTML = `<div class="p-6 text-red-600 font-medium">Lỗi tải dữ liệu KPI: ${String(err?.message || err)}</div>`;
+            }
+        } finally {
+            if (window.lucide) lucide.createIcons();
+        }
     },
+
+businessGotoPage(page) {
+    const st = this.businessKpiState;
+    if (!st || !Array.isArray(st.rows)) return;
+
+    const total = st.rows.length;
+    const maxPage = Math.max(1, Math.ceil(total / st.pageSize));
+    const p = Math.min(Math.max(1, Number(page) || 1), maxPage);
+
+    st.page = p;
+    UIRenderer.renderBusinessKPIDetailTable(st.rows, {
+        page: st.page,
+        pageSize: st.pageSize,
+        mode: st.mode,
+        scopeValue: st.scopeValue,
+        keyword: st.keyword,
+        mFrom: st.mFrom, mTo: st.mTo,
+        kpiNameMap: this.kpiNameMap
+    });
+
+    const container = document.getElementById('business-data-container');
+    if (container) container.scrollTop = 0;
+    if (window.lucide) lucide.createIcons();
+},
+
+businessSetPageSize(size) {
+    const st = this.businessKpiState;
+    if (!st) return;
+    const s = Math.max(10, Math.min(500, Number(size) || 50));
+    st.pageSize = s;
+    st.page = 1;
+    this.businessGotoPage(1);
+},
+
+exportBusinessKpiCSV() {
+    const st = this.businessKpiState;
+    if (!st || !Array.isArray(st.rows) || st.rows.length === 0) return alert('Không có dữ liệu để xuất!');
+
+    const rows = st.rows;
+    const pick = (r, ...keys) => {
+        for (const k of keys) {
+            if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') return r[k];
+            const lk = Object.keys(r).find(x => x.toLowerCase() === String(k).toLowerCase());
+            if (lk && r[lk] !== undefined && r[lk] !== null && String(r[lk]).trim() !== '') return r[lk];
+        }
+        return '';
+    };
+
+    const headers = ['date','maNV','maLienCum','maCum','maKpi','channelTy','giaTri'];
+    const esc = (v) => {
+        const s = String(v ?? '');
+        if (s.includes('"') || s.includes(',') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+    };
+
+    const csv = [
+        headers.join(','),
+        ...rows.map(r => ([
+            pick(r, 'date', 'ngay'),
+            pick(r, 'maNV', 'manv'),
+            pick(r, 'maLienCum', 'maliencum', 'lienCum'),
+            pick(r, 'maCum', 'macum', 'cum'),
+            pick(r, 'maKpi', 'maKPI', 'makpi'),
+            pick(r, 'channelTy', 'channelType', 'channel'),
+            pick(r, 'giaTri', 'giatri', 'value')
+        ]).map(esc).join(','))
+    ].join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    a.href = url;
+    a.download = `kpi_data_${st.mFrom}_${st.mTo}_${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+},
 
     async renderKPIStructureTab(struct) {
         // [DISABLED]
