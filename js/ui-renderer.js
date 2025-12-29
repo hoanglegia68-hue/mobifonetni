@@ -1,3 +1,4 @@
+
 const UIRenderer = {
     // ============================================================
     // 1. CÁC HÀM HELPER DÙNG CHUNG
@@ -1760,6 +1761,233 @@ const UIRenderer = {
      * saymee: { this: 0, prev: 0, ytd: 0 }
      * }
      */
+// ============================================================
+// 4.x SỐ LIỆU KINH DOANH — BẢNG CHI TIẾT (kpi_data)
+// ============================================================
+    renderBusinessKPIDetailTable(rows, opts = {}) {
+        const container = document.getElementById('business-data-container');
+        if (!container) return;
+
+        const page = Number(opts.page) || 1;
+        const pageSize = Number(opts.pageSize) || 50;
+        const kpiNameMap = opts.kpiNameMap || {};
+        const total = Array.isArray(rows) ? rows.length : 0;
+        const maxPage = Math.max(1, Math.ceil(total / pageSize));
+        const p = Math.min(Math.max(1, page), maxPage);
+
+        const startIdx = (p - 1) * pageSize;
+        const slice = (rows || []).slice(startIdx, startIdx + pageSize);
+
+        // Pick value by key (case-insensitive), prefer non-empty
+        const pick = (r, ...keys) => {
+            if (!r) return '';
+            const lmap = {};
+            Object.keys(r).forEach(k => { lmap[String(k).toLowerCase()] = k; });
+            for (const k of keys) {
+                if (!k) continue;
+                if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') return r[k];
+                const lk = lmap[String(k).toLowerCase()];
+                if (lk && r[lk] !== undefined && r[lk] !== null && String(r[lk]).trim() !== '') return r[lk];
+            }
+            return '';
+        };
+
+        const esc = (v) => String(v ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+
+        // Resolve names from app dictionary (fallback to code)
+        const getLienCumName = (code) => {
+            const c = String(code || '').trim();
+            if (!c) return '';
+            try {
+                const fn = window.app && typeof window.app.getNameLienCum === 'function' ? window.app.getNameLienCum.bind(window.app) : null;
+                const name = fn ? fn(c) : c;
+                return name || c;
+            } catch (e) { return c; }
+        };
+        const getCumName = (code) => {
+            const c = String(code || '').trim();
+            if (!c) return '';
+            try {
+                const fn = window.app && typeof window.app.getNameCum === 'function' ? window.app.getNameCum.bind(window.app) : null;
+                const name = fn ? fn(c) : c;
+                return name || c;
+            } catch (e) { return c; }
+        };
+
+        const getKpiName = (code) => {
+            const raw = String(code || '').trim();
+            const clean = (window.app && typeof window.app.cleanCode === 'function') ? window.app.cleanCode(raw) : raw;
+            return kpiNameMap[raw] || kpiNameMap[clean] || '';
+        };
+
+        const fmtChannel = (v) => {
+            const s = String(v ?? '').trim();
+            if (!s) return '';
+            return s.split('-')[0].trim();
+        };
+
+        // UI labels mapping (yêu cầu)
+        const headers = [
+            { id: 'date', label: 'Ngày', align: 'left' },
+            { id: 'maNV', label: 'Mã Nhân Viên', align: 'left' },
+            { id: 'maLienCum', label: 'Tên Liên Cụm', align: 'left' },
+            { id: 'maCum', label: 'Tên Cụm', align: 'left' },
+            { id: 'maKpi', label: 'Mã KPI', align: 'left' },
+            { id: 'channelType', label: 'Kênh', align: 'left' },
+
+            { id: 'giaTri', label: 'Thuê bao', align: 'right' },
+        ];
+
+        const showInfo = () => {
+            const mode = opts.mode || 'cum';
+            const scopeValue = opts.scopeValue || '';
+            const keyword = opts.keyword || '';
+            const mFrom = opts.mFrom || '';
+            const mTo = opts.mTo || '';
+            const modeLabel = mode === 'employee' ? 'Nhân viên' : (mode === 'liencum' ? 'Liên cụm' : 'Cụm');
+            const scopeLabel = scopeValue ? esc(scopeValue) : '<span class="text-slate-400">Tất cả</span>';
+            const kwLabel = keyword ? esc(keyword) : '<span class="text-slate-400">Không</span>';
+            return `
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div class="text-sm text-slate-600">
+                        <span class="font-semibold text-slate-800">KPI Data</span>
+                        <span class="mx-2 text-slate-300">•</span>
+                        <span>Tháng: <span class="font-medium text-slate-800">${esc(mFrom)} → ${esc(mTo)}</span></span>
+                        <span class="mx-2 text-slate-300">•</span>
+                        <span>Chế độ: <span class="font-medium text-slate-800">${esc(modeLabel)}</span></span>
+                        <span class="mx-2 text-slate-300">•</span>
+                        <span>Phạm vi: <span class="font-medium text-slate-800">${scopeLabel}</span></span>
+                        <span class="mx-2 text-slate-300">•</span>
+                        <span>Từ khóa: <span class="font-medium text-slate-800">${kwLabel}</span></span>
+                    </div>
+                    <div class="text-xs text-slate-500">
+                        Tổng dòng: <span class="font-semibold text-slate-800">${this.formatNumber(total)}</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderPagination = () => {
+            const pageSizes = [20, 50, 100, 200, 500];
+            const sizeOptions = pageSizes.map(s => `<option value="${s}" ${s === pageSize ? 'selected' : ''}>${s}/trang</option>`).join('');
+            return `
+                <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+                    <div class="flex items-center gap-2 text-sm">
+                        <button class="px-3 py-1 rounded-lg border hover:bg-slate-50" ${p <= 1 ? 'disabled' : ''} onclick="app.businessGotoPage(${p - 1})">←</button>
+                        <div>Trang <span class="font-semibold">${p}</span>/<span class="font-semibold">${maxPage}</span></div>
+                        <button class="px-3 py-1 rounded-lg border hover:bg-slate-50" ${p >= maxPage ? 'disabled' : ''} onclick="app.businessGotoPage(${p + 1})">→</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select class="border rounded-lg px-2 py-1 text-sm" onchange="app.businessSetPageSize(this.value)">
+                            ${sizeOptions}
+                        </select>
+                        <button class="px-3 py-1 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700" onclick="app.exportBusinessKpiCSV()">
+                            Xuất CSV
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
+        if (!slice || slice.length === 0) {
+            container.innerHTML = `
+                ${showInfo()}
+                <div class="p-8 text-center text-slate-500">
+                    Không có dữ liệu phù hợp bộ lọc.
+                </div>
+            `;
+            return;
+        }
+
+        // Build table header
+        const thead = headers.map(h => `
+            <th class="p-3 ${h.align === 'right' ? 'text-right' : 'text-left'} whitespace-nowrap">${h.label}</th>
+        `).join('');
+
+        // Build rows
+        let tbody = '';
+        for (let i = 0; i < slice.length; i++) {
+            const r = slice[i];
+
+            const d = pick(r, 'date', 'ngay');
+            const maNV = pick(r, 'maNV', 'manv');
+
+            const maLC = pick(r, 'maLienCum', 'maliencum', 'lienCum');
+            const maC = pick(r, 'maCum', 'macum', 'cum');
+
+            const kpiCode = pick(r, 'maKpi', 'maKPI', 'makpi');
+            const kpiName = getKpiName(kpiCode);
+
+           // ✅ KÊNH: chỉ lấy từ channelType
+            const chRaw = pick(r, 'channelType');
+            const ch = fmtChannel(chRaw);
+
+
+            // ✅ THUÊ BAO: chỉ lấy từ giaTri (kể cả = 0 vẫn hiển thị)
+            const gtRaw = pick(r, 'giaTri');
+            const gt = (gtRaw === null || gtRaw === undefined) ? '' : String(gtRaw);
+
+            // -----------------------------------------------------------
+
+            const lcName = getLienCumName(maLC);
+            const cName = getCumName(maC);
+
+            const cellLC = maLC ? `
+                <div class="font-medium text-slate-800">${esc(lcName)}</div>
+                <div class="text-xs text-slate-400">${esc(maLC)}</div>
+            ` : '<span class="text-slate-400">-</span>';
+
+            const cellC = maC ? `
+                <div class="font-medium text-slate-800">${esc(cName)}</div>
+                <div class="text-xs text-slate-400">${esc(maC)}</div>
+            ` : '<span class="text-slate-400">-</span>';
+
+            const cellKPI = `
+                <div class="font-semibold text-slate-800">${esc(kpiCode || '-') }</div>
+                ${kpiName && String(kpiName).trim() && String(kpiName).trim() !== String(kpiCode || '').trim()
+                    ? `<div class="text-xs text-slate-500 truncate max-w-[260px]" title="${esc(kpiName)}">${esc(kpiName)}</div>`
+                    : ''}
+            `;
+
+            const cellCH = ch ? `
+                <div class="font-medium text-slate-800" title="${esc(chRaw)}">${esc(ch)}</div>
+            ` : '<span class="text-slate-400">-</span>';
+
+            const cellGT = gt ? `<span class="font-mono">${esc(gt)}</span>` : '<span class="text-slate-400">-</span>';
+
+            tbody += `
+                <tr class="border-b hover:bg-slate-50">
+                    <td class="p-3 whitespace-nowrap">${esc(d || '-')}</td>
+                    <td class="p-3 whitespace-nowrap font-mono">${esc(maNV || '-')}</td>
+                    <td class="p-3">${cellLC}</td>
+                    <td class="p-3">${cellC}</td>
+                    <td class="p-3">${cellKPI}</td>
+                    <td class="p-3 whitespace-nowrap">${cellCH}</td>
+                    <td class="p-3 text-right whitespace-nowrap">${cellGT}</td>
+                </tr>
+            `;
+        }
+
+        container.innerHTML = `
+            ${showInfo()}
+            <div class="overflow-auto border rounded-xl bg-white">
+                <table class="min-w-[980px] w-full text-sm">
+                    <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                        <tr>${thead}</tr>
+                    </thead>
+                    <tbody>${tbody}</tbody>
+                </table>
+            </div>
+            ${renderPagination()}
+        `;
+
+        if (window.lucide) window.lucide.createIcons();
+    },
+
     renderDoanhThuSummary(metrics) {
         const tbody = document.getElementById('revenue-summary-body');
         if (!tbody) return;
