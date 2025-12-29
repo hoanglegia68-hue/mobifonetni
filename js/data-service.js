@@ -3,7 +3,7 @@
  * Quản lý kết nối Google Sheets, Caching & Xử lý dữ liệu
  * ========================================= */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzw2U5RxuCk961bQ35frhKxyzkMUmtal_2PD95Wn8Ww_vUDRNlAr3rHtpNTX4_UGJJwJA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwwbKgV-v8tAeh9iEcNz1tznbZ9GR3RyJsn71_EBD_5YLeyN6Wr0UsmoFtH6hFzeaJgQQ/exec";
 
 const DataService = {
   _cache: null,                 // Core data trong RAM (Clusters, Staff, Stores...)
