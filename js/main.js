@@ -1742,7 +1742,7 @@ if (isFull) {
 
     renderFooter() {
         if (!document.getElementById('app-footer')) {
-            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver 0579 </div>`);
+            document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver Final </div>`);
         }
     },
 
@@ -2406,19 +2406,34 @@ if (isFull) {
             this.fullClusterData.forEach(lc => {
                 if (scope !== 'all' && lc.maLienCum !== scope) return;
 
-                const enrichedCums = (lc.cums || []).map(c => ({
-                    ...c,
-                    ten: c.tenCum,
-                    tenLienCum: lc.tenLienCum,
-                    vlr: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.vlr) || 0), 0),
-                    danSo: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.danSo) || 0), 0),
-                    lanhDao: c.phuTrach ? [{ chucVu: 'Phụ trách', ten: c.phuTrach, sdt: '' }] : []
-                }));
+                const enrichedCums = (lc.cums || []).map(c => {
+                    const areaAgg = (c.phuongXas || []).reduce((acc, px) => {
+                        const v = px.dienTich;
+                        if (v === null || v === undefined || v === '') return acc;
+                        const n = Number(v);
+                        if (!isFinite(n)) return acc;
+                        acc.sum += n;
+                        acc.count += 1;
+                        return acc;
+                    }, { sum: 0, count: 0 });
+
+                    return {
+                        ...c,
+                        ten: c.tenCum,
+                        tenLienCum: lc.tenLienCum,
+                        vlr: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.vlr) || 0), 0),
+                        danSo: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.danSo) || 0), 0),
+                        dienTich: areaAgg.count ? areaAgg.sum : null,
+                        // Hiển thị phụ trách ở cột riêng (và vẫn giữ lanhDao để dùng lại nếu cần)
+                        lanhDao: c.phuTrach ? [{ chucVu: 'Phụ trách', ten: c.phuTrach, sdt: c.sdtCum || '' }] : []
+                    };
+                });
+
                 detailData.push(...enrichedCums);
             });
-            type = 'commune';
         }
-        else if (type === 'commune') {
+
+else if (type === 'commune') {
             title = 'Chi tiết Dân số & Phủ trạm theo Phường/Xã';
             this.fullClusterData.forEach(lc => {
                 if (stype === 'liencum' && scope !== 'all' && lc.maLienCum !== scope) return;
