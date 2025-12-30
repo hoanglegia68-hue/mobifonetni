@@ -275,6 +275,7 @@ const DataService = {
           ten: row.tenPX,
           vlr: Number(row.vlr) || 0,
           danSo: Number(row.danSo) || 0,
+          dienTich: (() => { const v = row.dienTich ?? row.dientich ?? row.dien_tich ?? row.area ?? row.dienTichKm2 ?? row.km2; if (v === null || v === undefined || v === '') return 0; const n = parseFloat(String(v).replace(/\s/g,'').replace(',', '.')); return isNaN(n) ? 0 : n; })(),
           tram: Number(row.tram) || 0,
           lanhDao: listLanhDao
         });
