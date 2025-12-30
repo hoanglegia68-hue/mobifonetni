@@ -1610,7 +1610,16 @@ exportBusinessKpiCSV() {
 
         const isFull = card.classList.contains('widget-fullscreen');
 
+        
+        // Khóa scroll nền khi đang phóng to 1 widget
         if (isFull) {
+            document.body.classList.add('widget-fullscreen-open');
+        } else {
+            if (!document.querySelector('.widget-fullscreen')) {
+                document.body.classList.remove('widget-fullscreen-open');
+            }
+        }
+if (isFull) {
             btn.innerHTML = '<i data-lucide="minimize-2" class="w-4 h-4 text-red-500"></i>';
             btn.setAttribute('title', 'Thu nhỏ lại');
         } else {
