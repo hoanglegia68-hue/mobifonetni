@@ -1379,6 +1379,46 @@ const UIRenderer = {
                     </td>
                 </tr>`).join('');
         }
+        
+        else if (type === 'list_cum') {
+            headerHtml = `
+                <tr>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 w-12 bg-slate-100">STT</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Tên Cụm</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Thuộc Liên Cụm</th>
+                    <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">VLR (Thuê bao)</th>
+                    <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">Dân số</th>
+                    <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">Diện tích</th>
+                    <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Phụ trách</th>
+                </tr>`;
+
+            bodyHtml = data.map((item, idx) => {
+                const phuTrach = item.phuTrach || (item.lanhDao && item.lanhDao[0] ? item.lanhDao[0].ten : '') || '-';
+                const sdt = item.sdtCum || (item.lanhDao && item.lanhDao[0] ? item.lanhDao[0].sdt : '') || '';
+                const areaText = (item.dienTich === null || item.dienTich === undefined || item.dienTich === '') ? '-' : this.formatAreaKm2(item.dienTich);
+
+                return `
+                <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 text-center text-slate-500">${idx + 1}</td>
+                    <td class="p-3">
+                        <div class="font-bold text-blue-700">${item.tenCum || item.ten || '-'}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">${item.maCum || ''}</div>
+                    </td>
+                    <td class="p-3">
+                        <div class="text-xs font-bold text-slate-600">${item.tenLienCum || ''}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">${item.maLienCum || ''}</div>
+                    </td>
+                    <td class="p-3 text-right font-mono text-slate-700">${this.formatNumber(item.vlr)}</td>
+                    <td class="p-3 text-right font-mono text-slate-500">${this.formatNumber(item.danSo)}</td>
+                    <td class="p-3 text-right font-mono text-slate-500">${areaText}</td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-700">${phuTrach}</div>
+                        ${sdt ? `<div class="text-[10px] text-slate-400 font-mono">${sdt}</div>` : `<div class="text-[10px] text-slate-300 italic">Chưa cập nhật SĐT</div>`}
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
         else if (type === 'commune' || type === 'geo') {
             headerHtml = `
                 <tr>
