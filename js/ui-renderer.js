@@ -1601,13 +1601,16 @@ const UIRenderer = {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        if (!data || data.length === 0) {
+        
+        // Ensure container can stretch when widget is fullscreen
+        container.classList.add('flex', 'flex-col', 'min-h-0');
+if (!data || data.length === 0) {
             container.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm italic">Chưa có dữ liệu xếp hạng</div>`;
             return;
         }
 
         let html = `
-            <div class="overflow-auto max-h-[350px] custom-scrollbar relative bg-white rounded-b-xl w-full">
+            <div class="ranking-scroll overflow-auto max-h-[350px] flex-1 min-h-0 custom-scrollbar relative bg-white rounded-b-xl w-full">
                 <table class="w-full text-sm text-left border-collapse min-w-[350px]">
                     <thead class="text-[10px] text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                         <tr>
