@@ -10,6 +10,18 @@ const UIRenderer = {
         return new Intl.NumberFormat('vi-VN').format(num);
     },
 
+    // Định dạng diện tích (km²)
+    formatAreaKm2(km2, maxDecimals = 2) {
+        if (km2 === null || km2 === undefined || km2 === '') return '-';
+        const n = Number(km2);
+        if (!Number.isFinite(n)) return '-';
+        const fmt = new Intl.NumberFormat('vi-VN', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: maxDecimals
+        });
+        return `${fmt.format(n)} km²`;
+    },
+
     // Tạo Link Google Map (Đã fix lỗi cú pháp link)
     getMapLink(lat, lng, address) {
         if (!lat || !lng) return `<span class="text-slate-500 text-xs">${address}</span>`;
@@ -88,7 +100,7 @@ const UIRenderer = {
         if (!tbody) return;
 
         if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu phù hợp</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu phù hợp</td></tr>`;
             return;
         }
 
@@ -151,7 +163,9 @@ const UIRenderer = {
                                 <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">Trạm:</span> <span class="font-mono text-emerald-600 font-bold">${px.tram}</span></div>
                             </div>
                         </td>
-                        <td class="border-b border-slate-100"><div class="flex flex-col items-start gap-1">${leadersHtml}</div></td>
+</td>
+                        <td class="text-sm border-b border-slate-100 text-right font-mono">${(px.dienTich === null || px.dienTich === undefined || px.dienTich === '') ? '-' : this.formatAreaKm2(px.dienTich)}</td>
+<td class="border-b border-slate-100"><div class="flex flex-col items-start gap-1">${leadersHtml}</div></td>
                         <td class="text-center align-middle border-b border-slate-100">
                             <button onclick="app.openEditModal('${px.id}')" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition" title="Chỉnh sửa"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
                         </td>
@@ -197,7 +211,7 @@ const UIRenderer = {
 
             const dai = item.dai || '-';
             const rong = item.rong || '-';
-            const dt = item.dienTich || '-';
+            const dt = this.formatAreaKm2(item.dienTich);
 
             return `
             <tr class="${rowClass} border-b hover:bg-slate-50">
@@ -762,6 +776,7 @@ const UIRenderer = {
         const totalPop = communes.reduce((sum, px) => sum + (Number(px.danSo) || 0), 0);
         const totalCommunes = communes.length;
 
+        const totalArea = communes.reduce((sum, px) => sum + (Number(px.dienTich || px.dientich) || 0), 0);
         const storesExpiring = stores.filter(s => s.ngayHetHan && this.getDaysRemaining(s.ngayHetHan) < 30).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
@@ -789,6 +804,7 @@ const UIRenderer = {
                 <div class="mt-4 pt-3 border-t border-slate-100 text-xs">
                     <div class="flex justify-between items-center"><span class="text-slate-500">VLR:</span> <span class="font-bold text-blue-700">${this.formatNumber(totalVLR)}</span></div>
                     <div class="flex justify-between items-center"><span class="text-slate-500">Dân số:</span> <span class="font-bold text-slate-700">${this.formatNumber(totalPop)}</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500">Diện tích:</span> <span class="font-bold text-slate-700">${this.formatAreaKm2(totalArea)}</span></div>
                 </div>
             </div>
 
@@ -1371,6 +1387,7 @@ const UIRenderer = {
                     <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Thuộc Đơn vị</th>
                     <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">VLR (Thuê bao)</th>
                     <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">Dân số</th>
+                    <th class="p-3 text-right border-b font-bold text-slate-700 bg-slate-100">Diện tích</th>
                     <th class="p-3 text-left border-b font-bold text-slate-700 bg-slate-100">Thông tin Lãnh đạo</th>
                 </tr>`;
 
@@ -1390,6 +1407,7 @@ const UIRenderer = {
                     </td>
                     <td class="p-3 text-right font-mono text-slate-700">${this.formatNumber(item.vlr)}</td>
                     <td class="p-3 text-right font-mono text-slate-500">${this.formatNumber(item.danSo)}</td>
+                    <td class="p-3 text-right font-mono text-slate-500">${(item.dienTich === null || item.dienTich === undefined || item.dienTich === '') ? '-' : this.formatAreaKm2(item.dienTich)}</td>
                     <td class="p-3">${leadersHtml}</td>
                 </tr>`;
             }).join('');
