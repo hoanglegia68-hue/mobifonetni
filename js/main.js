@@ -1,7 +1,7 @@
 /* ============================
  * main.js (FULL) — FINAL VERSION
  * Updates:
- * - Removed logic for Tab 3 & 4 in Dashboard (VLR/PSC & Revenue).
+ * - Removed logic for Tab 3 & 4 in Dashboard.
  * - Disabled all tabs in Business Data page.
  * - Optimized generic functions.
  * ============================ */
