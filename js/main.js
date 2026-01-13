@@ -72,7 +72,7 @@ const app = {
         }
 
         this.buildDictionary();
-        this.initKPIReportTab();
+        //this.initKPIReportTab();
         this.updateUserInterface();
         this.renderFooter();
 
@@ -464,44 +464,72 @@ const userChannelMap = Object.create(null);
                 const isScopeAll = scope === 'all';
                 const isLienCumScope = !isScopeAll && app.mapLienCum && app.mapLienCum.hasOwnProperty(scope);
 
-                // --- LOOP TỐI ƯU ---
+                // --- LOOP TỐI ƯU (PHIÊN BẢN HIGH PERFORMANCE) ---
                 if (rawData.length > 0) {
                     const sample = rawData[0];
+                    
+                    // 1. DETECT KEYS (Chỉ chạy 1 lần duy nhất)
                     const kDate = detectKey(sample, 'date', 'ngay', 'thoiGian');
-                    const kLC = detectKey(sample, 'maLienCum', 'lienCum');
-                    const kCum = detectKey(sample, 'maCum', 'cum');
-                    const kKPI = detectKey(sample, 'maKpi', 'kpi');
-                    const kVal = detectKey(sample, 'giaTri', 'thucHien', 'revenue');
-                    const kCh = detectKey(sample, 'channelType'); // ✅ NEW
-                    // Refine tbptmCode dựa trên dữ liệu raw (phòng trường hợp KPI struct thiếu / đổi tên code)
-                    try {
-                        const seen = new Set();
-                        for (const row of (rawData || [])) {
-                            const c = app.cleanCode(row[kKPI]);
-                            if (c) seen.add(c);
-                        }
-                        const candidates = Array.from(seen).filter(c => c.includes('PTM'));
-                        if (candidates.includes('TBPTM')) tbptmCode = 'TBPTM';
-                        else if (candidates.length === 1) tbptmCode = candidates[0];
-                        else if (candidates.length > 1) tbptmCode = candidates.sort((a, b) => b.length - a.length)[0];
-                    } catch (e) { /* ignore */ }
-                    const kNV = detectKey(sample, 'maNV', 'MaNV', 'user');
+                    const kLC   = detectKey(sample, 'maLienCum', 'lienCum', 'maLC');
+                    const kCum  = detectKey(sample, 'maCum', 'cum', 'maC');
+                    const kKPI  = detectKey(sample, 'maKpi', 'kpi', 'maKPI');
+                    const kVal  = detectKey(sample, 'giaTri', 'thucHien', 'revenue', 'value');
+                    const kCh   = detectKey(sample, 'channelType', 'kenh', 'channel'); 
+                    const kNV   = detectKey(sample, 'maNV', 'MaNV', 'user');
 
-                    for (let i = 0; i < rawData.length; i++) {
+                    // 2. TỐI ƯU TÌM MÃ TBPTM
+                    // Logic: Tìm trong struct trước (nhanh), nếu không có mới quét rawData (nhưng giới hạn 500 dòng)
+                    if (!tbptmCode || tbptmCode === 'TBPTM') {
+                        try {
+                            let found = false;
+                            // Ưu tiên 1: Tìm trong cấu trúc KPI
+                            if (struct && struct.length > 0) {
+                                const ptmKpi = struct.find(s => {
+                                    const c = app.cleanCode(s.ma).toUpperCase();
+                                    const n = (s.ten || s.tenHienThi || '').toUpperCase();
+                                    return c.includes('PTM') || n.includes('PHÁT TRIỂN MỚI');
+                                });
+                                if (ptmKpi) {
+                                    tbptmCode = app.cleanCode(ptmKpi.ma);
+                                    found = true;
+                                }
+                            }
+                            
+                            // Ưu tiên 2: Quét mẫu data (Giới hạn 500 dòng)
+                            if (!found) {
+                                const limit = Math.min(rawData.length, 500); 
+                                const seen = new Set();
+                                for (let i = 0; i < limit; i++) {
+                                    const c = app.cleanCode(rawData[i][kKPI]);
+                                    if (c) seen.add(c);
+                                }
+                                const candidates = Array.from(seen).filter(c => c.includes('PTM'));
+                                if (candidates.includes('TBPTM')) tbptmCode = 'TBPTM';
+                                else if (candidates.length > 0) tbptmCode = candidates.sort((a, b) => b.length - a.length)[0];
+                            }
+                        } catch (e) { /* ignore */ }
+                    }
+
+                    // 3. VÒNG LẶP CHÍNH (MAIN LOOP)
+                    const len = rawData.length;
+                    for (let i = 0; i < len; i++) {
                         const row = rawData[i];
+
+                        // Truy xuất trực tiếp key (Nhanh hơn gọi hàm)
                         const dateVal = row[kDate];
                         if (!dateVal) continue;
+
                         const parsed = this.parseDateKey(dateVal); 
                         if (parsed.full < extStartStr || parsed.full > dTo) continue;
 
                         const maLC = String(row[kLC] || 'KHÁC').trim();
                         const maC = String(row[kCum] || 'KHÁC').trim();
 
+                        // Lọc Scope
                         if (!isScopeAll) {
                             if (isLienCumScope) { if (maLC !== scope) continue; }
                             else { if (maC !== scope) continue; }
                         }
-
                         
                         const kpiCode = app.cleanCode(row[kKPI]);
                         const isSelectedKPI = (kpiFilter === 'all' || kpiCode === kpiFilter);
@@ -511,58 +539,65 @@ const userChannelMap = Object.create(null);
                         if (!isSelectedKPI && !isTBPTMRow) continue;
 
                         const nvRaw = row[kNV];
-                        
-                        // [FIX] Khai báo nvCode ngay tại đây để dùng cho việc tra cứu kênh
                         const nvCode = nvRaw ? String(nvRaw).trim().toUpperCase() : '';
 
-                       const chFromRow = row[kCh];
+                        // Xử lý kênh
+                        const chFromRow = row[kCh];
                         const rowChannel = (chFromRow && String(chFromRow).trim())
-                        ? String(chFromRow).split('-')[0].trim()
-                        : (userChannelMap[nvCode] || 'KHÁC'); // fallback
+                            ? String(chFromRow).split('-')[0].trim()
+                            : (userChannelMap[nvCode] || 'KHÁC');
 
-                        
+                        // Lọc theo kênh
                         if (channelFilter !== 'all' && rowChannel !== channelFilter) continue;
 
-                        // TBPTM BQ ngày: luôn đếm TBPTM trong khoảng ngày đang chọn (không phụ thuộc KPI filter)
+                        // --- A. XỬ LÝ ĐẾM TBPTM (Cho Summary Box) ---
                         if (isTBPTMRow && parsed.full >= dFrom && nvRaw) {
-                            // [FIX] Không cần khai báo lại const nvCode ở đây nữa, dùng luôn biến ở trên
                             tbptmStaffMap[nvCode] = (tbptmStaffMap[nvCode] || 0) + 1;
                         }
 
-                        // Các tính toán còn lại chỉ dành cho KPI đang lọc
+                        // --- B. XỬ LÝ TÍNH TOÁN KPI CHÍNH ---
                         if (!isSelectedKPI) continue;
 
                         const type = typeMap[kpiCode];
-                        if (!type) continue;
+                        if (!type) continue; 
 
+                        // Đếm số lượng thuê bao phát triển hàng ngày
                         if (type === 'sub') subDailyAll[parsed.full] = (subDailyAll[parsed.full] || 0) + 1;
+
                         if (parsed.full < dFrom) continue;
-let val = 0;
+
+                        // Lấy giá trị thực tế
+                        let val = 0;
                         if (type === 'sub') val = 1;
                         else {
                             val = Number(row[kVal]) || 0;
                             if (val > 10000) val = val / 1000000;
                         }
 
+                        // Cộng dồn vào các nhóm dữ liệu
                         const targetData = type === 'sub' ? subData : revData;
+                        
                         targetData.actual += val;
                         targetData.daily[parsed.full] = (targetData.daily[parsed.full] || 0) + val;
                         targetData.channel[rowChannel] = (targetData.channel[rowChannel] || 0) + val;
 
+                        // Cộng dồn theo Liên Cụm
                         if (!targetData.cluster[maLC]) targetData.cluster[maLC] = initClusterObj();
                         targetData.cluster[maLC].actual += val;
 
+                        // Cộng dồn theo Cụm
                         if (!targetData.breakdown[maC]) targetData.breakdown[maC] = initBreakdownObj();
                         targetData.breakdown[maC].actual += val;
                         targetData.breakdown[maC].channels[rowChannel] = (targetData.breakdown[maC].channels[rowChannel] || 0) + val;
 
-                        if (nvRaw) {
-                            const nvCode = String(nvRaw).trim().toUpperCase();
+                        // Cộng dồn theo Nhân viên
+                        if (nvCode) {
                             if (!staffMap[nvCode]) staffMap[nvCode] = initStaffObj();
                             staffMap[nvCode].actual += val;
                         }
                     }
                 }
+            
 
                 // --- METRICS ---
                 const sumBetween = (startDt, endDt) => {
@@ -1299,20 +1334,22 @@ _applyBusinessScopeFilter(rows, mode, scopeValue) {
     // CẬP NHẬT: loadBusinessDataPage
     // Fix: Hiển thị đúng cột Thuê bao (giaTri) và Kênh (channelType)
     // ============================
-    async loadBusinessDataPage() {
+   async loadBusinessDataPage() {
         this.initBusinessDataControls();
 
+        // 1. Hiển thị Loading
         const container = document.getElementById('business-data-container');
         if (container) {
             container.innerHTML = `
                 <div class="flex items-center justify-center py-16 text-slate-500">
                     <div class="flex items-center gap-2">
                         <span class="animate-spin inline-block w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full"></span>
-                        <span class="text-sm font-medium">Đang tải dữ liệu KPI (kpi_data)...</span>
+                        <span class="text-sm font-medium">Đang tải dữ liệu KPI...</span>
                     </div>
                 </div>`;
         }
 
+        // 2. Lấy tham số từ giao diện
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -1320,29 +1357,40 @@ _applyBusinessScopeFilter(rows, mode, scopeValue) {
         const mTo = document.getElementById('biz-month-to')?.value || currentMonth;
         const mode = document.getElementById('view-mode')?.value || 'cum';
         const scopeValue = document.getElementById('biz-scope-input')?.value || '';
-        const keyword = document.getElementById('business-search')?.value || '';
+        const keyword = (document.getElementById('business-search')?.value || '').trim();
 
         try {
-            // Cache theo tháng để tránh tải lại
-            const cacheKey = `${mFrom}|${mTo}`;
-            if (!this.businessCache) this.businessCache = {};
-            if (!this.businessCache[cacheKey]) {
-                const raw = await DataService.getKPIActual(mFrom, mTo, null);
-                this.businessCache[cacheKey] = this.normalizeDataSet(raw);
-            }
-            
-            // Lấy dữ liệu thô từ cache
-            let baseRows = this.businessCache[cacheKey] || [];
+            let baseRows = [];
 
-            // --- [FIX LOGIC BẮT ĐẦU] --- 
-            // Hàm hỗ trợ tìm giá trị bất chấp tên cột (viết hoa/thường/alias)
+            // 3. CHIẾN LƯỢC TẢI DỮ LIỆU (QUAN TRỌNG)
+            if (keyword.length > 0) {
+                // TRƯỜNG HỢP A: CÓ TÌM KIẾM -> GỌI SERVER (Server-side Search)
+                // Tận dụng sheet kpi_search để lấy kết quả nhanh, không cache RAM
+                console.log("🔍 Tìm kiếm Server-side:", keyword);
+                baseRows = await DataService.getKPIActual(mFrom, mTo, keyword);
+            } else {
+                // TRƯỜNG HỢP B: KHÔNG TÌM KIẾM -> DÙNG CACHE CLIENT (Client-side Cache)
+                // Tải toàn bộ tháng về cache để phân trang cho mượt
+                const cacheKey = `${mFrom}|${mTo}`;
+                if (!this.businessCache) this.businessCache = {};
+                
+                if (!this.businessCache[cacheKey]) {
+                    // Gọi API với keyword = null
+                    const raw = await DataService.getKPIActual(mFrom, mTo, null);
+                    // Lưu bản raw vào cache (sẽ chuẩn hóa sau)
+                    this.businessCache[cacheKey] = this.normalizeDataSet(raw);
+                }
+                baseRows = this.businessCache[cacheKey] || [];
+            }
+
+            // 4. CHUẨN HÓA DỮ LIỆU (Mapping cột an toàn)
             const getVal = (obj, ...candidates) => {
                 if (!obj) return '';
-                // 1. Tìm chính xác
+                // Tìm chính xác
                 for (const k of candidates) {
                     if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return obj[k];
                 }
-                // 2. Tìm không phân biệt hoa thường
+                // Tìm không phân biệt hoa thường
                 const keys = Object.keys(obj);
                 const lowerKeys = keys.map(k => k.toLowerCase());
                 for (const k of candidates) {
@@ -1352,31 +1400,21 @@ _applyBusinessScopeFilter(rows, mode, scopeValue) {
                 return '';
             };
 
-            // CHUẨN HÓA DỮ LIỆU TRƯỚC KHI HIỂN THỊ
-            // Đảm bảo cột 'giaTri' và 'channelType' luôn có dữ liệu nếu source có
-            baseRows = baseRows.map(r => {
-                const valKenh = getVal(r, 'channelType');
-                const valGiaTri = getVal(r, 'giaTri');
-                const valNgay = getVal(r, 'date', 'ngay', 'thoiGian');
-                const valMaNV = getVal(r, 'maNV', 'manv', 'user');
-                const valMaKpi = getVal(r, 'maKpi', 'makpi', 'kpi');
-                const valMaLC = getVal(r, 'maLienCum', 'lienCum', 'maliencum');
-                const valMaCum = getVal(r, 'maCum', 'cum', 'macum');
-
+            // Map lại các trường quan trọng để đảm bảo hiển thị đúng
+            let rows = baseRows.map(r => {
                 return {
-                    ...r, // Giữ lại các trường gốc
-                    channelType: valKenh, // Cột Kênh hiển thị
-                    giaTri: valGiaTri,    // Cột Giá trị (Thuê bao) hiển thị
-                    date: valNgay,
-                    maNV: valMaNV,
-                    maKpi: valMaKpi,
-                    maLienCum: valMaLC,
-                    maCum: valMaCum
+                    ...r,
+                    channelType: getVal(r, 'channelType', 'channel', 'kenh'),
+                    giaTri: getVal(r, 'giaTri', 'thucHien', 'value', 'revenue'),
+                    date: getVal(r, 'date', 'ngay', 'thoiGian'),
+                    maNV: getVal(r, 'maNV', 'manv', 'user'),
+                    maKpi: getVal(r, 'maKpi', 'makpi', 'kpi'),
+                    maLienCum: getVal(r, 'maLienCum', 'lienCum', 'maliencum'),
+                    maCum: getVal(r, 'maCum', 'cum', 'macum')
                 };
             });
-            // --- [FIX LOGIC KẾT THÚC] ---
 
-            // KPI name map (1 lần)
+            // 5. KPI Name Map (Tải 1 lần để hiển thị tên đẹp thay vì mã KPI)
             if (!this.kpiNameMap) {
                 const struct = await DataService.getKPIStructure();
                 const map = {};
@@ -1390,16 +1428,17 @@ _applyBusinessScopeFilter(rows, mode, scopeValue) {
                 this.kpiNameMap = map;
             }
 
-            // 1) Quyền truy cập (scope)
-            let rows = baseRows.filter(r => this._checkScopeKpiRow(r));
+            // 6. Áp dụng các bộ lọc Client-side còn lại
 
-            // 2) Lọc theo phạm vi tra cứu (NV/Cụm/Liên cụm)
+            // Lọc theo quyền User (Admin thấy hết, User thường chỉ thấy cụm mình)
+            rows = rows.filter(r => this._checkScopeKpiRow(r));
+
+            // Lọc theo Mode xem (Nếu user chọn lọc theo Cụm/Liên cụm cụ thể)
             rows = this._applyBusinessScopeFilter(rows, mode, scopeValue);
 
-            // 3) Lọc keyword (client-side)
-            rows = this._filterKpiRowsClientSide(rows, keyword);
+            // (Lưu ý: Không cần gọi _filterKpiRowsClientSide nữa vì Server đã lọc keyword rồi)
 
-            // 4) Sort: ngày giảm dần, sau đó mã NV
+            // 7. Sắp xếp: Ngày mới nhất lên đầu -> Mã NV
             rows.sort((a, b) => {
                 const da = (a.date || '').toString();
                 const db = (b.date || '').toString();
@@ -1409,7 +1448,7 @@ _applyBusinessScopeFilter(rows, mode, scopeValue) {
                 return na.localeCompare(nb);
             });
 
-            // State + pagination
+            // 8. Lưu trạng thái để phân trang
             const prevSize = this.businessKpiState?.pageSize || 50;
             this.businessKpiState = {
                 rows,
@@ -1421,6 +1460,7 @@ _applyBusinessScopeFilter(rows, mode, scopeValue) {
                 mFrom, mTo
             };
 
+            // 9. Render bảng
             UIRenderer.renderBusinessKPIDetailTable(rows, {
                 page: 1,
                 pageSize: prevSize,
@@ -1661,6 +1701,7 @@ if (isFull) {
         if (pageId === 'dashboard') {
             const sel = document.getElementById('dashboard-scope-select'); if (sel) sel.value = 'all';
             UIRenderer.renderDashboard('all');
+            this.initKPIReportTab();
             const btn = document.querySelector('[onclick*="dash-overview"]');
             if (btn) this.switchTab('dash-overview', btn);
         }
