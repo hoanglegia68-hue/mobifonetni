@@ -1,30 +1,139 @@
-/* =========================================
- * data-service.js — OPTIMIZED VERSION
- * Tương thích hoàn hảo với Backend Indexing V10
- * ========================================= */
+/* ==========================================================================
+ * data-service.js — SECURE & OPTIMIZED VERSION (V1323)
+ * Update: Tích hợp xác thực Token & Đăng nhập bảo mật
+ * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbx1lnwJs5fBqRb54WzX37KZLplkdGf6rbLXc11vUGoQeF4YWpvTQLQFnriyNC77pM4Fug/exec";
+
+const API_URL = "https://script.google.com/macros/s/AKfycbx2uS6t-bgOGEJ64h-Hg3xx8ncurJbuHAKp5os3rWFQ1YZTamSR_OZiCjsTLZUQJ2snEg/exec";
 
 const DataService = {
-  _cache: null,          // Core data (Clusters, Staff, Stores...)
+  _cache: null,          // Core data
   _loadingPromise: null, // Promise khóa tải trùng
-  _kpiCache: new Map(),  // LRU cache cho KPI (Range + Keyword)
+  _kpiCache: new Map(),  // LRU cache
   _lastMeta: null,
+  
+  // --- BẢO MẬT: Token lưu trữ ---
+  _token: localStorage.getItem("MIS_TOKEN") || null,
 
   // ============================================================
-  // 1. CORE LOADER (QUẢN LÝ DỮ LIỆU NỀN)
+  // 1. AUTHENTICATION (ĐĂNG NHẬP & ĐĂNG XUẤT)
+  // ============================================================
+
+  async login(username, password) {
+    try {
+      console.log("🔐 Đang đăng nhập...");
+      
+      // Gửi request POST (Bảo mật hơn GET)
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: 'login', 
+          username: username, 
+          password: password 
+        })
+      });
+
+      const json = await res.json();
+
+      if (json.error) throw new Error(json.error);
+
+      // Đăng nhập thành công
+      this._token = json.token;
+      
+      // Lưu vào LocalStorage để F5 không bị mất
+      localStorage.setItem("MIS_TOKEN", this._token);
+      localStorage.setItem("MIS_USER", JSON.stringify(json.user));
+
+      return json.user;
+
+    } catch (err) {
+      console.error("Lỗi đăng nhập:", err);
+      throw err;
+    }
+  },
+
+  logout() {
+    console.log("👋 Đang đăng xuất...");
+    this._token = null;
+    this._cache = null;
+    
+    // Xóa sạch dấu vết trong LocalStorage
+    localStorage.removeItem("MIS_TOKEN");
+    localStorage.removeItem("MIS_USER");
+    localStorage.removeItem("MIS_LOCAL_DATA"); // Xóa cache dữ liệu cũ
+    localStorage.removeItem("MIS_LAST_FETCH");
+    
+    // Chuyển về trang login
+    window.location.href = 'login.html';
+  },
+
+  // ============================================================
+  // 2. FETCHING ENGINE (CỐT LÕI BẢO MẬT)
+  // ============================================================
+
+  async _fetchJson(url, options = {}) {
+    // 1. Kiểm tra Token trước khi gọi
+    if (!this._token) {
+      console.warn("⛔ Chưa có Token, chuyển hướng đăng nhập.");
+      window.location.href = 'login.html';
+      // Trả về promise treo để code phía sau không chạy tiếp gây lỗi
+      return new Promise(() => {}); 
+    }
+
+    // 2. Đính kèm Token vào URL
+    const separator = url.includes('?') ? '&' : '?';
+    const authUrl = `${url}${separator}token=${this._token}`;
+
+    const res = await fetch(authUrl);
+    
+    // Xử lý lỗi HTTP cơ bản
+    if (!res.ok) {
+        // Nếu lỗi 401 (Unauthorized) từ server -> Token chết -> Logout
+        if (res.status === 401) {
+            this.logout();
+            throw new Error("Phiên đăng nhập hết hạn");
+        }
+        throw new Error(`HTTP ${res.status}`);
+    }
+    
+    let json;
+    try { json = await res.json(); } 
+    catch (e) { throw new Error("Response không phải JSON"); }
+
+    // Xử lý lỗi Logic từ Backend (Backend trả về json có key 'error')
+    if (json.error) {
+        // Nếu Backend báo lỗi liên quan xác thực
+        if (String(json.error).includes("Unauthorized") || json.code === 401) {
+            alert("Phiên làm việc hết hạn. Vui lòng đăng nhập lại.");
+            this.logout();
+            return;
+        }
+        throw new Error(json.error);
+    }
+
+    // Tự động unwrap data (nếu backend trả về dạng { status: 'success', data: [...] })
+    if (!options.raw && json && !Array.isArray(json) && "data" in json) {
+      return json.data;
+    }
+    return json;
+  },
+
+  // ============================================================
+  // 3. CORE LOADER (QUẢN LÝ DỮ LIỆU NỀN)
   // ============================================================
   
   async ensureData(forceReload = false) {
     if (!forceReload && this._cache) return;
     if (!forceReload && this._loadingPromise) return this._loadingPromise;
 
-    // 1. Thử đọc LocalStorage
+    // 1. Thử đọc LocalStorage (Cache dữ liệu)
     if (!forceReload) {
       try {
         const local = localStorage.getItem("MIS_LOCAL_DATA");
         const lastFetch = parseInt(localStorage.getItem("MIS_LAST_FETCH") || "0", 10);
-        // Cache 15 phút
+        
+        // Cache dữ liệu tĩnh 15 phút
         if (local && (Date.now() - lastFetch < 15 * 60 * 1000)) {
           const parsed = JSON.parse(local);
           if (parsed && Object.keys(parsed).length > 0) {
@@ -37,7 +146,7 @@ const DataService = {
       } catch (e) { console.warn("Lỗi đọc LocalStorage:", e); }
     }
 
-    // 2. Fetch mới từ API
+    // 2. Fetch mới từ API (Sẽ tự động đi qua _fetchJson có kèm Token)
     this._loadingPromise = this._fetchCore(forceReload).finally(() => { this._loadingPromise = null; });
     return this._loadingPromise;
   },
@@ -45,15 +154,11 @@ const DataService = {
   async _fetchCore(forceReload) {
     try {
       console.log("🌐 [Data] Fetching Core...");
-      // Ưu tiên gọi type=core, fallback type=all
       let data = await this._fetchJson(`${API_URL}?type=core`);
 
       if (data?.error) {
-        console.warn("⚠️ Backend chưa hỗ trợ type=core, fallback type=all");
         data = await this._fetchJson(`${API_URL}?type=all`);
       }
-
-      if (data?.error) throw new Error(data.error);
 
       this._cache = data || {};
       this._lastMeta = data?.__meta || null;
@@ -65,7 +170,6 @@ const DataService = {
 
     } catch (err) {
       console.error("❌ [Data] Load Core Failed:", err);
-      // Fallback: Dùng cache cũ nếu mạng lỗi
       const local = localStorage.getItem("MIS_LOCAL_DATA");
       if (local) {
         console.warn("⚠️ Offline Mode: Dùng dữ liệu cũ.");
@@ -77,27 +181,7 @@ const DataService = {
   },
 
   // ============================================================
-  // 2. HELPER FETCHING
-  // ============================================================
-
-  async _fetchJson(url, options = {}) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    
-    let json;
-    try { json = await res.json(); } 
-    catch (e) { throw new Error("Response không phải JSON"); }
-
-    // Tự động unwrap data nếu cấu trúc { status: 'success', data: [...] }
-    // Trừ khi gọi options.raw = true (dùng cho KPI phân trang)
-    if (!options.raw && json && !Array.isArray(json) && "data" in json) {
-      return json.data;
-    }
-    return json;
-  },
-
-  // ============================================================
-  // 3. GETTERS (CORE DATA)
+  // 4. GETTERS (CORE DATA)
   // ============================================================
 
   async _getData(key) {
@@ -105,7 +189,6 @@ const DataService = {
     return this._cache?.[key] || [];
   },
 
-  // Getter shortcuts
   getUsers() { return this._getData("users"); },
   getStores() { return this._getData("stores"); },
   getGDVs() { return this._getData("gdvs"); },
@@ -118,15 +201,14 @@ const DataService = {
   getKPIPlanning() { return this._getData("kpi_planning"); },
   getKPIEmpPlans() { return this._getData("kpi_emp"); },
 
-  // Lazy Load Sheets (Chỉ tải khi cần)
+  // Lazy Load Sheets
   async _getLazy(key, aliases = []) {
     await this.ensureData();
-    // 1. Check RAM
     if (this._cache?.[key]?.length) return this._cache[key];
     
-    // 2. Fetch lẻ
     try {
       console.log(`🌐 Lazy fetching: ${key}`);
+      // _fetchJson sẽ tự thêm Token
       const res = await this._fetchJson(`${API_URL}?type=${key}`);
       const data = Array.isArray(res) ? res : (res?.[key] || []);
       
@@ -143,28 +225,24 @@ const DataService = {
   getDoanhThu() { return this._getLazy("doanhthu", ["doanh_thu"]); },
 
   // ============================================================
-  // 4. LOGIC NGHIỆP VỤ PHỨC TẠP
+  // 5. LOGIC NGHIỆP VỤ PHỨC TẠP (KPI, CLUSTERS)
   // ============================================================
 
-  // --- Xử lý KPI (Optimization Heart) ---
   async getKPIActual(monthFrom, monthTo, keyword = "") {
     const { from, to } = this._coerceRange(monthFrom, monthTo);
     const kw = keyword?.trim() || "";
     const cacheKey = `${from}|${to}|${kw}`;
     
-    // 1. Check LRU Cache (10 phút)
     const cached = this._kpiCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts < 600000)) {
-      // Refresh LRU order
       this._kpiCache.delete(cacheKey);
       this._kpiCache.set(cacheKey, cached);
       return cached.data;
     }
 
-    // 2. Fetch Loop (Server-side Pagination)
     let allData = [];
     let offset = 0;
-    const BATCH_SIZE = 2000; // Khớp với Backend limit để tối ưu
+    const BATCH_SIZE = 2000;
 
     while (true) {
       const qs = new URLSearchParams({
@@ -176,110 +254,138 @@ const DataService = {
         keyword: kw
       });
 
-      // raw=true để lấy cả metadata (totalMatched, error...)
+      // _fetchJson tự thêm Token
       const resp = await this._fetchJson(`${API_URL}?${qs}`, { raw: true });
 
-      // Support Backend Cũ (Trả về mảng trực tiếp)
       if (Array.isArray(resp)) {
         allData = this._filterLegacy(resp, from, to, kw);
         break;
       }
 
-      if (resp?.error) throw new Error(resp.error);
-
       const rows = resp?.data || [];
       allData = allData.concat(rows);
 
-      // Kiểm tra điều kiện dừng
       const total = resp?.totalMatched ?? resp?.totalInRange ?? 0;
       offset += rows.length;
 
-      // Dừng nếu: Hết data HOẶC Đã lấy đủ số lượng backend báo HOẶC quá limit an toàn
       if (rows.length === 0 || offset >= total || offset > 500000) break;
     }
 
-    // 3. Save Cache
     this._kpiCache.set(cacheKey, { ts: Date.now(), data: allData });
-    // Giữ cache size nhỏ (max 5 query)
     if (this._kpiCache.size > 5) this._kpiCache.delete(this._kpiCache.keys().next().value);
 
     return allData;
   },
 
-  // --- Xử lý Clusters (Tree Structure) ---
-  async getClusters() {
-    await this.ensureData();
-    const raw = this._cache?.clusters || [];
-    if (!raw.length) return [];
+  // ============================================================
+  // [NEW] HÀM HỖ TRỢ PHÂN TRANG CHO BUSINESS DATA (Client-side)
+  // ============================================================
+  async getKPIActualPaginated(from, to, offset, limit) {
+    try {
+      // 1. Tận dụng hàm getKPIActual có sẵn để lấy toàn bộ dữ liệu (đã cache)
+      // Truyền keyword rỗng '' để lấy hết
+      const allRows = await this.getKPIActual(from, to, '');
 
-    const map = new Map();
+      // 2. Tính toán tổng số dòng
+      const total = allRows.length;
 
-    for (const r of raw) {
-      const lcCode = r.maLienCum || r.lienCum || "UNK";
-      const cumCode = r.maCum || r.cum || "UNK";
-
-      // Tạo Liên Cụm
-      if (!map.has(lcCode)) {
-        map.set(lcCode, {
-          maLienCum: lcCode,
-          tenLienCum: r.tenLienCum || r.lienCum,
-          truongLienCum: r.truongLienCum || "",
-          sdtLienCum: r.sdtLienCum || "",
-          cums: [],
-          _cumMap: new Map()
-        });
+      // 3. Cắt dữ liệu (Slice) theo trang
+      // Nếu offset quá lớn thì trả về mảng rỗng
+      if (offset >= total) {
+        return { data: [], total: total };
       }
-      const lc = map.get(lcCode);
 
-      // Tạo Cụm
-      if (!lc._cumMap.has(cumCode)) {
-        const cumObj = {
-          maCum: cumCode,
-          tenCum: r.tenCum || r.cum,
-          sdtCum: r.sdtCum || "",
-          phuTrach: r.phuTrach || "",
-          phuongXas: []
-        };
-        lc._cumMap.set(cumCode, cumObj);
-        lc.cums.push(cumObj);
-      }
-      const cum = lc._cumMap.get(cumCode);
+      const pagedRows = allRows.slice(offset, offset + limit);
 
-      // Thêm Phường Xã
-      if (r.tenPX) {
-        // Parse Lãnh đạo an toàn
-        let lanhDao = [];
-        try {
-            if (Array.isArray(r.lanhDao)) lanhDao = r.lanhDao;
-            else if (r.lanhDao?.startsWith("[")) lanhDao = JSON.parse(r.lanhDao);
-            else if (r.ld_Ten) lanhDao = [{ ten: r.ld_Ten, chucVu: r.ld_ChucVu || "Lãnh đạo", sdt: r.ld_Sdt }];
-        } catch(e) {}
-
-        // Parse Diện tích (Thử nhiều key)
-        const areaKeys = ['dienTich', 'dientich', 'dien_tich', 'dien tich', 'area', 'km2'];
-        const rawArea = areaKeys.reduce((found, k) => found ?? r[k], null);
-        const areaVal = rawArea ? parseFloat(String(rawArea).replace(',', '.')) : 0;
-
-        cum.phuongXas.push({
-          id: r.idPX || `${lcCode}_${cumCode}_${r.tenPX}`,
-          ten: r.tenPX,
-          vlr: Number(r.vlr) || 0,
-          danSo: Number(r.danSo) || 0,
-          dienTich: isNaN(areaVal) ? 0 : areaVal,
-          tram: Number(r.tram) || 0,
-          lanhDao: lanhDao
-        });
-      }
+      // 4. Trả về cấu trúc chuẩn: { data, total }
+      return {
+        data: pagedRows,
+        total: total
+      };
+    } catch (error) {
+      console.error("Lỗi phân trang data:", error);
+      return { data: [], total: 0 };
     }
+  },
 
-    return Array.from(map.values()).map(lc => {
-        delete lc._cumMap; // Cleanup
-        return lc;
-    });
+  
+  /* ============================================================
+ * [DATA-SERVICE] getClusters (Phiên bản Clean Key Tuyệt đối)
+ * ============================================================ */
+  async getClusters() {
+      await this.ensureData();
+      const raw = this._cache?.clusters || [];
+      if (!raw.length) return [];
+
+      const map = new Map();
+
+      // Helper: Loại bỏ mọi khoảng trắng và viết hoa (VD: "LC - DHO " -> "LC-DHO")
+      const cleanKey = (k) => String(k || 'KHAC').toUpperCase().replace(/\s+/g, '');
+
+      for (const r of raw) {
+          // Ưu tiên lấy maLienCum/maCum chuẩn, nếu không có thì fallback
+          const lcRaw = r.maLienCum || r.lienCum || "KHAC";
+          const cumRaw = r.maCum || r.cum || "KHAC";
+          
+          const lcCode = cleanKey(lcRaw);
+          const cumCode = cleanKey(cumRaw);
+
+          if (!map.has(lcCode)) {
+              map.set(lcCode, {
+                  maLienCum: lcCode,
+                  tenLienCum: (r.tenLienCum || r.lienCum || lcCode).trim(),
+                  truongLienCum: (r.truongLienCum || "").trim(),
+                  sdtLienCum: (r.sdtLienCum || "").trim(),
+                  cums: [],
+                  _cumMap: new Map()
+              });
+          }
+          const lc = map.get(lcCode);
+
+          if (!lc._cumMap.has(cumCode)) {
+              const cumObj = {
+                  maCum: cumCode,
+                  tenCum: (r.tenCum || r.cum || cumCode).trim(),
+                  sdtCum: (r.sdtCum || "").trim(),
+                  phuTrach: (r.phuTrach || "").trim(),
+                  phuongXas: []
+              };
+              lc._cumMap.set(cumCode, cumObj);
+              lc.cums.push(cumObj);
+          }
+          const cum = lc._cumMap.get(cumCode);
+
+          if (r.tenPX) {
+              let lanhDao = [];
+              try {
+                  if (Array.isArray(r.lanhDao)) lanhDao = r.lanhDao;
+                  else if (typeof r.lanhDao === 'string' && r.lanhDao.startsWith("[")) lanhDao = JSON.parse(r.lanhDao);
+                  else if (r.ld_Ten) lanhDao = [{ ten: r.ld_Ten, chucVu: r.ld_ChucVu || "Lãnh đạo", sdt: r.ld_Sdt }];
+              } catch(e) { console.warn("Lỗi parse lanhDao:", e); }
+
+              // Xử lý diện tích (chuyển dấu phẩy thành chấm)
+              const area = Number(String(r.dienTich || 0).replace(',', '.')) || 0;
+
+              cum.phuongXas.push({
+                  id: r.idPX || `${lcCode}_${cumCode}_${r.tenPX}`,
+                  ten: String(r.tenPX).trim(),
+                  vlr: Number(r.vlr) || 0,
+                  danSo: Number(r.danSo) || 0,
+                  dienTich: area,
+                  tram: Number(r.tram) || 0,
+                  lanhDao: lanhDao
+              });
+          }
+      }
+
+      return Array.from(map.values()).map(lc => {
+          delete lc._cumMap; 
+          return lc;
+      });
   },
 
   // ============================================================
-  // 5. UTILS
+  // 6. UTILS
   // ============================================================
 
   _filterLegacy(arr, from, to, kw) {
@@ -297,15 +403,10 @@ const DataService = {
         const [y, m] = ym.split("-");
         return `${y}-${m}-${new Date(y, m, 0).getDate()}`;
     };
-    
-    // Auto detect format: YYYY-MM or YYYY-MM-DD
     const isM = s => /^\d{4}-\d{2}$/.test(s);
-    
     let from = a, to = b;
     if (isM(a)) from = `${a}-01`;
     if (isM(b)) to = lastDay(b);
-    
-    // Default current month if missing
     if (!from || !to) {
         const now = new Date();
         const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -316,12 +417,7 @@ const DataService = {
   },
 
   async refreshAllData() {
-    console.log("🔄 Reset Data");
-    this._cache = null;
-    this._kpiCache.clear();
-    localStorage.removeItem("MIS_LOCAL_DATA");
-    localStorage.removeItem("MIS_LAST_FETCH");
-    await this.ensureData(true);
+    this.logout(); // Refresh data đồng nghĩa với logout để lấy token mới
   }
 };
 
