@@ -25,131 +25,215 @@
     </script>
 
     <style>
-        /* Các style inline quan trọng hoặc ghi đè nhanh */
-        /* Tùy chỉnh thanh cuộn tinh tế */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    /* =========================================
+       1. VARIABLES & RESET
+       ========================================= */
+    :root {
+        --primary-color: #1e40af; /* blue-800 */
+        --primary-hover: #1e3a8a;
+        --accent-color: #3b82f6;
+        --bg-body: #f8fafc;
+        --text-main: #1e293b;
+        --border-color: #e2e8f0;
         
-        /* Animation nhẹ */
-        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Z-INDEX HIERARCHY (QUAN TRỌNG) */
+        --z-header: 40;
+        --z-sidebar: 50;
+        --z-overlay: 60;   /* Mobile menu overlay */
+        --z-widget-full: 70; /* Widget phóng to */
+        --z-modal: 80;     /* Modal popup */
+        --z-loader: 100;   /* Loader toàn trang */
+        --z-toast: 110;    /* Thông báo góc */
+    }
 
-        /* Loader Overlay - Critical CSS */
-        #global-loader {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #ffffff; z-index: 9999; display: flex;
-            justify-content: center; align-items: center; flex-direction: column;
-            transition: opacity 0.5s ease-out, visibility 0.5s;
-        }
-        #global-loader.hidden-loader { opacity: 0; visibility: hidden; }
-        
-        /* Toast Container */
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; }
-        .toast {
-            background: white; border-left: 4px solid; padding: 12px 20px;
-            margin-bottom: 10px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            animation: slideInRight 0.3s ease-out; display: flex; align-items: center; gap: 10px;
-        }
-        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    body { 
+        font-family: 'Inter', system-ui, sans-serif; 
+        background-color: var(--bg-body); 
+        color: var(--text-main);
+    }
 
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50;
-            display: none; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.3s ease;
-        }
-        .modal-overlay.open { display: flex; opacity: 1; }
-        .modal-content {
-            background: white; 
-            border-radius: 12px; 
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
-            width: 100%; 
-            margin: 16px; 
-            transform: scale(0.95); 
-            transition: transform 0.3s ease;
-        }
-        .modal-overlay.open .modal-content { transform: scale(1); }
+    /* Tùy chỉnh thanh cuộn (Scrollbar) - Áp dụng toàn trang */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        
+    /* =========================================
+       2. UI COMPONENTS
+       ========================================= */
+    /* Loader Overlay */
+    #global-loader {
+        position: fixed; inset: 0; 
+        background: #ffffff; z-index: var(--z-loader);
+        display: flex; flex-direction: column; 
+        justify-content: center; align-items: center;
+        transition: opacity 0.5s ease-out, visibility 0.5s;
+    }
+    #global-loader.hidden-loader { opacity: 0; visibility: hidden; }
 
-        /* ============================================================
-         * Widget Fullscreen — Bảng xếp hạng thi đua (Top Liên Cụm/Cụm/GDV/NV/KHDN)
-         * Fix: khi phóng to chỉ full ngang nhưng bị trống dọc (do max-height 350px)
-         * ============================================================ */
-        body.widget-fullscreen-open #main-container { overflow: hidden !important; }
+    /* Toast Notification */
+    #toast-container { position: fixed; top: 20px; right: 20px; z-index: var(--z-toast); }
+    .toast {
+        background: white; border-left: 4px solid; padding: 12px 20px;
+        margin-bottom: 10px; border-radius: 4px; 
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        animation: slideInRight 0.3s ease-out; display: flex; align-items: center; gap: 10px;
+    }
+    @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-        .widget-fullscreen{
-            position: fixed !important;
-            inset: 12px !important;               /* chừa viền đẹp */
-            z-index: 60 !important;
-            width: auto !important;
-            height: auto !important;
-            max-width: none !important;
-            max-height: none !important;
-            margin: 0 !important;
-            border-radius: 16px !important;
-            box-shadow: 0 28px 70px rgba(0,0,0,.28) !important;
-            overflow: hidden !important;
-        }
+    /* Buttons Override */
+    .btn-primary {
+        background-color: var(--primary-color); color: white; 
+        padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; 
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: all 0.2s; border: 1px solid transparent;
+    }
+    .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
 
-        /* Cho vùng bảng trong widget kéo full chiều dọc */
-        .widget-fullscreen .ranking-scroll{
-            max-height: none !important;
-            height: 100% !important;
-        }
+    .btn-secondary {
+        background-color: white; color: #475569; 
+        border: 1px solid #cbd5e1; padding: 0.5rem 1rem; border-radius: 0.5rem;
+        font-weight: 600; font-size: 0.875rem; display: inline-flex; align-items: center;
+        transition: all 0.2s;
+    }
+    .btn-secondary:hover { background-color: #f1f5f9; border-color: #94a3b8; color: var(--primary-color); }
 
-/* Table Styles */
-        .modern-table { width: 100%; text-align: left; border-collapse: collapse; }
-        .modern-table th {
-            padding: 12px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase;
-            color: #64748b; border-bottom: 1px solid #e2e8f0; background-color: #f8fafc;
-            white-space: nowrap;
-        }
-        .modern-table td {
-            padding: 12px 16px; font-size: 13px; color: #334155; border-bottom: 1px solid #f1f5f9;
-        }
-        .modern-table tr:hover { background-color: #f8fafc; }
+    /* Inputs */
+    .input-search:focus, select:focus, input:focus, textarea:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); outline: none;
+    }
 
-        /* Tab Buttons */
-        .tab-btn {
-            padding: 8px 16px; font-size: 13px; font-weight: 600; color: #64748b;
-            border-bottom: 2px solid transparent; transition: all 0.2s;
-        }
-        .tab-btn:hover { color: #1e40af; background-color: rgba(30, 64, 175, 0.05); }
-        .tab-btn.active { color: #1e40af; border-bottom-color: #1e40af; }
+    /* Tabs */
+    .tab-btn {
+        padding: 10px 16px; font-size: 13px; font-weight: 600; color: #64748b;
+        border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer;
+    }
+    .tab-btn:hover { color: var(--primary-color); background-color: rgba(30, 64, 175, 0.05); }
+    .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); background-color: #eff6ff; }
 
-        /* Upload Zone */
-        .upload-zone {
-            border: 2px dashed #cbd5e1; border-radius: 8px; padding: 2rem;
-            text-align: center; transition: all 0.3s; position: relative;
-        }
-        .upload-zone:hover { border-color: #3b82f6; background-color: #eff6ff; }
-        .upload-zone input[type="file"] {
-            position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer;
-        }
-        
-        /* Buttons */
-        .btn-primary {
-            background-color: #1e40af; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem;
-            font-weight: 600; font-size: 0.875rem; 
-            display: inline-flex; align-items: center; 
-            transition: background-color 0.2s;
-        }
-        .btn-primary:hover { background-color: #1e3a8a; }
-        .btn-secondary {
-            background-color: white; color: #475569; border: 1px solid #cbd5e1; padding: 0.5rem 1rem;
-            border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; 
-            display: inline-flex; align-items: center; 
-            transition: all 0.2s;
-        }
-        .btn-secondary:hover { background-color: #f8fafc; border-color: #94a3b8; }
+    /* =========================================
+       3. DATA TABLES (MODERN)
+       ========================================= */
+    .modern-table { 
+        width: 100%; border-collapse: separate; border-spacing: 0; 
+        min-width: 800px; /* Force scroll ngang trên mobile */
+    }
+    .modern-table th { 
+        background-color: #f8fafc; color: #64748b; 
+        border-bottom: 2px solid #e2e8f0; padding: 12px 16px;
+        font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: left;
+        white-space: nowrap; position: sticky; top: 0; z-index: 10;
+    }
+    .modern-table td { 
+        border-bottom: 1px solid #f1f5f9; padding: 12px 16px; 
+        font-size: 13px; color: #334155; vertical-align: middle;
+    }
+    .modern-table tr:hover td { background-color: #f8fafc; }
 
-        /* Progress Bar */
-        .progress-container { width: 100%; height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; margin-top: 10px; display: none; }
-        .progress-bar { height: 100%; background: #22c55e; width: 0%; transition: width 0.3s; }
-    </style>
+    /* =========================================
+       4. MODALS & UPLOAD
+       ========================================= */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
+        z-index: var(--z-modal);
+        display: none; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s ease; backdrop-filter: blur(2px);
+    }
+    .modal-overlay.open { display: flex; opacity: 1; }
+    
+    .modal-content {
+        background: white; border-radius: 12px; 
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+        width: 100%; margin: 16px; 
+        transform: scale(0.95); transition: transform 0.2s ease;
+        max-height: 90vh; display: flex; flex-direction: column;
+    }
+    .modal-overlay.open .modal-content { transform: scale(1); }
+
+    .upload-zone {
+        border: 2px dashed #cbd5e1; border-radius: 8px; padding: 2rem;
+        text-align: center; transition: all 0.3s; position: relative; cursor: pointer;
+        background-color: #f8fafc;
+    }
+    .upload-zone:hover { border-color: #3b82f6; background-color: #eff6ff; }
+    .upload-zone input[type="file"] {
+        position: absolute; width: 100%; height: 100%; top: 0; left: 0; opacity: 0; cursor: pointer;
+    }
+    .progress-container { width: 100%; height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: 16px; display: none; }
+    .progress-bar { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.3s; }
+
+    /* =========================================
+       5. WIDGET FULLSCREEN MODE (FIXED)
+       ========================================= */
+    /* Khi widget phóng to, khóa scroll của body */
+    body.widget-fullscreen-open { overflow: hidden !important; }
+
+    .widget-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    
+    background-color: #fff;
+    margin: 0 !important; /* Fix lỗi bị lệch do margin cũ */
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    
+    display: flex;
+    flex-direction: column;
+    
+    /* Tắt transform để tránh xung đột animation khi phóng to */
+    transform: none !important; 
+    transition: none !important; /* Tắt hiệu ứng trượt để mở ngay lập tức */
+    }
+
+    /* Khu vực nội dung (Bảng/Biểu đồ) sẽ tự co giãn và có scroll riêng */
+    .widget-fullscreen .overflow-auto,
+    .widget-fullscreen .overflow-x-auto,
+    .widget-fullscreen > div:last-child { 
+        flex: 1;
+        overflow-y: auto !important; /* Bắt buộc scroll dọc */
+        max-height: none !important; /* Gỡ bỏ giới hạn chiều cao cũ */
+        height: auto !important;
+    }
+
+    /* Đảm bảo nội dung bên trong (bảng) giãn hết cỡ */
+    .widget-fullscreen > div:last-child { 
+        flex: 1; overflow: hidden; display: flex; flex-direction: column; 
+    }
+    /* Container chứa table sẽ scroll dọc */
+    .widget-fullscreen .overflow-auto, 
+    .widget-fullscreen .overflow-x-auto {
+        flex: 1; overflow-y: auto !important; max-height: none !important;
+    }
+
+    /* =========================================
+       6. UTILITIES & RBAC
+       ========================================= */
+    .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .admin-only, .system-menu-only { display: none !important; }
+    body.is-admin .admin-only, body.is-admin .system-menu-only { display: inline-flex !important; }
+    
+    /* Skeleton Loading Animation */
+    .skeleton {
+        background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+        background-size: 200% 100%;
+        animation: skeleton-loading 1.5s infinite;
+        border-radius: 4px;
+    }
+    @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Sidebar Active State Fix */
+    .nav-item.active { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border-left: 3px solid #60a5fa; }
+    .nav-item { border-left: 3px solid transparent; }
+</style>
 </head>
 
 <body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
@@ -190,13 +274,13 @@
     <div id="toast-container"></div>
 
     <div class="flex h-screen">
-        <aside class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out -translate-x-full md:relative md:translate-x-0 z-50 shrink-0" id="sidebar">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out -translate-x-full md:relative md:translate-x-0 z-60 shrink-0">
             <div class="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-blue-500/50">M</div>
                     <span class="font-bold text-lg tracking-wide text-slate-100">MBF-TNI</span>
                 </div>
-                <button onclick="app.toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                <button onclick="app.toggleSidebar()" class="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -245,12 +329,12 @@
             </div>
         </aside>
 
-        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-70 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
     
         <main class="flex-1 flex flex-col h-screen relative min-w-0 bg-[#f8fafc]">
             <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 z-10 shrink-0 border-b border-slate-200">
                 <div class="flex items-center gap-3">
-                    <button onclick="app.toggleSidebar()" class="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    <button id="mobile-menu-btn" class="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
                     <h2 id="page-title" class="text-lg md:text-xl font-bold text-slate-800 truncate max-w-[200px] md:max-w-none">Tổng quan</h2>
@@ -413,7 +497,6 @@
                                         <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                                             <div class="text-slate-400 text-xs font-bold uppercase mb-1">Lũy kế năm</div>
                                             <div class="text-2xl font-bold text-slate-800" id="stat-sub-ytd">0</div>
-                                            <div class="text-[11px] mt-1" id="stat-sub-ytd-compare">So cùng kỳ năm trước: —</div>
                                         </div>
                                     </div>
 
@@ -1010,30 +1093,53 @@
         </div>
     </div>
 
-    <div id="modal-detail-list" class="modal-overlay">
-        <div class="modal-content overflow-hidden w-[98vw] max-w-[1400px] h-[94vh] flex flex-col">
-            <div class="bg-white px-6 py-4 border-b border-slate-200 flex justify-between items-center shrink-0">
-                <div>
-                    <h3 class="font-bold text-lg text-slate-800" id="modal-detail-title">Danh sách chi tiết</h3>
-                    <p class="text-xs text-slate-500" id="modal-detail-subtitle">...</p>
-                </div>
-                <button onclick="app.closeModal('modal-detail-list')" class="text-slate-400 hover:text-red-500">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
+    <div id="modal-detail-list" class="fixed inset-0 bg-black/60 hidden z-[9999] flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+    
+    <div class="bg-white rounded-xl shadow-2xl w-[98vw] h-[95vh] flex flex-col transform transition-all duration-300 scale-100 overflow-hidden">
+        
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 shrink-0">
+            <div>
+                <h3 class="text-xl font-bold text-blue-900 flex items-center gap-3">
+                    <span class="p-2 bg-yellow-100 rounded-full text-yellow-600">
+                        <i data-lucide="trophy" class="w-5 h-5"></i>
+                    </span>
+                    <span id="modal-detail-title">Chi Tiết Bảng Xếp Hạng</span>
+                </h3>
+                <p class="text-sm text-slate-500 mt-1 pl-[52px]" id="modal-detail-subtitle">Dữ liệu cập nhật theo thời gian thực</p>
             </div>
             
-            <div class="flex-1 overflow-auto p-0 bg-slate-50 custom-scrollbar">
-                <table class="modern-table w-full relative">
-                    <thead class="bg-slate-100 sticky top-0 shadow-sm z-10" id="modal-detail-thead"></thead>
-                    <tbody id="modal-detail-tbody" class="bg-white"></tbody>
-                </table>
-            </div>
-
-            <div class="bg-white px-6 py-3 border-t border-slate-200 flex justify-end shrink-0">
-                <button onclick="app.closeModal('modal-detail-list')" class="btn-secondary">Đóng</button>
+            <div class="flex gap-3">
+                <button class="btn-secondary text-xs py-2 px-3 flex items-center shadow-sm hover:shadow" onclick="app.exportModalData ? app.exportModalData() : alert('Chức năng đang cập nhật')">
+                    <i data-lucide="download" class="w-4 h-4 mr-1.5"></i> Xuất Excel
+                </button>
+                <button onclick="app.closeModal('modal-detail-list')" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
         </div>
+
+        <div class="flex-1 overflow-hidden relative bg-white">
+            <div id="modal-scroll-view" class="absolute inset-0 overflow-auto custom-scrollbar">
+                <table class="w-full text-sm border-collapse">
+                    <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 z-20 shadow-sm text-xs uppercase tracking-wider" id="modal-detail-thead">
+                        </thead>
+                    <tbody id="modal-detail-tbody" class="divide-y divide-slate-100">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center text-xs text-slate-500 shrink-0">
+             <div class="flex gap-4">
+                 <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div> Hoàn thành tốt</span>
+                 <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-red-500"></div> Cần nỗ lực</span>
+             </div>
+             <button onclick="app.closeModal('modal-detail-list')" class="px-5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg font-medium shadow-sm transition-all">
+                Đóng cửa sổ
+             </button>
+        </div>
     </div>
+</div>
 
     <div id="modal-kpi-edit" class="modal-overlay">
         <div class="modal-content overflow-hidden max-w-lg">
