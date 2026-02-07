@@ -46,13 +46,14 @@
             </button>
         </form>
         
-        <p class="text-center text-xs text-slate-400 mt-6">&copy; 2025 hoang.lehuu | Ver 0579</p>
+        <p class="text-center text-xs text-slate-400 mt-6">&copy; 2025 hoang.lehuu | Ver 15.03</p>
     </div>
 
     <script src="js/data-service.js"></script>
-    <script>
-        // Xóa sạch session cũ khi vào trang Login
+   <script>
+        // Xóa sạch session cũ khi vào trang Login để tránh xung đột
         localStorage.removeItem('MIS_USER');
+        localStorage.removeItem('MIS_TOKEN');
 
         const loginForm = document.getElementById('loginForm');
         const btnLogin = document.getElementById('btnLogin');
@@ -71,33 +72,13 @@
             const p = document.getElementById('password').value.trim();
 
             try {
-                // Tải dữ liệu toàn bộ hệ thống (bao gồm cả sheet 'users')
-                await DataService.ensureData(); 
+                // GỌI HÀM LOGIN MỚI (Server-side check)
+                // Hàm này sẽ tự lưu Token vào localStorage nếu thành công
+                const user = await DataService.login(u, p);
                 
-                // Lấy danh sách user từ cache
-                const users = DataService._cache.users || [];
-                
-                // Tìm user khớp (So sánh chuỗi, bỏ qua khoảng trắng)
-                const foundUser = users.find(user => 
-                    String(user.username).trim() === u && 
-                    String(user.password).trim() === p
-                );
+                // Chuyển hướng
+                setTimeout(() => { window.location.href = 'index.html'; }, 500);
 
-                if (foundUser) {
-                    // Đăng nhập thành công -> Lưu session vào localStorage
-                    const sessionUser = {
-                        name: foundUser.fullname,
-                        role: foundUser.role,   
-                        // Scope là Mã Liên Cụm (VD: LC_TANCHAU), hoặc 'all'
-                        scope: foundUser.scope  
-                    };
-                    localStorage.setItem('MIS_USER', JSON.stringify(sessionUser));
-                    
-                    // Chuyển hướng vào trang chính
-                    setTimeout(() => { window.location.href = 'index.html'; }, 500);
-                } else {
-                    throw new Error("Tên đăng nhập hoặc mật khẩu không đúng.");
-                }
             } catch (err) {
                 console.error("Lỗi đăng nhập:", err);
                 
@@ -105,7 +86,7 @@
                 btnLogin.innerHTML = `<span>Đăng Nhập</span>`;
                 btnLogin.disabled = false;
                 errorMsg.classList.remove('hidden');
-                errorText.textContent = err.message || "Lỗi kết nối Server! Vui lòng thử lại.";
+                errorText.textContent = err.message || "Sai tên đăng nhập hoặc mật khẩu!";
             }
         });
     </script>
