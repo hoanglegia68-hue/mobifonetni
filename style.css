@@ -20,16 +20,37 @@ body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif; 
     background-color: var(--bg-body); 
     color: var(--text-main); 
+    -webkit-font-smoothing: antialiased;
 }
 
-/* Tùy chỉnh thanh cuộn (Scrollbar) */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* =========================================
+   2. SCROLLBAR SYSTEM (GLOBAL & CUSTOM)
+   ========================================= */
+/* Global Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+
+/* Custom Scrollbar cho Modal/Table (Dùng trong code HTML mới) */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
 
 /* =========================================
-   2. SIDEBAR NAVIGATION
+   3. SIDEBAR NAVIGATION
    ========================================= */
 .nav-item {
     display: flex; align-items: center; gap: 12px;
@@ -53,16 +74,26 @@ body {
 }
 
 .sidebar-user-area { cursor: default !important; }
+/* Đảm bảo Sidebar luôn hiển thị đúng lớp trên Mobile */
+@media (max-width: 768px) {
+    #sidebar {
+        z-index: 9000 !important; /* Cao hơn mọi thứ trừ Modal/Alert */
+    }
+    /* Đảm bảo Overlay nằm ngay dưới Sidebar */
+    #mobile-overlay {
+        z-index: 8999 !important;
+    }
+}
 
 /* =========================================
-   3. BUTTONS & INPUTS
+   4. BUTTONS & INPUTS
    ========================================= */
 /* Button Chính */
 .btn-primary {
     background-color: var(--primary-color); color: white; padding: 8px 16px;
-    border-radius: 6px; font-weight: 500; display: inline-flex; align-items: center;
+    border-radius: 6px; font-weight: 500; display: inline-flex; align-items: center; justify-content: center;
     transition: all 0.2s; border: 1px solid transparent; 
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;
 }
 .btn-primary:hover { 
     background-color: var(--primary-hover); 
@@ -75,7 +106,8 @@ body {
     background-color: #fff; color: var(--text-main); 
     border: 1px solid var(--border-color);
     padding: 8px 16px; border-radius: 6px; font-weight: 500; 
-    display: inline-flex; align-items: center; transition: 0.2s;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: 0.2s; cursor: pointer;
 }
 .btn-secondary:hover { 
     background-color: #f8fafc; 
@@ -89,19 +121,17 @@ input[type="text"], input[type="number"], input[type="date"], input[type="month"
 }
 input:focus, select:focus, textarea:focus {
     border-color: var(--accent-color);
-    /* Dùng biến màu nhưng giảm opacity thủ công hoặc giữ nguyên style cũ */
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); 
     outline: none;
 }
 
 /* =========================================
-   4. TABLES (HIỆN ĐẠI HÓA)
+   5. TABLES (HIỆN ĐẠI HÓA)
    ========================================= */
 .modern-table { 
     width: 100%; 
-    border-collapse: separate; /* Giữ separate để bo góc */
+    border-collapse: separate; 
     border-spacing: 0; 
-    min-width: 800px; /* Ép scroll ngang trên mobile */
 }
 
 /* Header Bảng */
@@ -110,14 +140,14 @@ input:focus, select:focus, textarea:focus {
     border-bottom: 2px solid #e2e8f0; padding: 12px 16px;
     font-size: 0.75rem; text-transform: uppercase; font-weight: 700; text-align: left;
     white-space: nowrap; 
-    position: sticky; top: 0; z-index: 10; 
+    position: sticky; top: 0; z-index: 20; /* Tăng Z-index để đè nội dung */
 }
 
 /* Dòng dữ liệu */
 .modern-table td { 
     border-bottom: 1px solid #f1f5f9; 
     padding: 12px 16px; 
-    vertical-align: middle; /* Canh giữa theo chiều dọc đẹp hơn top */
+    vertical-align: middle;
     font-size: 0.875rem;
 }
 
@@ -125,7 +155,7 @@ input:focus, select:focus, textarea:focus {
 .border-r-light { border-right: 1px solid #e2e8f0; }
 
 /* =========================================
-   5. BADGES & STATUS INDICATORS
+   6. BADGES & STATUS INDICATORS
    ========================================= */
 .role-badge {
     display: inline-flex; align-items: center; gap: 4px;
@@ -137,6 +167,18 @@ input:focus, select:focus, textarea:focus {
 .role-badge.secondary { background-color: #fef2f2; color: #991b1b; border-color: #fee2e2; }
 .role-badge.default { background-color: #f1f5f9; color: #475569; border-color: #e2e8f0; }
 
+/* Badge KPI dùng trong JS */
+.badge-kpi {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 48px;
+}
+
 .badge-region {
     display: inline-block; padding: 2px 8px; border-radius: 4px;
     font-size: 0.7rem; font-weight: 700;
@@ -144,12 +186,13 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* =========================================
-   6. TABS & PANELS
+   7. TABS & PANELS
    ========================================= */
 .tab-btn {
     padding: 12px 20px; font-size: 0.9rem; font-weight: 500;
     color: var(--text-muted); background: transparent;
     border-bottom: 2px solid transparent; margin-right: 4px; transition: 0.2s;
+    cursor: pointer;
 }
 .tab-btn:hover { color: var(--primary-color); background-color: #eff6ff; border-radius: 6px 6px 0 0; }
 .tab-btn.active { 
@@ -158,12 +201,18 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* =========================================
-   7. MODALS & OVERLAYS
+   8. MODALS & OVERLAYS
    ========================================= */
+/* Animation cho Modal */
+@keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .modal-overlay {
     position: fixed; inset: 0; background-color: rgba(0,0,0,0.5);
     display: flex; align-items: center; justify-content: center;
-    z-index: 100; /* UPDATE: Cao hơn Sidebar (z-50) */
+    z-index: 100; 
     opacity: 0; pointer-events: none; transition: 0.2s;
     backdrop-filter: blur(2px);
 }
@@ -175,10 +224,15 @@ input:focus, select:focus, textarea:focus {
     transform: translateY(20px); transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     max-height: 90vh; overflow-y: auto;
 }
-.modal-overlay.open .modal-content { transform: translateY(0); }
+/* Kích hoạt animation khi modal mở */
+.modal-overlay.open .modal-content, 
+.modal-overlay.open > div { 
+    transform: translateY(0); 
+    animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 /* =========================================
-   8. UPLOAD ZONE & PROGRESS
+   9. UPLOAD ZONE & PROGRESS
    ========================================= */
 .upload-zone {
     border: 2px dashed #cbd5e1;
@@ -205,7 +259,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* =========================================
-   9. PHÂN QUYỀN (RBAC)
+   10. PHÂN QUYỀN (RBAC)
    ========================================= */
 .admin-only { display: none !important; }
 body.is-admin .admin-only { display: inline-flex !important; }
@@ -217,7 +271,7 @@ body.is-view .admin-only,
 body.is-manager .admin-only { display: none !important; }
 
 /* =========================================
-   10. UTILITIES
+   11. UTILITIES
    ========================================= */
 @keyframes fadeIn { 
     from { opacity: 0; transform: translateY(10px); } 
@@ -227,56 +281,111 @@ body.is-manager .admin-only { display: none !important; }
 
 .hidden { display: none !important; }
 
-/* Footer Style */
 #app-footer { font-size: 0.625rem; color: #94a3b8; opacity: 0.7; }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .overflow-x-auto::-webkit-scrollbar { height: 4px; }
+    .widget-fullscreen { padding: 8px; }
 }
-/* --- FULL SCREEN WIDGET MODE --- */
-/* Class này sẽ được toggle bằng JS */
+
+/* =========================================
+   12. FULL SCREEN WIDGET MODE (FIXED & IMPROVED)
+   ========================================= */
+body.widget-fullscreen-open {
+    overflow: hidden !important; /* Khóa scroll của trang nền */
+}
+
+/* Placeholder giữ chỗ khi widget được phóng to */
+.widget-placeholder {
+    background-color: rgba(241, 245, 249, 0.5); /* slate-100 */
+    border: 2px dashed #cbd5e1;
+    border-radius: 0.75rem;
+}
+
 .widget-fullscreen {
     position: fixed !important;
-    top: 0;
-    left: 0;
+    top: 0 !important;
+    left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
-    z-index: 9999; /* Đảm bảo đè lên tất cả */
+    z-index: 99999 !important; /* Đè lên tất cả */
+    
     background-color: #fff;
-    padding: 16px; /* Padding cho mobile */
-    overflow: hidden;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    
     display: flex;
     flex-direction: column;
-    border-radius: 0 !important; /* Bỏ bo góc khi full */
+    
+    /* Animation khi mở lên */
+    animation: zoomInWidget 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Khi full screen, phần chứa bảng sẽ tự co giãn */
-.widget-fullscreen .overflow-x-auto {
+/* Header của widget khi full screen */
+.widget-fullscreen .widget-header {
+    padding: 16px 24px !important;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.widget-fullscreen .widget-header h3,
+.widget-fullscreen .widget-header span {
+    font-size: 1.25rem !important; /* Tăng kích thước chữ tiêu đề */
+    color: #1e40af; /* Màu xanh đậm chuyên nghiệp */
+}
+
+/* Nội dung bên trong tự giãn */
+.widget-fullscreen > div:not(.widget-header) {
     flex: 1;
-    overflow-y: auto; /* Cho phép cuộn dọc */
-    height: 100%;
+    overflow: hidden;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Ẩn nút maximize khi đã full, hiện nút close */
-.widget-fullscreen .btn-maximize { display: none; }
-.widget-fullscreen .btn-minimize { display: inline-flex; }
+.widget-fullscreen .overflow-auto, 
+.widget-fullscreen .overflow-x-auto {
+    padding: 24px; /* Padding cho nội dung bên trong */
+    max-height: 100% !important;
+}
 
-/* Mặc định ẩn nút minimize */
+@keyframes zoomInWidget {
+    from { opacity: 0; transform: scale(0.95) translateY(20px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Button đóng/mở */
 .btn-minimize { display: none; }
+.widget-fullscreen .btn-maximize { display: none !important; }
+.widget-fullscreen .btn-minimize { display: inline-flex !important; }
 
-/* Tùy chỉnh thanh cuộn cho bảng full screen đẹp hơn */
-.widget-fullscreen .overflow-x-auto::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+/* =========================================
+   13. MOBILE MENU & HEADER FIXES
+   ========================================= */
+
+/* Đảm bảo Header chứa nút menu luôn nằm trên cùng */
+header, .top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50; /* Cao hơn modern-table th (20) */
+    background-color: var(--bg-body); /* Tránh bị trong suốt */
 }
-.skeleton {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: skeleton-loading 1.5s infinite;
+
+/* GỘP GỌN LẠI */
+#mobile-menu-btn {
+    position: relative;
+    z-index: 60 !important; /* Ngang bằng header, thấp hơn overlay */
+    cursor: pointer;
+    padding: 8px;
     border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent; /* Fix lỗi nháy trên iOS */
 }
-@keyframes skeleton-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
+#mobile-menu-btn:active { background-color: #e2e8f0; }
+#mobile-menu-btn svg { pointer-events: none; }
