@@ -1,6 +1,11 @@
+/* ==========================================================================
+ * ui-renderer.js — FINAL VERSION
+ * Chức năng: Xử lý hiển thị HTML, cập nhật bảng biểu, Dashboard & Chart
+ * ========================================================================== */
+
 const UIRenderer = {
     // ============================================================
-    // 1. CÁC HÀM HELPER DÙNG CHUNG
+    // 1. CÁC HÀM HELPER DÙNG CHUNG (UTILS)
     // ============================================================
 
     formatNumber(num) {
@@ -21,11 +26,10 @@ const UIRenderer = {
 
     getMapLink(lat, lng, address) {
         if (!lat || !lng) return `<span class="text-slate-500 text-xs">${address || '-'}</span>`;
-        // Đã sửa lỗi cú pháp ${lat}
         return `
             <div class="flex flex-col">
                 <span class="text-xs font-medium text-slate-700 truncate max-w-[200px]" title="${address}">${address}</span>
-                <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                <a href="http://maps.google.com/maps?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
                     <i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ
                 </a>
             </div>
@@ -53,6 +57,7 @@ const UIRenderer = {
     getDaysRemaining(endDateStr) {
         if (!endDateStr) return 9999;
         let end;
+        // Xử lý định dạng dd/mm/yyyy
         if (typeof endDateStr === 'string' && endDateStr.includes('/')) {
             const parts = endDateStr.split('/');
             if (parts.length === 3) {
@@ -84,7 +89,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 2. QUẢN LÝ HẠ TẦNG (CLUSTERS)
+    // 2. QUẢN LÝ HẠ TẦNG (CLUSTERS/COMMUNES)
     // ============================================================
 
     renderClusterTable(data) {
@@ -109,6 +114,7 @@ const UIRenderer = {
                 cum.phuongXas.forEach((px, indexPx) => {
                     html += `<tr class="bg-white hover:bg-blue-50/50 transition-colors group">`;
 
+                    // Cột Liên Cụm (Rowspan)
                     if (indexCum === 0 && indexPx === 0) {
                         html += `
                             <td class="border-r border-slate-100 text-center font-bold text-slate-400 align-top pt-4" rowspan="${totalRowsLC}">${stt++}</td>
@@ -125,6 +131,7 @@ const UIRenderer = {
                             </td>`;
                     }
 
+                    // Cột Cụm (Rowspan)
                     if (indexPx === 0) {
                         html += `
                             <td class="border-r border-slate-100 align-top pt-4 w-48" rowspan="${totalRowsCum}">
@@ -136,14 +143,16 @@ const UIRenderer = {
                             </td>`;
                     }
 
+                    // Xử lý Lãnh đạo xã
                     let leadersHtml = px.lanhDao && px.lanhDao.length > 0 ? px.lanhDao.map(ld => {
                         let badgeClass = (ld.chucVu.includes('Chủ tịch') || ld.chucVu.includes('Bí thư')) ? 'text-blue-700 bg-blue-50' :
                                          (ld.chucVu.includes('CA') || ld.chucVu.includes('Công an')) ? 'text-red-700 bg-red-50' : 'text-slate-600 bg-slate-100';
                         return `<div class="text-[10px] mb-1 px-1.5 py-0.5 rounded border border-slate-200 w-fit ${badgeClass}" title="SĐT: ${ld.sdt}">
-                            <span class="opacity-75 font-semibold">${ld.chucVu}:</span> <span>${ld.ten}</span>
-                        </div>`;
+                                    <span class="opacity-75 font-semibold">${ld.chucVu}:</span> <span>${ld.ten}</span>
+                                </div>`;
                     }).join('') : '<span class="text-xs text-slate-300 italic">Chưa cập nhật</span>';
 
+                    // Cột Phường/Xã
                     html += `
                         <td class="font-medium text-slate-800 border-b border-slate-100 p-3">${px.ten}</td>
                         <td class="text-sm border-b border-slate-100 p-3">
@@ -168,9 +177,10 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 3. KÊNH TRỰC TIẾP & GIÁN TIẾP & BTS
+    // 3. KÊNH & NHÂN SỰ & HẠ TẦNG MẠNG
     // ============================================================
 
+    // 3.1 Cửa hàng
     renderStoresTable(data) {
         const tbody = document.getElementById('store-list-body');
         if (!tbody) return;
@@ -185,6 +195,7 @@ const UIRenderer = {
             let alertHtml = '';
             let rowClass = 'bg-white';
 
+            // Logic cảnh báo hết hạn thuê
             if (daysLeft < 0) {
                 alertHtml = `<span class="flex items-center text-red-600 font-bold text-xs"><i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i> QUÁ HẠN (${Math.abs(daysLeft)} ngày)</span>`;
                 rowClass = 'bg-red-50';
@@ -224,6 +235,7 @@ const UIRenderer = {
         if (window.lucide) lucide.createIcons();
     },
 
+    // 3.2 Giao dịch viên
     renderGDVTable(data) {
         const tbody = document.getElementById('gdv-list-body');
         if (!tbody) return;
@@ -250,6 +262,7 @@ const UIRenderer = {
         if (window.lucide) lucide.createIcons();
     },
 
+    // 3.3 Nhân viên bán hàng
     renderSalesTable(data) {
         const tbody = document.getElementById('sales-list-body');
         if (!tbody) return;
@@ -273,6 +286,7 @@ const UIRenderer = {
         if (window.lucide) lucide.createIcons();
     },
 
+    // 3.4 Kênh B2B
     renderB2BTable(data) {
         const tbody = document.getElementById('b2b-list-body');
         if (!tbody) return;
@@ -295,44 +309,143 @@ const UIRenderer = {
         if (window.lucide) lucide.createIcons();
     },
 
+  // Thay thế hàm renderIndirectTable cũ trong file ui-renderer.js
+
     renderIndirectTable(data) {
         const tbody = document.getElementById('indirect-list-body');
         if (!tbody) return;
+
+        // Helper: Lấy dữ liệu an toàn từ nhiều tên cột khác nhau (Case insensitive)
+        const pick = (row, ...aliases) => {
+            if (!row) return '';
+            const lmap = {};
+            Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+            for (const a of aliases) {
+                if (!a) continue;
+                if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
+                const lk = lmap[String(a).toLowerCase()];
+                if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') return row[lk];
+            }
+            return '';
+        };
+
+        // Helper: Xử lý link Google Drive để hiển thị thumbnail nhanh
+        const getDisplayUrl = (url) => {
+            if (!url) return '';
+            // Nếu là link Google Drive, chuyển sang link thumbnail lh3
+            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                return `https://lh3.googleusercontent.com/d/${match[1]}=s100`; // s100 = size 100px
+            }
+            return url;
+        };
+
         if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            // Colspan = 8 để khớp với header mới
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu điểm bán</td></tr>`;
             return;
         }
-        tbody.innerHTML = data.map((item, idx) => `
-            <tr class="bg-white border-b hover:bg-slate-50 transition">
-                <td class="p-3 text-center text-slate-500">${idx + 1}</td>
-                <td class="p-3 font-mono font-bold text-blue-600">${item.maDL}</td>
-                <td class="p-3 font-medium text-slate-700">${item.ten}</td>
-                <td class="p-3 font-mono text-xs text-slate-500">${item.maNV}</td>
-                <td class="p-3 text-center">
-                    <span class="px-2 py-1 rounded text-[10px] font-bold border 
-                        ${(item.loai || '').includes('UQ') ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                        (item.loai || '').includes('C2C') ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                        'bg-slate-50 text-slate-600 border-slate-200'}">
-                        ${item.loai}
-                    </span>
+
+        tbody.innerHTML = data.map((item, idx) => {
+            // Mapping dữ liệu linh hoạt
+            const ten = pick(item, 'ten', 'Ten', 'tenDiemBan', 'Tên Điểm Bán');
+            const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'Mã ĐL/ĐB');
+            const chu = pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'nguoiDaiDien', 'Chủ sở hữu');
+            const sdt = pick(item, 'sdt', 'SDT', 'soDienThoai', 'SĐT');
+            const phanLoai = pick(item, 'phanloai', 'Phanloai', 'PhanLoai', 'loai', 'Loại'); 
+            const tuyen = pick(item, 'tuyen', 'Tuyen', 'tuyenBanHang', 'Tuyến');
+            const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC', 'Địa chỉ');
+            const lat = pick(item, 'lat', 'Lat', 'ViDo');
+            const lng = pick(item, 'lng', 'Lng', 'KinhDo');
+            
+            const maCum = pick(item, 'maCum', 'MaCum', 'cum', 'Cum') || '-';
+            const tenCum = (window.app && app.getNameCum) ? app.getNameCum(maCum) : maCum;
+
+            // Lấy link ảnh (Ưu tiên cột AnhTrong/AnhNgoai)
+            const imgTrong = pick(item, 'anhTrong', 'AnhTrong', 'imgInside', 'img1');
+            const imgNgoai = pick(item, 'anhNgoai', 'AnhNgoai', 'imgOutside', 'img2');
+
+            // Render 1 ô ảnh
+            const renderImgCell = (url, icon) => {
+                if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300"><i data-lucide="${icon}" class="w-4 h-4"></i></div>`;
+                const displayUrl = getDisplayUrl(url);
+                return `
+                    <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
+                         onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                    </div>
+                `;
+            };
+
+            // Badge phân loại
+            let badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+            const loaiLower = String(phanLoai).toLowerCase();
+            if (loaiLower.includes('loại 1') || loaiLower.includes('chiến lược')) badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+            else if (loaiLower.includes('loại 2') || loaiLower.includes('tiềm năng')) badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+            else if (loaiLower.includes('c2c')) badgeClass = 'bg-orange-100 text-orange-700 border-orange-200';
+
+            return `
+            <tr class="bg-white border-b hover:bg-blue-50/30 transition group">
+                <td class="p-3 text-center text-slate-500 text-xs font-medium border-r border-dashed border-slate-100">${idx + 1}</td>
+                
+                <td class="p-3 align-top">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition">${ten || '---'}</span>
+                        <span class="font-mono text-[11px] text-slate-400 mt-0.5 flex items-center gap-1"><i data-lucide="hash" class="w-3 h-3"></i> ${ma || '---'}</span>
+                    </div>
                 </td>
-                <td class="p-3 text-xs">${app.getNameLienCum ? app.getNameLienCum(item.maLienCum) : item.maLienCum}</td>
-                <td class="p-3 text-xs">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                <td class="p-3">${this.getMapLink(item.lat, item.lng, item.diaChi)}</td>
-                <td class="p-3 text-center">
-                    <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only">
-                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+
+                <td class="p-3 align-top">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-700">${chu || '---'}</span>
+                        ${sdt ? `<a href="tel:${sdt}" class="text-xs text-slate-500 mt-1 hover:text-blue-600 flex items-center gap-1 w-fit"><i data-lucide="phone" class="w-3 h-3"></i> ${sdt}</a>` : ''}
+                    </div>
+                </td>
+
+                <td class="p-3 align-top">
+                    <div class="flex flex-col items-start gap-1">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Đại lý'}</span>
+                        ${tuyen ? `<span class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><i data-lucide="route" class="w-3 h-3 text-slate-400"></i> Tuyến: <b class="text-slate-600">${tuyen}</b></span>` : ''}
+                    </div>
+                </td>
+
+                <td class="p-3 align-top max-w-[200px]">
+                    ${this.getMapLink(lat, lng, diaChi)}
+                </td>
+
+                <td class="p-3 text-center align-top">
+                     <div class="flex flex-col items-center">
+                        <span class="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">${tenCum}</span>
+                        ${tenCum !== maCum ? `<span class="text-[9px] text-slate-400 mt-0.5">(${maCum})</span>` : ''}
+                     </div>
+                </td>
+
+                <td class="p-3 text-center align-middle">
+                    <div class="flex gap-2 justify-center">
+                        ${renderImgCell(imgTrong, 'image')}
+                        ${renderImgCell(imgNgoai, 'camera')}
+                    </div>
+                </td>
+
+                <td class="p-3 text-center align-middle">
+                     <button onclick="app.openEditIndirectModal('${ma}')" 
+                            class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-300 hover:shadow-sm transition"
+                            title="Chỉnh sửa & Upload ảnh">
+                        <i data-lucide="file-pen-line" class="w-4 h-4"></i>
                     </button>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
+        
         if (window.lucide) lucide.createIcons();
     },
-
+    // 3.6 Trạm BTS
     renderBTSTable(data) {
         const tbody = document.getElementById('bts-list-body');
         if (!tbody) return;
 
+        // Helper trích xuất an toàn
         const pick = (row, ...aliases) => {
             if (!row) return '';
             const lmap = {};
@@ -358,6 +471,7 @@ const UIRenderer = {
         }
 
         tbody.innerHTML = data.map((item, idx) => {
+            // Mapping fields
             const maTram = pick(item, 'maTram', 'Mã Trạm', 'matram');
             const loaiTram = pick(item, 'loaitram', 'Loại trạm');
             const maLienCum = pick(item, 'maLienCum', 'Mã Liên Cụm');
@@ -400,7 +514,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 4. SỐ LIỆU KINH DOANH (KPI) 
+    // 4. SỐ LIỆU KPI & KẾ HOẠCH
     // ============================================================
 
     renderKPIStructureTable(structure) {
@@ -498,6 +612,7 @@ const UIRenderer = {
         const table = document.getElementById('table-kehoach');
         if (!table) return;
 
+        // Tính tổng
         const colTotals = {};
         kpiStructure.forEach(k => colTotals[k.ma] = 0);
         rows.forEach(row => {
@@ -508,6 +623,7 @@ const UIRenderer = {
             });
         });
 
+        // Header
         let theadHtml = `
             <tr>
                 <th class="w-12 text-center p-3 border font-bold text-slate-800 bg-slate-200 sticky top-0 left-0 z-[60] shadow-md border-b-2 border-slate-300">STT</th>
@@ -523,6 +639,7 @@ const UIRenderer = {
         if (!thead) { thead = document.createElement('thead'); table.appendChild(thead); }
         thead.innerHTML = theadHtml;
 
+        // Body
         const tbody = document.getElementById('body-kehoach');
         if (!tbody) return;
 
@@ -548,6 +665,7 @@ const UIRenderer = {
             return rowHtml;
         }).join('');
 
+        // Footer (Total)
         let tfoot = table.querySelector('tfoot');
         if (tfoot) tfoot.remove();
         tfoot = document.createElement('tfoot');
@@ -568,7 +686,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 5. USER LOGS & STATS
+    // 5. USER LOGS & STATS (PHÂN QUYỀN & LỊCH SỬ)
     // ============================================================
 
     renderUserLogFilter(listCum, selectedCum = "") {
@@ -646,7 +764,7 @@ const UIRenderer = {
     // ============================================================
 
     async renderDashboard(filterScope = 'all') {
-        // Giả định DataService đã được định nghĩa ở file khác
+        // Giả định DataService đã được định nghĩa
         const allClusters = await DataService.getClusters();
         const allStores = await DataService.getStores();
         const allBts = await DataService.getBTS();
@@ -655,6 +773,7 @@ const UIRenderer = {
         const allB2B = await DataService.getB2BStaff();
         const allIndirect = await DataService.getIndirectChannels();
 
+        // Setup Dropdown Scope
         const select = document.getElementById('dashboard-scope-select');
         if (select && select.querySelectorAll('optgroup').length === 0) {
             select.innerHTML = '<option value="all">Toàn Công Ty</option>';
@@ -701,6 +820,7 @@ const UIRenderer = {
         const storesExpiring = stores.filter(s => s.ngayHetHan && this.getDaysRemaining(s.ngayHetHan) < 30).length;
         const countActive = (list) => list.filter(i => i.trangThai !== 'Nghỉ việc').length;
 
+        // Render Cards (Infrastructure)
         const infraEl = document.getElementById('dashboard-infrastructure');
         if (infraEl) {
             infraEl.innerHTML = `
@@ -738,6 +858,7 @@ const UIRenderer = {
                 </div>`;
         }
 
+        // Render Cards (HR)
         const hrEl = document.getElementById('dashboard-hr');
         if (hrEl) {
             hrEl.innerHTML = `
@@ -761,6 +882,7 @@ const UIRenderer = {
                 </div>`;
         }
 
+        // Render Breakdown Table
         let displayItems = [];
         let viewMode = 'liencum';
         if (filterScope === 'all') {
@@ -811,14 +933,14 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 7. VẼ BIỂU ĐỒ (KPI REPORT)
+    // 7. VẼ BIỂU ĐỒ (CHART.JS)
     // ============================================================
 
     renderKPIReport(data, filterInfo) {
-        // 1. Reset các biểu đồ cũ để tránh lỗi vẽ chồng
         const chartIds = ['chartSubDaily', 'chartSubChannel', 'chartSubCluster', 'chartRevDaily', 'chartRevChannel', 'chartRevCluster'];
         if (!app.chartInstances) app.chartInstances = {};
         
+        // Reset chart cũ
         chartIds.forEach(id => {
             if (app.chartInstances[id]) {
                 app.chartInstances[id].destroy();
@@ -826,7 +948,7 @@ const UIRenderer = {
             }
         });
 
-        // 2. Helper cập nhật số liệu widget (Số to)
+        // Update Stats Widgets
         const updateWidget = (prefix, actual, plan) => {
             const elActual = document.getElementById(`stat-${prefix}-actual`);
             const elPlan = document.getElementById(`stat-${prefix}-plan`);
@@ -835,7 +957,6 @@ const UIRenderer = {
 
             if (elActual) {
                 elActual.textContent = this.formatNumber(actual);
-                // Thêm sự kiện click để xem chi tiết
                 elActual.onclick = () => { if (app.showKPIBreakdown) app.showKPIBreakdown(prefix, 'cum'); };
                 elActual.classList.add('cursor-pointer', 'hover:text-blue-600', 'transition');
             }
@@ -846,24 +967,19 @@ const UIRenderer = {
             
             if (elProg) {
                 elProg.style.width = `${Math.min(percent, 100)}%`;
-                // Đổi màu thanh tiến trình tùy theo %
                 elProg.className = `h-2 rounded-full transition-all duration-500 ${percent >= 100 ? 'bg-green-500' : (percent >= 80 ? 'bg-yellow-500' : 'bg-red-500')}`;
             }
         };
 
-        // Cập nhật Widget Thuê bao & Doanh thu
         if (data.sub) updateWidget('sub', data.sub.actual, data.sub.plan);
         if (data.rev) updateWidget('rev', data.rev.actual, data.rev.plan);
 
-        // 3. Cập nhật Metrics phụ (Ngày, Tuần, Tháng, Năm)
         if (data.sub && data.sub.metrics) {
             const m = data.sub.metrics;
             const setTxt = (id, val) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = this.formatNumber(val);
             };
-            
-            // Format số lẻ cho bình quân ngày
             const elAvg = document.getElementById('stat-sub-avgday');
             if (elAvg) elAvg.textContent = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(m.avgDaily?.value || 0);
 
@@ -872,19 +988,15 @@ const UIRenderer = {
             setTxt('stat-sub-ytd', m.year?.curr);
         }
 
-        // 4. HÀM VẼ BIỂU ĐỒ (Sử dụng Chart.js)
-        
-        // --- A. Biểu đồ đường (Xu hướng ngày) ---
+        // Helper Charts
         const createLineChart = (canvasId, dailyData, colorHex) => {
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
-            
-            // Sắp xếp ngày tăng dần
             const dates = Object.keys(dailyData).sort();
             const values = dates.map(d => dailyData[d]);
             const labels = dates.map(d => {
                 const parts = d.split('-'); 
-                return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d; // dd/mm
+                return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
             });
 
             app.chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
@@ -895,7 +1007,7 @@ const UIRenderer = {
                         label: 'Thực hiện',
                         data: values,
                         borderColor: colorHex,
-                        backgroundColor: colorHex + '10', // Độ trong suốt
+                        backgroundColor: colorHex + '10',
                         borderWidth: 2,
                         pointRadius: 2,
                         fill: true,
@@ -914,47 +1026,32 @@ const UIRenderer = {
             });
         };
 
-        // --- B. Biểu đồ tròn (Tỷ trọng Kênh) ---
         const createDoughnutChart = (canvasId, channelData) => {
             const canvas = document.getElementById(canvasId);
             if (!canvas || !channelData) return;
-
             const labels = Object.keys(channelData);
             const values = Object.values(channelData);
-            // Palette màu đẹp
             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6366f1'];
 
             app.chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        data: values,
-                        backgroundColor: colors,
-                        borderWidth: 0
-                    }]
+                    datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '65%', // Độ rỗng giữa
-                    plugins: {
-                        legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } }
-                    }
+                    cutout: '65%',
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
                 }
             });
         };
 
-        // --- C. Biểu đồ cột (Top Đơn vị) ---
         const createBarChart = (canvasId, clusterData, colorHex) => {
             const canvas = document.getElementById(canvasId);
             if (!canvas || !clusterData) return;
-
-            // Sắp xếp giảm dần để lấy Top
-            const sorted = Object.entries(clusterData)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 10); // Lấy top 10
-
+            const sorted = Object.entries(clusterData).sort(([,a], [,b]) => b - a).slice(0, 10);
             const labels = sorted.map(([k]) => k);
             const values = sorted.map(([,v]) => v);
 
@@ -962,72 +1059,49 @@ const UIRenderer = {
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Sản lượng',
-                        data: values,
-                        backgroundColor: colorHex,
-                        borderRadius: 4
-                    }]
+                    datasets: [{ label: 'Sản lượng', data: values, backgroundColor: colorHex, borderRadius: 4 }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    indexAxis: 'y', // Biểu đồ ngang
+                    indexAxis: 'y',
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { beginAtZero: true, grid: { color: '#f1f5f9' } },
                         y: { grid: { display: false } }
-                    },
-                    onClick: (e, elements) => {
-                        // Click vào cột để xem chi tiết (nếu cần)
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const clusterName = labels[index];
-                            console.log("Click cluster:", clusterName);
-                        }
                     }
                 }
             });
         };
 
-        // Thực thi vẽ
         if (data.sub) {
-            createLineChart('chartSubDaily', data.sub.daily, '#10b981'); // Xanh lá
+            createLineChart('chartSubDaily', data.sub.daily, '#10b981');
             createDoughnutChart('chartSubChannel', data.sub.channel);
             createBarChart('chartSubCluster', data.sub.cluster, '#10b981');
         }
         
         if (data.rev) {
-            createLineChart('chartRevDaily', data.rev.daily, '#3b82f6'); // Xanh dương
+            createLineChart('chartRevDaily', data.rev.daily, '#3b82f6');
             createDoughnutChart('chartRevChannel', data.rev.channel);
             createBarChart('chartRevCluster', data.rev.cluster, '#3b82f6');
         }
     },
 
     // ============================================================
-    // 8. MODAL CHI TIẾT (ĐÃ CẬP NHẬT FULL)
+    // 8. MODAL CHI TIẾT (GENERIC)
     // ============================================================
-renderDetailModalContent(type, data, meta = {}) {
+
+    renderDetailModalContent(type, data, meta = {}) {
         const thead = document.getElementById('modal-detail-thead');
         const tbody = document.getElementById('modal-detail-tbody');
         const scrollView = document.getElementById('modal-scroll-view');
         
-        // 1. Reset cuộn (Sửa lỗi thiếu ngoặc)
-        if (scrollView) {
-            scrollView.scrollTop = 0;
-        } 
+        if (scrollView) scrollView.scrollTop = 0;
+        if (!thead || !tbody) return;
 
-        // 2. Safety Check
-        if (!thead || !tbody) {
-            console.error("Không tìm thấy element modal-detail-thead hoặc modal-detail-tbody");
-            return;
-        }
-
-        // Reset nội dung cũ
         thead.innerHTML = '';
         tbody.innerHTML = '';
 
-        // Kiểm tra dữ liệu rỗng
         if (!data || data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400 italic">Không có dữ liệu chi tiết</td></tr>`;
             return;
@@ -1036,9 +1110,7 @@ renderDetailModalContent(type, data, meta = {}) {
         let headerHtml = '';
         let bodyHtml = '';
 
-        // ============================================================
-        // CASE 1: CHI TIẾT HIỆU SUẤT NHÂN VIÊN (CÓ XẾP HẠNG TOP 3)
-        // ============================================================
+        // CASE 1: STAFF PERFORMANCE
         if (type === 'staff-performance') {
             headerHtml = `
                 <tr>
@@ -1057,11 +1129,9 @@ renderDetailModalContent(type, data, meta = {}) {
                 const actual = Number(item.actual) || 0;
                 sumPlan += plan;
                 sumActual += actual;
-                
                 const pct = Number(item.percent) || 0;
                 let colorClass = pct >= 100 ? 'bg-emerald-500' : (pct >= 80 ? 'bg-blue-500' : 'bg-red-500');
 
-                // Logic hiển thị Top 1, 2, 3
                 let rankDisplay = `<span class="font-mono text-slate-500 font-bold">#${idx + 1}</span>`;
                 let rowBg = "hover:bg-slate-50";
 
@@ -1097,7 +1167,6 @@ renderDetailModalContent(type, data, meta = {}) {
                 </tr>`;
             }).join('');
 
-            // Dòng tổng cộng
             const totalPct = sumPlan > 0 ? ((sumActual / sumPlan) * 100).toFixed(1) : 0;
             bodyHtml += `
                 <tr class="bg-blue-50/80 font-bold border-t-2 border-blue-100 sticky bottom-0 shadow-sm z-20">
@@ -1108,9 +1177,7 @@ renderDetailModalContent(type, data, meta = {}) {
                 </tr>`;
         }
         
-        // ============================================================
-        // CASE 2: CHI TIẾT KPI THEO CẤU TRÚC (KPI BREAKDOWN)
-        // ============================================================
+        // CASE 2: KPI BREAKDOWN
         else if (type === 'kpi-breakdown') {
             headerHtml = `
                 <tr>
@@ -1146,9 +1213,7 @@ renderDetailModalContent(type, data, meta = {}) {
             }).join('');
         }
 
-        // ============================================================
-        // CASE 3: CHI TIẾT CỬA HÀNG (STORE)
-        // ============================================================
+        // CASE 3: STORE DETAIL
         else if (type === 'store') {
             headerHtml = `
                 <tr>
@@ -1188,9 +1253,7 @@ renderDetailModalContent(type, data, meta = {}) {
             }).join('');
         }
 
-        // ============================================================
-        // CASE 4: NHÂN SỰ (GDV, SALES, B2B)
-        // ============================================================
+        // CASE 4: HUMAN RESOURCES (GDV, SALES, B2B)
         else if (['gdv', 'sales', 'b2b'].includes(type)) {
              headerHtml = `
                 <tr>
@@ -1211,9 +1274,7 @@ renderDetailModalContent(type, data, meta = {}) {
                 </tr>`).join('');
         }
         
-        // ============================================================
-        // CASE 5: TRẠM BTS
-        // ============================================================
+        // CASE 5: BTS
         else if (type === 'bts') {
             headerHtml = `
                 <tr>
@@ -1234,9 +1295,7 @@ renderDetailModalContent(type, data, meta = {}) {
                 </tr>`).join('');
         }
 
-        // ============================================================
-        // CASE 6: DANH SÁCH CHI TIẾT CỤM (LIST_CUM)
-        // ============================================================
+        // CASE 6: LIST CUM
         else if (type === 'list_cum') {
             headerHtml = `
                 <tr>
@@ -1245,7 +1304,7 @@ renderDetailModalContent(type, data, meta = {}) {
                     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Phụ trách</th>
                     <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Số Xã</th>
                 </tr>`;
-             bodyHtml = data.map(item => `
+            bodyHtml = data.map(item => `
                 <tr class="border-b hover:bg-slate-50 transition-colors">
                     <td class="p-3 font-mono font-bold text-slate-600">${item.maCum}</td>
                     <td class="p-3 font-bold text-blue-700">${item.tenCum}</td>
@@ -1254,9 +1313,7 @@ renderDetailModalContent(type, data, meta = {}) {
                 </tr>`).join('');
         }
 
-        // ============================================================
-        // CASE 7: CHI TIẾT PHƯỜNG/XÃ (COMMUNE)
-        // ============================================================
+        // CASE 7: COMMUNES
         else if (type === 'commune') {
              headerHtml = `
                 <tr>
@@ -1276,54 +1333,123 @@ renderDetailModalContent(type, data, meta = {}) {
                     <td class="p-3 text-right font-mono font-bold text-emerald-600">${item.tram}</td>
                 </tr>`).join('');
         }
+        
+        // ... (Các case phía trên giữ nguyên)
 
-        // ============================================================
-        // CASE 8: KÊNH GIÁN TIẾP/ĐIỂM BÁN (INDIRECT)
-        // ============================================================
+        // CASE 8: INDIRECT (ĐÃ SỬA: Render trực tiếp vào Modal thay vì gọi hàm renderIndirectTable)
         else if (type === 'indirect') {
-             headerHtml = `
+            headerHtml = `
                 <tr>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Mã/Tên ĐL</th>
-                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Loại</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Đơn vị</th>
+                    <th class="p-3 border-b bg-slate-100 text-center w-12 sticky top-0 z-20">STT</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Tên Điểm Bán / Mã</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Chủ / SĐT</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Phân Loại & Tuyến</th>
                     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Địa chỉ</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Cụm</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Hình ảnh</th>
                 </tr>`;
-            
-            bodyHtml = data.map(item => {
-                const loai = item.loai || '';
-                let badgeClass = 'bg-slate-50 text-slate-600 border-slate-200';
-                if (loai.includes('UQ')) badgeClass = 'bg-blue-50 text-blue-600 border-blue-100';
-                else if (loai.includes('C2C')) badgeClass = 'bg-orange-50 text-orange-600 border-orange-100';
+
+            // Helper: Lấy dữ liệu an toàn (Copy từ renderIndirectTable vì phạm vi biến cục bộ)
+            const pick = (row, ...aliases) => {
+                if (!row) return '';
+                const lmap = {};
+                Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+                for (const a of aliases) {
+                    if (!a) continue;
+                    if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
+                    const lk = lmap[String(a).toLowerCase()];
+                    if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') return row[lk];
+                }
+                return '';
+            };
+
+            // Helper: Xử lý link Google Drive thumbnail
+            const getDisplayUrl = (url) => {
+                if (!url) return '';
+                const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                if (match && match[1]) return `https://lh3.googleusercontent.com/d/${match[1]}=s100`;
+                return url;
+            };
+
+            // Helper: Render ô ảnh
+            const renderImgCell = (url, icon) => {
+                if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300"><i data-lucide="${icon}" class="w-4 h-4"></i></div>`;
+                const displayUrl = getDisplayUrl(url);
+                return `
+                    <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
+                         onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                    </div>`;
+            };
+
+            bodyHtml = data.map((item, idx) => {
+                const ten = pick(item, 'ten', 'Ten', 'tenDiemBan', 'Tên Điểm Bán');
+                const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'Mã ĐL/ĐB');
+                const chu = pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'nguoiDaiDien', 'Chủ sở hữu');
+                const sdt = pick(item, 'sdt', 'SDT', 'soDienThoai', 'SĐT');
+                const phanLoai = pick(item, 'phanloai', 'Phanloai', 'PhanLoai', 'loai', 'Loại');
+                const tuyen = pick(item, 'tuyen', 'Tuyen', 'tuyenBanHang', 'Tuyến');
+                const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC', 'Địa chỉ');
+                const lat = pick(item, 'lat', 'Lat', 'ViDo');
+                const lng = pick(item, 'lng', 'Lng', 'KinhDo');
+                const maCum = pick(item, 'maCum', 'MaCum', 'cum', 'Cum') || '-';
+                const tenCum = (window.app && app.getNameCum) ? app.getNameCum(maCum) : maCum;
+                const imgTrong = pick(item, 'anhTrong', 'AnhTrong', 'imgInside', 'img1');
+                const imgNgoai = pick(item, 'anhNgoai', 'AnhNgoai', 'imgOutside', 'img2');
+
+                let badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+                const loaiLower = String(phanLoai).toLowerCase();
+                if (loaiLower.includes('loại 1') || loaiLower.includes('chiến lược')) badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+                else if (loaiLower.includes('loại 2') || loaiLower.includes('tiềm năng')) badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                else if (loaiLower.includes('c2c')) badgeClass = 'bg-orange-100 text-orange-700 border-orange-200';
 
                 return `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3">
-                        <div class="font-bold text-slate-700">${item.maDL}</div>
-                        <div class="text-xs text-slate-500 truncate w-32" title="${item.ten}">${item.ten}</div>
+                <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
+                    <td class="p-3 text-center text-slate-500 text-xs font-medium">${idx + 1}</td>
+                    <td class="p-3 align-top">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-700 text-sm">${ten || '---'}</span>
+                            <span class="font-mono text-[11px] text-slate-400 mt-0.5 flex items-center gap-1"><i data-lucide="hash" class="w-3 h-3"></i> ${ma || '---'}</span>
+                        </div>
                     </td>
-                    <td class="p-3 text-center">
-                        <span class="px-2 py-1 rounded text-[10px] font-bold border ${badgeClass}">${loai}</span>
+                    <td class="p-3 align-top">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-medium text-slate-700">${chu || '---'}</span>
+                            ${sdt ? `<a href="tel:${sdt}" class="text-xs text-slate-500 mt-1 hover:text-blue-600 flex items-center gap-1 w-fit"><i data-lucide="phone" class="w-3 h-3"></i> ${sdt}</a>` : ''}
+                        </div>
                     </td>
-                    <td class="p-3 text-sm text-slate-500">${app.getNameCum ? app.getNameCum(item.maCum) : (item.maCum || '-')}</td>
-                    <td class="p-3 text-xs text-slate-400 truncate max-w-[150px]" title="${item.diaChi}">${item.diaChi || '-'}</td>
+                    <td class="p-3 align-top">
+                        <div class="flex flex-col items-start gap-1">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Đại lý'}</span>
+                            ${tuyen ? `<span class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><i data-lucide="route" class="w-3 h-3 text-slate-400"></i> Tuyến: <b class="text-slate-600">${tuyen}</b></span>` : ''}
+                        </div>
+                    </td>
+                    <td class="p-3 align-top max-w-[200px]">
+                        ${this.getMapLink(lat, lng, diaChi)}
+                    </td>
+                    <td class="p-3 text-center align-top">
+                        <span class="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">${tenCum}</span>
+                    </td>
+                    <td class="p-3 text-center align-middle">
+                        <div class="flex gap-2 justify-center">
+                            ${renderImgCell(imgTrong, 'image')}
+                            ${renderImgCell(imgNgoai, 'camera')}
+                        </div>
+                    </td>
                 </tr>`;
             }).join('');
         }
 
-        // --- DEFAULT ---
-        else {
-             bodyHtml = `<tr><td colspan="10" class="p-4 text-center text-slate-400">Không có template hiển thị cho loại dữ liệu này: ${type}</td></tr>`;
-        }
+        
 
         // Render HTML
         thead.innerHTML = headerHtml;
         tbody.innerHTML = bodyHtml;
-        
-        // Kích hoạt icon
         if (window.lucide) lucide.createIcons();
     },
+
     // ============================================================
-    // 9. BẢNG XẾP HẠNG & CHI TIẾT KPI DATA (PHẦN CÒN THIẾU)
+    // 9. BẢNG XẾP HẠNG & RAW DATA TABLE
     // ============================================================
 
     renderRankingTable(containerId, data, options = {}) {
@@ -1352,7 +1478,6 @@ renderDetailModalContent(type, data, meta = {}) {
             let rankBadge = `<span class="text-slate-500 font-mono">#${index + 1}</span>`;
             let rowBg = "hover:bg-slate-50";
             
-            // Trang trí Top 3
             if (index === 0) {
                 rankBadge = `<div class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-xs mx-auto shadow-sm">1</div>`;
                 rowBg = "bg-yellow-50/30 hover:bg-yellow-50";
@@ -1438,4 +1563,6 @@ renderDetailModalContent(type, data, meta = {}) {
                 </div>
             </div>`;
     }
-}; 
+};
+
+window.UIRenderer = UIRenderer;
