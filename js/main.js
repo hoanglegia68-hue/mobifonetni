@@ -1727,9 +1727,6 @@
         getNameCum(code) { return this.mapCum[code] || code || ''; },
         cleanCode(code) { return String(code || '').trim().toUpperCase().replace('KPI_', ''); },
 
-        // ============================================================
-    // HÀM LỌC DỮ LIỆU THEO QUYỀN (CORE)
-    // ============================================================
         // CẬP NHẬT: filterDataByScope (Áp dụng logic checkScope chuẩn)
         // ============================================================
         filterDataByScope(data) {
@@ -1820,10 +1817,379 @@
             return null;
         },
 
-        // ============================================================
-        // 7. MODAL & SEARCH HANDLERS
+        // 7. MODAL & SEARCH HANDLERS (UPDATED)
         // ============================================================
 
+        currentEditingIndirectId: null,
+
+        openEditIndirectModal(id) {
+        // 1. Tìm item trong cache
+        const list = this.cachedData.indirect || [];
+        // Tìm kiếm linh hoạt (String/Number)
+        const item = list.find(i => String(i.id) == String(id) || String(i.maDL) == String(id));
+
+        if (!item) {
+            console.error("❌ Không tìm thấy item với ID:", id);
+            return alert("Không tìm thấy dữ liệu điểm bán này!");
+        }
+
+        // Lưu ID đang sửa vào biến toàn cục
+        this.currentEditingIndirectId = item.id || item.maDL; 
+
+        // 2. Helper tìm key (giữ nguyên - rất tốt)
+        const pick = (row, ...aliases) => {
+            if (!row) return '';
+            const lmap = {};
+            Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+            for (const a of aliases) {
+                const lk = lmap[String(a).toLowerCase()];
+                if (lk && row[lk] !== undefined && row[lk] !== null) return row[lk];
+            }
+            return '';
+        };
+
+        const setVal = (domId, val) => { 
+            const el = document.getElementById(domId); 
+            if(el) el.value = val || ''; 
+        };
+
+        // --- 3. ĐIỀN DỮ LIỆU ---
+        setVal('edit-indirect-code', pick(item, 'maDL', 'maCode', 'code', 'id'));
+
+        // === [BỔ SUNG QUAN TRỌNG] Đổ dữ liệu vào 2 ô Cụm mới thêm ở HTML ===
+        setVal('edit-indirect-liencum', pick(item, 'maLienCum', 'lienCum', 'LienCum', 'maliencum'));
+        setVal('edit-indirect-cum', pick(item, 'maCum', 'cum', 'Cum', 'macum'));
+        // ===================================================================
+
+        setVal('edit-indirect-name', pick(item, 'ten', 'Ten', 'tenDl'));
+        setVal('edit-indirect-phone', pick(item, 'sdt', 'SDT', 'phone')); 
+        setVal('edit-indirect-address', pick(item, 'diaChi', 'DiaChi', 'address'));
+        
+        // Tách tọa độ
+        const lat = pick(item, 'lat', 'Lat', 'vido');
+        const lng = pick(item, 'lng', 'Lng', 'kinhdo');
+        setVal('indirect-lat', lat);
+        setVal('indirect-lng', lng);
+
+        // Map đúng tên trường
+        setVal('edit-indirect-route', pick(item, 'tuyen', 'Tuyen')); 
+        setVal('edit-indirect-class', pick(item, 'phanloai', 'Phanloai', 'PhanLoai')); 
+        setVal('edit-indirect-type', pick(item, 'loai', 'Loai')); 
+        setVal('edit-indirect-owner', pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu')); 
+
+        // 4. Xử lý ảnh (Reset trước khi show)
+        if(document.getElementById('file-outside')) document.getElementById('file-outside').value = '';
+        if(document.getElementById('file-inside')) document.getElementById('file-inside').value = '';
+
+        // Kiểm tra hàm showPreviewImage có tồn tại không trước khi gọi
+        if (typeof this.showPreviewImage === 'function') {
+            this.showPreviewImage('outside', pick(item, 'anhNgoai', 'AnhNgoai', 'imgOutside'));
+            this.showPreviewImage('inside', pick(item, 'anhTrong', 'AnhTrong', 'imgInside'));
+        }
+        
+        // 5. Mở Modal
+        const modal = document.getElementById('modal-edit-indirect');
+        if(modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex', 'open', 'animate-fade-in');
+        }
+    },
+
+        showPreviewImage(type, src) {
+            const imgEl = document.getElementById(`img-preview-${type}`);
+            const phEl = document.getElementById(`placeholder-${type}`);
+            if (src && src.length > 10) {
+                imgEl.src = src; imgEl.classList.remove('hidden'); phEl.classList.add('hidden');
+            } else {
+                imgEl.classList.add('hidden'); phEl.classList.remove('hidden');
+            }
+        },
+        handleImagePreview(input, type) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => { this.showPreviewImage(type, e.target.result); }
+                reader.readAsDataURL(input.files[0]);
+            }
+        },
+
+        // ============================================================
+        // HÀM LƯU DỮ LIỆU (ĐÃ SỬA ĐỂ GỬI ĐỦ CỘT)
+        // ============================================================
+        // 1. Thêm hàm xem ảnh (cho tiện)
+        viewImage(url) {
+            if (url) window.open(url, '_blank');
+        },
+        // ============================================================
+        // HÀM LƯU DỮ LIỆU (ĐÃ FIX: BỔ SUNG GỬI CỤM/LIÊN CỤM)
+        // ============================================================
+
+        async saveIndirectChannel() {
+        // --- 1. LẤY ID BẢN GHI GỐC ---
+        const oldId = this.currentEditingIndirectId; 
+        if (!oldId) return alert("❌ Lỗi: Không xác định được ID bản ghi gốc.");
+
+        // Tìm Item gốc để backup dữ liệu nếu form nhập thiếu
+        const originalItem = (this.cachedData.indirect || []).find(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
+        
+        // Helper lấy dữ liệu gốc an toàn
+        const getOriginalVal = (keys) => {
+            if (!originalItem) return '';
+            for (let k of keys) {
+                if (originalItem[k] !== undefined && originalItem[k] !== null) return originalItem[k];
+            }
+            return '';
+        };
+
+        // --- 2. LẤY DỮ LIỆU TỪ FORM (ĐÃ CHUẨN HÓA ID) ---
+        // Lưu ý: Hãy kiểm tra file HTML của bạn xem ID có đúng là 'edit-indirect-...' không nhé
+        const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
+        const newId = codeInput || oldId; 
+
+        const name = document.getElementById('edit-indirect-name')?.value.trim();
+        const phone = document.getElementById('edit-indirect-phone')?.value.trim(); // ID cũ có thể sai
+        const address = document.getElementById('edit-indirect-address')?.value.trim();
+        
+        // Sửa lại ID cho nhất quán (thêm prefix edit-)
+        const loai = document.getElementById('edit-indirect-type')?.value; 
+        const phanLoai = document.getElementById('edit-indirect-class')?.value; 
+        const tuyen = document.getElementById('edit-indirect-route')?.value;
+        const chu = document.getElementById('edit-indirect-owner')?.value;
+        
+        // Tọa độ (Sửa ID: thêm 'edit-' nếu HTML của bạn dùng pattern này)
+        const latVal = document.getElementById('edit-indirect-lat')?.value.trim() || document.getElementById('indirect-lat')?.value.trim();
+        const lngVal = document.getElementById('edit-indirect-lng')?.value.trim() || document.getElementById('indirect-lng')?.value.trim();
+
+        // Cụm/Liên Cụm
+        const valLienCum = document.getElementById('edit-indirect-liencum')?.value || getOriginalVal(['maLienCum', 'maliencum', 'lienCum']);
+        const valCum = document.getElementById('edit-indirect-cum')?.value || getOriginalVal(['maCum', 'macum', 'cum']);
+
+        // [DEBUG] In ra để xem Client có lấy được dữ liệu không?
+        console.log("📝 Form Data Check:", { name, phone, address, latVal, lngVal });
+
+        // Validate cơ bản
+        if ((latVal && isNaN(latVal)) || (lngVal && isNaN(lngVal))) {
+            return alert("⚠️ Tọa độ phải là số (VD: 10.762)!");
+        }
+
+        // --- 3. UI LOADING ---
+        const saveBtn = document.querySelector('#modal-edit-indirect .btn-save') || 
+                        document.querySelector('#modal-edit-indirect button[onclick*="save"]');
+        let oldBtnContent = 'Lưu thay đổi';
+        if (saveBtn) {
+            oldBtnContent = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="animate-spin mr-2">⏳</i> Đang xử lý & Gửi...`;
+        }
+
+        try {
+            // --- 4. XỬ LÝ ẢNH (NÉN & BASE64) ---
+            const fileOutInput = document.getElementById('file-outside');
+            const fileInInput = document.getElementById('file-inside');
+            
+            let imgOutBase64 = null;
+            let imgInBase64 = null;
+
+            // Hàm nén ảnh (giả định bạn đã có this.compressImage)
+            if (fileOutInput && fileOutInput.files.length > 0) {
+                try {
+                    console.log("📸 Đang nén ảnh ngoài...");
+                    imgOutBase64 = await this.compressImage(fileOutInput.files[0]);
+                } catch (e) { console.error(e); }
+            }
+            
+            if (fileInInput && fileInInput.files.length > 0) {
+                try {
+                    console.log("📸 Đang nén ảnh trong...");
+                    imgInBase64 = await this.compressImage(fileInInput.files[0]);
+                } catch (e) { console.error(e); }
+            }
+
+            // --- 5. TẠO PAYLOAD (ĐÃ CHUẨN HÓA KEY CHO SERVER) ---
+            // Key ở đây phải khớp với logic map cột ở Server
+            const payload = {
+                action: 'update_indirect',
+                data: {
+                    oldMaDL: oldId, // Key tìm dòng
+                    maDL: newId,    // Key cập nhật
+                    
+                    // Các trường thông tin (dùng key chữ thường cho lành)
+                    ten: name,
+                    sdt: phone,           
+                    diachi: address,      
+                    lat: latVal,          
+                    lng: lngVal,          
+                    tuyen: tuyen,         
+                    phanloai: phanLoai,   
+                    loai: loai,           
+                    chusohuu: chu,        
+                    maliencum: valLienCum,
+                    macum: valCum,
+
+                    // Ảnh
+                    imgOutside: imgOutBase64, 
+                    imgInside: imgInBase64    
+                }
+            };
+
+            console.log("🚀 Payload sending to Server:", payload); // Kiểm tra payload cuối cùng
+
+            // Gọi API
+            const response = await DataService.postData(payload);
+
+            // --- 6. XỬ LÝ KẾT QUẢ (ĐÃ SỬA OPTIMISTIC UI) ---
+            if (response && (response.status === 'success' || response.result === 'success' || response.id)) {
+                
+                // 1. Thông báo & Đóng Modal
+                alert("✅ Cập nhật thành công!");
+                this.closeModal('modal-edit-indirect');
+                
+                // 2. CHUẨN BỊ DỮ LIỆU MỚI ĐỂ CẬP NHẬT GIAO DIỆN NGAY
+                // (Tạo object từ các biến bạn đã lấy từ form ở trên)
+                const updatedItem = {
+                    ...originalItem, // Giữ lại các trường cũ không bị sửa
+                    id: newId,
+                    maDL: newId,
+                    maCode: newId,
+                    
+                    ten: name,
+                    sdt: phone,
+                    diaChi: address,
+                    lat: latVal,
+                    lng: lngVal,
+                    tuyen: tuyen,
+                    phanloai: phanLoai, // Chú ý: key phải khớp với hàm render (chữ thường)
+                    loai: loai,
+                    chuSoHuu: chu,
+                    
+                    maLienCum: valLienCum,
+                    maCum: valCum,
+                    
+                    // Xử lý ảnh: Nếu có ảnh mới upload (Base64) thì dùng, không thì giữ ảnh cũ
+                    // Lưu ý: Base64 cần thêm prefix để hiển thị được ngay
+                    anhNgoai: imgOutBase64 ? `data:image/jpeg;base64,${imgOutBase64}` : (originalItem ? (originalItem.anhNgoai || originalItem.imgOutside) : ''),
+                    anhTrong: imgInBase64 ? `data:image/jpeg;base64,${imgInBase64}` : (originalItem ? (originalItem.anhTrong || originalItem.imgInside) : '')
+                };
+
+                // 3. CẬP NHẬT VÀO BỘ NHỚ CACHE (QUAN TRỌNG NHẤT)
+                if (!this.cachedData.indirect) this.cachedData.indirect = [];
+                
+                // Tìm vị trí dòng cũ
+                const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
+
+                if (index !== -1) {
+                    // TRƯỜNG HỢP SỬA: Ghi đè dữ liệu mới vào dòng cũ
+                    this.cachedData.indirect[index] = updatedItem;
+                    console.log("🔄 Đã cập nhật cache tại dòng:", index);
+                } else {
+                    // TRƯỜNG HỢP MỚI: Thêm vào đầu danh sách
+                    this.cachedData.indirect.unshift(updatedItem);
+                    console.log("➕ Đã thêm mới vào cache");
+                }
+
+                // 4. VẼ LẠI BẢNG NGAY LẬP TỨC
+                // Lọc lại theo Scope (để đảm bảo nếu sửa Cụm sang cụm khác thì nó tự ẩn đi nếu không thuộc quyền xem)
+                const dataToShow = this.filterDataByScope(this.cachedData.indirect);
+                
+                // Nếu đang có từ khóa tìm kiếm thì lọc lại luôn
+                const searchInput = document.querySelector('input[placeholder*="Tìm kiếm"]'); // Tìm ô search
+                if (searchInput && searchInput.value) {
+                    this.handleSearchIndirect(searchInput.value);
+                } else {
+                    UIRenderer.renderIndirectTable(dataToShow);
+                }
+
+            } else {
+                alert("❌ Server báo lỗi: " + (response.message || response.error || JSON.stringify(response)));
+            }
+
+        } catch (error) {
+            console.error("Critical Save Error:", error);
+            alert("❌ Lỗi ứng dụng: " + error.message);
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = oldBtnContent;
+            }
+        }
+    },
+            // --- Helper: Chuyển file sang Base64 ---
+        toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]); // Lấy phần data sau dấu phẩy
+                reader.onerror = error => reject(error);
+            });
+        },
+       // --- HÀM MỚI: NÉN ẢNH (ROBUST VERSION) ---
+        compressImage(file, maxWidth = 1024, quality = 0.7) {
+            return new Promise((resolve, reject) => {
+                // 1. Kiểm tra đầu vào
+                if (!file) return resolve(null);
+                
+                // 2. Kiểm tra loại file (Chỉ chấp nhận ảnh)
+                if (!file.type.match(/image.*/)) {
+                    return reject(new Error("File không phải là ảnh hợp lệ (JPG/PNG)!"));
+                }
+
+                const reader = new FileReader();
+                
+                // 3. Xử lý lỗi khi đọc file
+                reader.onerror = (error) => {
+                    console.error("FileReader Error:", error);
+                    reject(new Error("Không thể đọc file. File có thể bị hỏng hoặc bị khóa."));
+                };
+
+                reader.onload = (event) => {
+                    const img = new Image();
+                    
+                    // 4. Xử lý lỗi khi load ảnh vào bộ nhớ (VD: Ảnh HEIC trình duyệt không hiểu)
+                    img.onerror = (e) => {
+                        console.error("Image Load Error:", e);
+                        reject(new Error("Không thể xử lý ảnh này. Hãy thử ảnh JPG hoặc PNG khác."));
+                    };
+
+                    img.src = event.target.result;
+                    
+                    img.onload = () => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+
+                            // Tính toán tỉ lệ
+                            if (width > height) {
+                                if (width > maxWidth) {
+                                    height *= maxWidth / width;
+                                    width = maxWidth;
+                                }
+                            } else {
+                                if (height > maxWidth) {
+                                    width *= maxWidth / height;
+                                    height = maxWidth;
+                                }
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            // Xuất Base64
+                            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                            const base64 = dataUrl.split(',')[1];
+                            resolve(base64);
+                        } catch (err) {
+                            reject(new Error("Lỗi trong quá trình nén ảnh: " + err.message));
+                        }
+                    };
+                };
+                
+                reader.readAsDataURL(file);
+            });
+        },
+        
         showStaffDetailModal(type) {
             if (!this.currentStaffDataGroups || !this.currentStaffDataGroups[type]) return alert("Không có dữ liệu!");
             const data = this.currentStaffDataGroups[type];
@@ -2032,50 +2398,48 @@
             }).filter(Boolean);
             UIRenderer.renderClusterTable(res);
         },
-        handleSearchIndirect(k) {
-            // 1. Chuẩn hóa từ khóa đầu vào
-            const keyword = (k || '').toString().toLowerCase().trim();
-            
-            // 2. Lấy dữ liệu gốc đã được lọc theo quyền hạn (Scope) của user
-            const sourceData = this.filterDataByScope(this.cachedData.indirect);
 
-            // 3. Nếu không có từ khóa thì hiển thị toàn bộ
+    // ============================================================
+        handleSearchIndirect(k) {
+            // 1. Chuẩn hóa từ khóa
+            const keyword = (k || '').toString().toLowerCase().trim();
+            const sourceData = this.filterDataByScope(this.cachedData.indirect || []);
+
+            // 2. Nếu rỗng -> Render lại toàn bộ
             if (!keyword) {
                 UIRenderer.renderIndirectTable(sourceData);
                 return;
             }
 
-            // 4. Hàm hỗ trợ lấy giá trị chuỗi an toàn từ object
+            // 3. Helper lấy chuỗi an toàn không dấu (nếu muốn xịn hơn) hoặc thường
             const getVal = (val) => String(val || '').toLowerCase();
 
-            // 5. Thực hiện lọc đa tiêu chí
+            // 4. Lọc đa tiêu chí (Khớp với các cột hiển thị trên UI)
             const filtered = sourceData.filter(item => {
-                // Nhóm 1: Tìm theo Tên (Điểm bán / Chủ kênh)
+                // Nhóm 1: Định danh (Tên, Mã)
                 if (getVal(item.ten).includes(keyword)) return true;
-                if (getVal(item.hoTen).includes(keyword)) return true;
+                if (getVal(item.maDL).includes(keyword)) return true;
+                if (getVal(item.maCode).includes(keyword)) return true;
 
-                // Nhóm 2: Tìm theo Mã (Mã NV / Mã Kênh / Mã Điểm Bán)
-                if (getVal(item.maNV).includes(keyword)) return true;
-                if (getVal(item.maKenh).includes(keyword)) return true; 
-                if (getVal(item.code).includes(keyword)) return true;
-
-                // Nhóm 3: Tìm theo Cụm / Liên Cụm (Dành cho quản lý muốn lọc nhanh)
-                if (getVal(item.maCum).includes(keyword)) return true;
-                if (getVal(item.cum).includes(keyword)) return true; // Phòng trường hợp key là 'cum'
-                
-                if (getVal(item.maLienCum).includes(keyword)) return true;
-                if (getVal(item.lienCum).includes(keyword)) return true; // Phòng trường hợp key là 'lienCum'
-
-                // Nhóm 4: Tìm theo SĐT (Rất hữu ích thực tế)
+                // Nhóm 2: Liên lạc & Phân loại
                 if (getVal(item.sdt).includes(keyword)) return true;
-                if (getVal(item.soDienThoai).includes(keyword)) return true;
+                if (getVal(item.chuSoHuu).includes(keyword)) return true;
+                if (getVal(item.loai).includes(keyword)) return true; // VD: tìm "C2C"
 
+                // Nhóm 3: Vị trí & Tuyến (QUAN TRỌNG CHO UI MỚI)
+                if (getVal(item.diaChi).includes(keyword)) return true; // Tìm theo địa chỉ
+                if (getVal(item.tuyen).includes(keyword)) return true;  // Tìm theo tuyến
+
+                // Nhóm 4: Cụm/Liên Cụm (Cho quản lý)
+                if (getVal(item.maCum).includes(keyword)) return true;
+                
                 return false;
             });
 
-            // 6. Render lại bảng với dữ liệu đã lọc
+            // 5. Render kết quả
             UIRenderer.renderIndirectTable(filtered);
         },
+
         handleSearchBTS(k) {
             this.btsFilterState.keyword = (k || '').toString();
             this.applyBTSFilters();
