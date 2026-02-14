@@ -250,7 +250,7 @@
                 console.warn("⚠️ App khởi động quá lâu hoặc gặp lỗi, tự động ẩn Loader.");
                 loader.classList.add('hidden-loader');
             }
-        }, 8000); 
+        }, 15000); 
     </script>
 
     <script>
@@ -305,6 +305,7 @@
                 </a>
                 
                 <div class="px-3 mt-6 mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Kinh Doanh & Admin</div>
+            
                 <a href="#" class="nav-item system-menu-only flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('system')">
                     <i data-lucide="settings" class="w-5 h-5"></i><span>Hệ thống User</span>
                 </a>
@@ -804,38 +805,46 @@
                 </section>
                 
                 <section id="view-indirect_channel" class="view-section hidden animate-fade-in">
-                    <div class="bg-white rounded-lg shadow-sm border border-slate-200">
+                    <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
                         <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-center gap-4">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Quản lý Kênh Gián tiếp</h3>
                                 <p class="text-xs text-slate-500">Đại lý ủy quyền, Điểm bán, C2C...</p>
                             </div>
                             <div class="flex gap-2 items-center">
-                                <input type="text" placeholder="Tìm Mã ĐL, Mã NV, Tên, Cụm..." class="input-search w-60 border px-3 py-1.5 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchIndirect(this.value)">
-                                <button class="btn-secondary text-xs" onclick="app.downloadTemplate('indirect')">
+                                <div class="relative">
+                                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                                    <input type="text" 
+                                        placeholder="Tìm Mã, Tên, SĐT, Cụm..." 
+                                        class="input-search pl-9 pr-4 py-1.5 border border-slate-300 rounded text-sm focus:border-blue-500 outline-none w-64" 
+                                        onkeyup="app.handleSearchIndirect(this.value)">
+                                </div>
+                                
+                                <button class="btn-secondary text-xs h-[34px]" onclick="app.downloadTemplate('indirect')">
                                     <i data-lucide="file-spreadsheet" class="w-3 h-3 mr-1"></i> File mẫu
                                 </button>
-                                <button class="btn-primary admin-only text-xs" onclick="app.openUploadModal('indirect')">
+                                <button class="btn-primary admin-only text-xs h-[34px]" onclick="app.openUploadModal('indirect')">
                                     <i data-lucide="upload" class="w-3 h-3 mr-1"></i> Upload
                                 </button>
                             </div>
                         </div>
-                        <div class="overflow-x-auto p-0">
+
+                        <div class="overflow-x-auto p-0 flex-1">
                             <table class="modern-table">
-                                <thead>
+                                <thead class="bg-slate-50 text-slate-700 sticky top-0 z-10 shadow-sm">
                                     <tr>
-                                        <th class="w-10 text-center">STT</th>
-                                        <th>Mã Đại Lý</th>
-                                        <th>Tên Đại lý / Điểm bán</th>
-                                        <th>Mã NV</th>
-                                        <th>Loại Kênh</th>
-                                        <th>Liên Cụm</th>
-                                        <th>Cụm</th>
-                                        <th>Địa chỉ & Tọa độ</th>
-                                        <th class="text-center">Tác vụ</th>
+                                        <th class="w-12 text-center text-xs font-bold border-b p-3">STT</th>
+                                        <th class="p-3 text-left text-xs font-bold border-b">Tên Điểm Bán / Mã</th>
+                                        <th class="p-3 text-left text-xs font-bold border-b">Chủ / SĐT</th>
+                                        <th class="p-3 text-left text-xs font-bold border-b">Phân Loại & Tuyến</th>
+                                        <th class="p-3 text-left text-xs font-bold border-b">Địa chỉ & Tọa độ</th>
+                                        <th class="p-3 text-center text-xs font-bold border-b w-24">Cụm</th>
+                                        <th class="p-3 text-center text-xs font-bold border-b w-24">Hình ảnh</th>
+                                        <th class="p-3 text-center text-xs font-bold border-b w-16">Tác vụ</th>
                                     </tr>
                                 </thead>
-                                <tbody id="indirect-list-body"></tbody>
+                                <tbody id="indirect-list-body" class="bg-white">
+                                    </tbody>
                             </table>
                         </div>
                     </div>
@@ -1186,13 +1195,139 @@
         </div>
     </div>
 
+<div id="modal-edit-indirect" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] hidden flex items-center justify-center transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-fade-in">
+            
+            <div class="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-white font-bold text-lg flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-5 h-5"></i> Cập Nhật Điểm Bán
+                </h3>
+                <button onclick="app.closeModal('modal-edit-indirect')" class="text-white/80 hover:text-white transition">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="p-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                
+                <input type="hidden" id="edit-id"> 
+                <input type="hidden" id="base64-outside">
+                <input type="hidden" id="base64-inside">
+
+                <div class="mb-3">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Mã Đại Lý / Điểm Bán</label>
+                    <input type="text" id="edit-indirect-code" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-slate-500 font-bold focus:outline-none" readonly>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Liên Cụm</label>
+                    <input type="text" id="edit-indirect-liencum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cụm</label>
+                    <input type="text" id="edit-indirect-cum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tên Điểm Bán <span class="text-red-500">*</span></label>
+                        <input type="text" id="edit-indirect-name" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none font-bold text-blue-800">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Chủ Sở Hữu / Người đại diện</label>
+                        <input type="text" id="edit-indirect-owner" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" placeholder="Tên chủ cửa hàng">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Số Điện Thoại</label>
+                        <input type="text" id="edit-indirect-phone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Địa Chỉ</label>
+                        <input type="text" id="edit-indirect-address" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Loại / Hạng</label>
+                        <input type="text" id="edit-indirect-type" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tuyến</label>
+                        <input type="text" id="edit-indirect-route" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Vĩ độ (Lat)</label>
+                        <input type="text" id="indirect-lat" 
+                            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                            placeholder="VD: 10.7769">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Kinh độ (Lng)</label>
+                        <input type="text" id="indirect-lng" 
+                            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                            placeholder="VD: 106.7009">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 mt-4">
+                    
+                    <div>
+                        <span class="text-xs font-semibold text-slate-600 block mb-2">Ảnh Bên Ngoài</span>
+                        <div class="h-32 bg-white border border-dashed border-slate-300 rounded mb-2 flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition">
+                            
+                            <div id="placeholder-outside" class="flex flex-col items-center pointer-events-none">
+                                <i data-lucide="image" class="w-8 h-8 text-slate-300 mb-1"></i>
+                                <span class="text-xs text-slate-400">Chưa có ảnh</span>
+                            </div>
+                            
+                            <img id="img-preview-outside" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-50">
+                            
+                        </div>
+                        <input type="file" id="file-outside" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                               onchange="app.handleImagePreview(this, 'outside')">
+                    </div>
+
+                    <div>
+                        <span class="text-xs font-semibold text-slate-600 block mb-2">Ảnh Bên Trong</span>
+                        <div class="h-32 bg-white border border-dashed border-slate-300 rounded mb-2 flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition">
+                            
+                            <div id="placeholder-inside" class="flex flex-col items-center pointer-events-none">
+                                <i data-lucide="image" class="w-8 h-8 text-slate-300 mb-1"></i>
+                                <span class="text-xs text-slate-400">Chưa có ảnh</span>
+                            </div>
+                            
+                            <img id="img-preview-inside" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-50">
+                            
+                        </div>
+                        <input type="file" id="file-inside" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                               onchange="app.handleImagePreview(this, 'inside')">
+                    </div>
+                </div>
+
+                <p class="text-[10px] text-red-500 mt-2 italic">* Chọn ảnh mới sẽ thay thế ảnh cũ. Ảnh sẽ được tự động nén trước khi tải lên.</p>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-slate-100">
+                <button onclick="app.closeModal('modal-edit-indirect')" class="px-4 py-2 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm font-medium transition">
+                    Hủy bỏ
+                </button>
+                <button onclick="app.saveIndirectChannel()" class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm font-medium shadow-sm flex items-center gap-1 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i> Lưu Thay Đổi
+                </button>
+            </div>
+        </div>
+    </div>
     <script src="js/data-service.js"></script>
     <script src="js/ui-renderer.js"></script>
     <script src="js/main.js"></script>
     
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Đảm bảo icon có ngay từ đầu, và hỗ trợ các đoạn code khác gọi lại
+            // Đảm bảo icon Lucide được render
             if (window.refreshLucide) window.refreshLucide();
         });
     </script>
