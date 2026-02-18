@@ -7,7 +7,15 @@ const UIRenderer = {
     // ============================================================
     // 1. CÁC HÀM HELPER DÙNG CHUNG (UTILS)
     // ============================================================
-
+    escapeHTML(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")  // Đã sửa lỗi cú pháp ở đây
+                .replace(/'/g, "&#039;");
+        },
     formatNumber(num) {
         if (num === null || num === undefined || num === '') return '0';
         return new Intl.NumberFormat('vi-VN').format(num);
@@ -25,11 +33,14 @@ const UIRenderer = {
     },
 
     getMapLink(lat, lng, address) {
-        if (!lat || !lng) return `<span class="text-slate-500 text-xs">${address || '-'}</span>`;
+        // Làm sạch địa chỉ trước khi đưa vào HTML
+        const safeAddr = this.escapeHTML(address || '-'); 
+        
+        if (!lat || !lng) return `<span class="text-slate-500 text-xs">${safeAddr}</span>`;
         return `
             <div class="flex flex-col">
-                <span class="text-xs font-medium text-slate-700 truncate max-w-[200px]" title="${address}">${address}</span>
-                <a href="http://maps.google.com/maps?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                <span class="text-xs font-medium text-slate-700 truncate max-w-[200px]" title="${safeAddr}">${safeAddr}</span>
+                <a href="http://googleusercontent.com/maps.google.com/?q=${lat},${lng}" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1 mt-1">
                     <i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ
                 </a>
             </div>
@@ -180,59 +191,192 @@ const UIRenderer = {
     // 3. KÊNH & NHÂN SỰ & HẠ TẦNG MẠNG
     // ============================================================
 
-    // 3.1 Cửa hàng
-    renderStoresTable(data) {
-        const tbody = document.getElementById('store-list-body');
-        if (!tbody) return;
+    // 3.1 Cửa hàng - PHIÊN BẢN ĐÃ FIX LỖI GIỜ MỞ CỬA
+        renderStoreList() {
+        console.log("🚀 Rendering Store List (Secured Version)...");
 
-        if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+        // Lấy dữ liệu
+        const rawData = this.cachedData.stores || [];
+        const data = this.filterDataByScope(rawData);
+        
+        const tbody = document.getElementById('store-list-body');
+
+        if (!tbody) return; // Nếu không có tbody thì dừng
+
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu cửa hàng.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.map((item, idx) => {
-            const daysLeft = this.getDaysRemaining(item.ngayHetHan);
-            let alertHtml = '';
-            let rowClass = 'bg-white';
+        // --- KHAI BÁO HELPER CỤC BỘ ĐỂ TRÁNH LỖI 'THIS' ---
+        
+        // 1. Dùng UIRenderer để escape HTML (Giả định UIRenderer đã load trước Main)
+        const safe = (str) => {
+            return (window.UIRenderer && UIRenderer.escapeHTML) 
+                ? UIRenderer.escapeHTML(str) 
+                : String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        };
 
-            // Logic cảnh báo hết hạn thuê
-            if (daysLeft < 0) {
-                alertHtml = `<span class="flex items-center text-red-600 font-bold text-xs"><i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i> QUÁ HẠN (${Math.abs(daysLeft)} ngày)</span>`;
-                rowClass = 'bg-red-50';
-            } else if (daysLeft <= (app.rentalConfig?.urgentDay || 7)) {
-                alertHtml = `<span class="flex items-center text-red-600 font-bold text-xs"><i data-lucide="siren" class="w-3 h-3 mr-1 animate-pulse"></i> CÒN ${daysLeft} NGÀY (GẤP)</span>`;
-            } else if (daysLeft <= (app.rentalConfig?.alertDays[1] || 30)) {
-                alertHtml = `<span class="flex items-center text-orange-500 font-bold text-xs"><i data-lucide="bell" class="w-3 h-3 mr-1"></i> Còn ${daysLeft} ngày</span>`;
-            } else if (daysLeft <= (app.rentalConfig?.alertDays[0] || 60)) {
-                alertHtml = `<span class="flex items-center text-yellow-600 font-bold text-xs"><i data-lucide="clock" class="w-3 h-3 mr-1"></i> Sắp hết (${daysLeft} ngày)</span>`;
-            } else {
-                alertHtml = `<span class="text-slate-400 text-xs">Còn ${daysLeft} ngày</span>`;
+        // 2. Helper render ảnh (Thay thế cho this._renderThumb bị thiếu)
+        const renderThumb = (url, label) => {
+            if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300" title="Không có ảnh ${label}"><i data-lucide="image-off" class="w-4 h-4"></i></div>`;
+            
+            // Xử lý link Google Drive thumbnail
+            let displayUrl = url;
+            const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                displayUrl = `https://lh3.googleusercontent.com/d/$${match[1]}=s100`;
             }
 
             return `
-            <tr class="${rowClass} border-b hover:bg-slate-50">
-                <td class="p-3 text-center">${idx + 1}</td>
-                <td class="p-3 font-bold text-blue-600">${item.id}</td>
-                <td class="p-3 font-semibold">${item.ten}</td>
-                <td class="p-3 text-sm text-slate-700">${app.getNameLienCum ? app.getNameLienCum(item.maLienCum) : item.maLienCum}</td>
-                <td class="p-3 text-sm text-slate-500">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                <td class="p-3">${this.getMapLink(item.lat, item.lng, item.diaChi)}</td>
-                <td class="p-3 text-xs">
-                    <div class="whitespace-nowrap"><span class="text-slate-500">Dài:</span> <b>${item.dai || '-'}</b>m</div>
-                    <div class="whitespace-nowrap"><span class="text-slate-500">Rộng:</span> <b>${item.rong || '-'}</b>m</div>
-                    <div class="mt-1 font-bold text-blue-700 bg-blue-50 px-1 rounded w-fit">DT: ${item.dienTich || '-'} m²</div>
-                </td>
-                <td class="p-3">
-                    <div class="text-xs">
-                        <div class="text-slate-500">BĐ: <span class="font-mono text-slate-700">${this.formatDateVN(item.ngayThue)}</span></div>
-                        <div class="text-slate-500">KT: <span class="font-mono font-bold text-slate-800">${this.formatDateVN(item.ngayHetHan)}</span></div>
-                    </div>
-                </td>
-                <td class="p-3">${alertHtml}</td>
-                <td class="p-3 text-sm text-slate-500 italic max-w-[200px] truncate" title="${item.ghiChu || ''}">${item.ghiChu || ''}</td>
-            </tr>`;
-        }).join('');
-        if (window.lucide) lucide.createIcons();
+                <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
+                    title="${label}"
+                    onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                    <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                </div>
+            `;
+        };
+
+        let html = '';
+        data.forEach((s) => {
+            // --- 1. XỬ LÝ DỮ LIỆU AN TOÀN ---
+            // Sửa: Dùng hàm safe() cục bộ thay vì this.escapeHTML()
+            const tenCH = safe(s.ten || 'CH Chưa tên');
+            const maCH = safe(s.id || s.maCH);
+            const diaChi = safe(s.diaChi || '-');
+            const cht = safe(s.cht || '-');
+            const sdt = safe(s.sdt || '');
+            
+            // Các trường logic
+            const imgNgoai = s.AnhNgoai || s.imgOutside || s.anhNgoai || '';
+            const imgTrong = s.AnhTrong || s.imgInside || s.anhTrong || '';
+            const loai = safe(s.loaiCh || 'CHTT'); 
+            
+            // Style cho loại cửa hàng
+            const loaiClass = loai === 'CHTT' 
+                ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                : 'bg-purple-50 text-purple-700 border-purple-100';
+
+            // Xử lý Giờ mở cửa an toàn
+            const rawGioMo = s.gioMo || ''; 
+            const safeGioMo = safe(rawGioMo);
+
+            // Tên Cụm/Liên Cụm (Giả định this.getName... có trong Main)
+            const tenLC = safe(this.getNameLienCum ? this.getNameLienCum(s.maLienCum) : s.maLienCum);
+            const tenCum = safe(this.getNameCum ? this.getNameCum(s.maCum) : s.maCum);
+
+            // --- 2. XỬ LÝ LOGIC NGÀY THÁNG ---
+            let contractBadge = '<span class="text-xs text-slate-400">Chưa rõ</span>';
+            let dateText = '-';
+            
+            if (s.ngayHetHan) {
+                // Sửa: Kiểm tra formatDateForInput có tồn tại không
+                dateText = (typeof window.formatDateForInput === 'function') 
+                            ? formatDateForInput(s.ngayHetHan) 
+                            : safe(s.ngayHetHan);
+
+                const daysLeft = Math.ceil((new Date(s.ngayHetHan) - new Date()) / (1000 * 60 * 60 * 24));
+                if (daysLeft < 0) contractBadge = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">Quá hạn</span>`;
+                else if (daysLeft < 30) contractBadge = `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">Còn ${daysLeft} ngày</span>`;
+                else contractBadge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">Còn ${daysLeft} ngày</span>`;
+            }
+
+            // Sửa: Dùng UIRenderer.getMapLink thay vì this.getMapLink
+            const mapHtml = (s.lat && s.lng && window.UIRenderer) 
+                ? UIRenderer.getMapLink(s.lat, s.lng, diaChi)
+                : `<span class="text-sm text-slate-500">${diaChi}</span>`;
+                
+            // Tuy nhiên hàm getMapLink trong UI cũ trả về HTML phức tạp, ở đây ta chỉ cần link:
+            const linkMap = (s.lat && s.lng) 
+                ? `<a href="https://www.google.com/maps?q=$${s.lat},${s.lng}" target="_blank" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Bản đồ</a>` 
+                : '';
+
+            // --- 3. RENDER HTML ---
+            html += `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition group align-top">
+                    
+                    <td class="px-4 py-3">
+                        <div class="flex flex-col gap-1.5">
+                            <span class="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition cursor-pointer" onclick="app.openEditStoreModal('${maCH}')">
+                                ${tenCH}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono border border-slate-200">
+                                    ${maCH}
+                                </span>
+                                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${loaiClass}">
+                                    ${loai}
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td class="px-4 py-3 text-sm text-slate-600">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="font-medium text-slate-800">${tenLC}</span>
+                            <span class="text-xs text-slate-400">${tenCum}</span>
+                        </div>
+                    </td>
+
+                    <td class="px-4 py-3">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-medium text-slate-700">${cht}</span>
+                            ${sdt ? `<a href="tel:${sdt}" class="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-0.5"><i data-lucide="phone" class="w-3 h-3"></i> ${sdt}</a>` : ''}
+                        </div>
+                    </td>
+
+                    <td class="px-4 py-3 max-w-[220px]">
+                        <div class="flex flex-col">
+                            <div class="text-sm text-slate-600 line-clamp-2 leading-relaxed" title="${diaChi}">${diaChi}</div>
+                            
+                            <div class="flex items-center gap-3 mt-1">
+                                ${linkMap}
+                            </div>
+                            
+                            ${safeGioMo ? `
+                            <div class="mt-2 pt-1.5 border-t border-slate-100 flex items-start gap-1.5 w-full group/time" title="${safeGioMo}">
+                                <i data-lucide="clock" class="w-3 h-3 text-slate-400 mt-0.5 shrink-0 group-hover/time:text-blue-500 transition"></i>
+                                <span class="text-[11px] text-slate-500 truncate cursor-pointer hover:text-blue-700 transition font-medium">
+                                    ${safeGioMo}
+                                </span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </td>
+
+                    <td class="px-4 py-3">
+                        <div class="flex flex-col items-start gap-1">
+                            ${contractBadge}
+                            <span class="text-[10px] text-slate-400">Hết hạn: <b class="text-slate-600">${dateText}</b></span>
+                        </div>
+                    </td>
+
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2 justify-end">
+                            ${renderThumb(imgNgoai, 'Ngoại thất')}
+                            ${renderThumb(imgTrong, 'Nội thất')}
+                            
+                            <button onclick="app.openEditStoreModal('${maCH}')" class="ml-2 p-1.5 bg-white border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 rounded text-slate-400 transition shadow-sm" title="Chỉnh sửa thông tin">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        if(window.lucide) lucide.createIcons();
+    },
+    // Hàm hỗ trợ format ngày (nếu chưa có thì thêm vào UIRenderer)
+    _formatDate(dateString) {
+        if (!dateString) return '';
+        try {
+            const d = new Date(dateString);
+            return d.toLocaleDateString('vi-VN');
+        } catch { return dateString; }
     },
 
     // 3.2 Giao dịch viên
@@ -1088,7 +1232,7 @@ const UIRenderer = {
     },
 
     // ============================================================
-    // 8. MODAL CHI TIẾT (GENERIC)
+    // 8. MODAL CHI TIẾT (GENERIC) - ĐÃ CẬP NHẬT ĐỒNG BỘ GIAO DIỆN STORE
     // ============================================================
 
     renderDetailModalContent(type, data, meta = {}) {
@@ -1109,6 +1253,36 @@ const UIRenderer = {
 
         let headerHtml = '';
         let bodyHtml = '';
+
+        // --- HELPER DÙNG CHO MODAL ---
+        const formatNum = (n) => this.formatNumber(n);
+        
+        // Helper: Logic tính trạng thái hợp đồng (Đồng bộ với renderStoresTable)
+        const getContractStatus = (endDateStr) => {
+            if (!endDateStr) return { label: 'KHÔNG XĐ', color: 'bg-slate-100 text-slate-500 border-slate-200' };
+            
+            let end;
+            try {
+                if (endDateStr instanceof Date) end = endDateStr;
+                else if (typeof endDateStr === 'string' && endDateStr.includes('/')) {
+                    const parts = endDateStr.split('/');
+                    if (parts.length === 3) end = new Date(parts[2], parts[1] - 1, parts[0]);
+                } else {
+                    end = new Date(endDateStr);
+                }
+            } catch (e) { return { label: 'LỖI DATE', color: 'bg-slate-100' }; }
+
+            if (!end || isNaN(end.getTime())) return { label: 'KHÔNG XĐ', color: 'bg-slate-100 text-slate-500 border-slate-200' };
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const diffTime = end - today;
+            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (daysLeft < 0) return { label: `QUÁ HẠN`, color: 'bg-red-50 text-red-700 border-red-100', days: daysLeft };
+            if (daysLeft <= 30) return { label: `CÒN ${daysLeft} NGÀY`, color: 'bg-orange-50 text-orange-700 border-orange-100', days: daysLeft };
+            return { label: `CÒN ${daysLeft} NGÀY`, color: 'bg-emerald-50 text-emerald-700 border-emerald-100', days: daysLeft };
+        };
 
         // CASE 1: STAFF PERFORMANCE
         if (type === 'staff-performance') {
@@ -1154,8 +1328,8 @@ const UIRenderer = {
                         <div class="text-[10px] font-mono text-slate-400">${item.code || item.maNV || ''}</div>
                     </td>
                     <td class="p-3 text-sm text-slate-600 align-middle">${app.getNameCum ? app.getNameCum(item.maCum) : (item.maCum || '-')}</td>
-                    <td class="p-3 text-right font-mono text-slate-600 align-middle">${this.formatNumber(plan)}</td>
-                    <td class="p-3 text-right font-bold font-mono text-blue-700 align-middle">${this.formatNumber(actual)}</td>
+                    <td class="p-3 text-right font-mono text-slate-600 align-middle">${formatNum(plan)}</td>
+                    <td class="p-3 text-right font-bold font-mono text-blue-700 align-middle">${formatNum(actual)}</td>
                     <td class="p-3 align-middle">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-bold w-10 text-right ${pct >= 100 ? 'text-emerald-600' : 'text-slate-600'}">${pct}%</span>
@@ -1171,8 +1345,8 @@ const UIRenderer = {
             bodyHtml += `
                 <tr class="bg-blue-50/80 font-bold border-t-2 border-blue-100 sticky bottom-0 shadow-sm z-20">
                     <td colspan="3" class="p-3 text-center uppercase text-blue-800 text-xs tracking-wider">Tổng cộng</td>
-                    <td class="p-3 text-right font-mono text-blue-800">${this.formatNumber(sumPlan)}</td>
-                    <td class="p-3 text-right font-mono text-blue-800">${this.formatNumber(sumActual)}</td>
+                    <td class="p-3 text-right font-mono text-blue-800">${formatNum(sumPlan)}</td>
+                    <td class="p-3 text-right font-mono text-blue-800">${formatNum(sumActual)}</td>
                     <td class="p-3 text-right text-blue-800">${totalPct}%</td>
                 </tr>`;
         }
@@ -1201,8 +1375,8 @@ const UIRenderer = {
                 <tr class="border-b hover:bg-slate-50 transition-colors">
                     <td class="p-3 text-center text-slate-500">${idx + 1}</td>
                     <td class="p-3 font-medium text-blue-700">${item.name}</td>
-                    <td class="p-3 text-right font-mono text-slate-500">${this.formatNumber(plan)}</td>
-                    <td class="p-3 text-right font-mono font-bold text-slate-700">${this.formatNumber(actual)}</td>
+                    <td class="p-3 text-right font-mono text-slate-500">${formatNum(plan)}</td>
+                    <td class="p-3 text-right font-mono font-bold text-slate-700">${formatNum(actual)}</td>
                     <td class="p-3 text-center">
                         <span class="px-2 py-1 rounded text-xs font-bold ${pct >= 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}">
                             ${pct}%
@@ -1213,42 +1387,96 @@ const UIRenderer = {
             }).join('');
         }
 
-        // CASE 3: STORE DETAIL
+        // CASE 3: STORE DETAIL (CẬP NHẬT ĐỒNG BỘ VỚI renderStoresTable)
         else if (type === 'store') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Tên Cửa Hàng</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Địa chỉ</th>
-                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Hết hạn</th>
+                    <th class="p-3 border-b bg-slate-100 text-center w-10 sticky top-0 z-20">#</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Thông tin Cửa Hàng</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Cụm</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20 min-w-[200px]">Địa chỉ & Liên hệ</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Hình ảnh</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Hợp đồng</th>
                 </tr>`;
             
-            bodyHtml = data.map(item => {
-                let status = '<span class="text-slate-400">-</span>';
-                if (item.ngayHetHan) {
-                    const today = new Date();
-                    const expDate = new Date(item.ngayHetHan);
-                    const diffTime = expDate - today;
-                    const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    
-                    if (daysLeft < 0) {
-                        status = `<span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-bold">Quá hạn ${Math.abs(daysLeft)} ngày</span>`;
-                    } else if (daysLeft < 30) {
-                        status = `<span class="text-red-600 font-bold text-xs">Còn ${daysLeft} ngày</span>`;
-                    } else {
-                        status = `<span class="text-emerald-600 text-xs font-medium">${daysLeft} ngày</span>`;
-                    }
-                }
+            bodyHtml = data.map((item, idx) => {
+                // Mapping dữ liệu (An toàn null)
+                const ten = item.ten || 'Chưa cập nhật tên';
+                const id = item.id || item.maCH || '';
+                const loai = item.loaiCh || 'CHTT';
+                const cum = app.getNameCum ? app.getNameCum(item.maCum) : (item.maCum || '-');
+                const cht = item.cht || '';
+                const sdt = item.sdt || '';
+                const diaChi = item.diaChi || '';
+                const gioMo = item.gioMo || '';
+                
+                // Map
+                const mapLink = (item.lat && item.lng) 
+                ? `<a href="http://maps.google.com/maps?q=${item.lat},${item.lng}" target="_blank" class="text-blue-600 hover:text-blue-800 text-[11px] flex items-center gap-1 mt-1 font-medium transition">
+                    <i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ
+                </a>` : '';
+
+                // Images
+                const imgTrong = item.AnhTrong || item.imgInside || item.anhTrong || '';
+                const imgNgoai = item.AnhNgoai || item.imgOutside || item.anhNgoai || '';
+                const hasImgIn = imgTrong.length > 5;
+                const hasImgOut = imgNgoai.length > 5;
+
+                // Status
+                const status = getContractStatus(item.ngayHetHan);
+                const safeDate = item.ngayHetHan ? (typeof item.ngayHetHan === 'string' ? item.ngayHetHan.split('T')[0] : item.ngayHetHan) : '';
 
                 return `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
+                <tr class="border-b hover:bg-slate-50 transition-colors align-top">
+                    <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
+                    
                     <td class="p-3">
-                        <div class="font-bold text-blue-700">${item.ten}</div>
-                        <div class="text-xs text-slate-500">${item.id || item.maCH || ''}</div>
+                        <div class="flex flex-col gap-1">
+                            <span class="font-bold text-slate-700 text-sm">${ten}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">${id}</span>
+                                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${loai === 'CHTT' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-purple-50 text-purple-700 border-purple-100'}">
+                                    ${loai}
+                                </span>
+                            </div>
+                        </div>
                     </td>
-                    <td class="p-3 text-sm">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                    <td class="p-3 text-xs text-slate-600 truncate max-w-[200px]" title="${item.diaChi}">${item.diaChi || '-'}</td>
-                    <td class="p-3 text-center">${status}</td>
+
+                    <td class="p-3 text-center">
+                         <span class="inline-block px-2 py-1 rounded bg-slate-100 text-slate-600 text-xs font-semibold border border-slate-200 whitespace-nowrap">${cum}</span>
+                    </td>
+
+                    <td class="p-3">
+                        <div class="flex flex-col text-sm">
+                            <span class="font-medium text-slate-700 text-xs mb-0.5"><i data-lucide="user" class="w-3 h-3 inline text-slate-400"></i> ${cht || '-'}</span>
+                            ${sdt ? `<a href="tel:${sdt}" class="text-slate-500 hover:text-blue-600 text-xs flex items-center gap-1 mb-1"><i data-lucide="phone" class="w-3 h-3"></i> ${sdt}</a>` : ''}
+                            <span class="text-xs text-slate-600 line-clamp-2 leading-tight" title="${diaChi}">${diaChi || '-'}</span>
+                            ${mapLink}
+                            ${gioMo ? `<div class="mt-1 flex items-center gap-1 text-[10px] text-slate-500"><i data-lucide="clock" class="w-3 h-3"></i> ${gioMo}</div>` : ''}
+                        </div>
+                    </td>
+
+                    <td class="p-3 text-center align-middle">
+                        <div class="flex gap-2 justify-center">
+                            <div class="relative group/tooltip" title="Ảnh nội thất">
+                                <i data-lucide="image" class="w-4 h-4 transition ${hasImgIn ? 'text-blue-600 cursor-pointer hover:scale-110' : 'text-slate-200'}" 
+                                ${hasImgIn ? `onclick="app.viewImage('${imgTrong}')"` : ''}></i>
+                            </div>
+                            <div class="relative group/tooltip" title="Ảnh ngoại thất">
+                                <i data-lucide="camera" class="w-4 h-4 transition ${hasImgOut ? 'text-blue-600 cursor-pointer hover:scale-110' : 'text-slate-200'}" 
+                                ${hasImgOut ? `onclick="app.viewImage('${imgNgoai}')"` : ''}></i>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td class="p-3 text-center align-middle">
+                         <div class="flex flex-col items-center gap-1">
+                            <span class="inline-flex w-fit px-2 py-0.5 rounded text-[10px] font-bold border ${status.color} uppercase whitespace-nowrap">
+                                ${status.label}
+                            </span>
+                             ${safeDate ? `<span class="text-[10px] text-slate-400">${this.formatDateVN(safeDate)}</span>` : ''}
+                        </div>
+                    </td>
                 </tr>`;
             }).join('');
         }
@@ -1290,8 +1518,8 @@ const UIRenderer = {
                     <td class="p-3 font-bold text-blue-700">${item['Mã Trạm'] || item.maTram}</td>
                     <td class="p-3 text-sm"><span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600 text-xs">${item['Loại trạm'] || item.loai || '-'}</span></td>
                     <td class="p-3 text-sm text-slate-500">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                    <td class="p-3 text-right font-mono text-slate-700">${this.formatNumber(item['VLR 4G'] || item.vlr)}</td>
-                    <td class="p-3 text-right font-mono text-slate-700">${this.formatNumber(item['Data (GB/BQN)'] || item.data)}</td>
+                    <td class="p-3 text-right font-mono text-slate-700">${formatNum(item['VLR 4G'] || item.vlr)}</td>
+                    <td class="p-3 text-right font-mono text-slate-700">${formatNum(item['Data (GB/BQN)'] || item.data)}</td>
                 </tr>`).join('');
         }
 
@@ -1327,15 +1555,13 @@ const UIRenderer = {
             bodyHtml = data.map(item => `
                 <tr class="border-b hover:bg-slate-50 transition-colors">
                     <td class="p-3 font-medium text-slate-700">${item.ten}</td>
-                    <td class="p-3 text-right font-mono text-slate-600">${this.formatNumber(item.danSo)}</td>
+                    <td class="p-3 text-right font-mono text-slate-600">${formatNum(item.danSo)}</td>
                     <td class="p-3 text-right font-mono text-slate-600">${this.formatAreaKm2(item.dienTich)}</td>
-                    <td class="p-3 text-right font-mono font-bold text-blue-600">${this.formatNumber(item.vlr)}</td>
+                    <td class="p-3 text-right font-mono font-bold text-blue-600">${formatNum(item.vlr)}</td>
                     <td class="p-3 text-right font-mono font-bold text-emerald-600">${item.tram}</td>
                 </tr>`).join('');
         }
         
-        // ... (Các case phía trên giữ nguyên)
-
         // CASE 8: INDIRECT (ĐÃ SỬA: Render trực tiếp vào Modal thay vì gọi hàm renderIndirectTable)
         else if (type === 'indirect') {
             headerHtml = `
@@ -1377,7 +1603,7 @@ const UIRenderer = {
                 const displayUrl = getDisplayUrl(url);
                 return `
                     <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
-                         onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                          onclick="event.stopPropagation(); window.open('${url}', '_blank')">
                         <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
                     </div>`;
             };
@@ -1439,8 +1665,6 @@ const UIRenderer = {
                 </tr>`;
             }).join('');
         }
-
-        
 
         // Render HTML
         thead.innerHTML = headerHtml;
