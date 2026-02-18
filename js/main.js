@@ -47,7 +47,7 @@
     // ============================================================
             async init() {
 
-                console.log("App Starting... Version Ver Lunar.2026 (Scope Secured)");
+                console.log("App Starting... Version Ver LunarNY.2026 (Scope Secured)");
 
                 // 1. Kiểm tra đăng nhập
                 const savedUser = localStorage.getItem('MIS_USER');
@@ -1400,212 +1400,6 @@
             if(window.lucide) lucide.createIcons();
         },
 
-        renderGDVList() {
-            console.log("🚀 Rendering GDV List (Secured - Fixed Variable)...");
-            
-            // 1. Helper an toàn cục bộ
-            const safe = (str) => {
-                if (!str) return '';
-                return String(str)
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            };
-
-            const getSafeName = (code, map) => {
-                if (!code) return '-';
-                return (this[map] && this[map][code]) ? this[map][code] : code;
-            };
-
-            // 2. Lấy data (SỬA LỖI Ở ĐÂY: gdv -> gdvs)
-            const rawData = this.cachedData.gdvs || []; 
-            const data = this.filterDataByScope(rawData);
-            
-            const tbody = document.getElementById('gdv-list-body');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu GDV.</td></tr>';
-                return;
-            }
-
-            let html = '';
-            data.forEach((item, idx) => {
-                const maGDV = safe(item.maGDV || item.maNV);
-                const ten = safe(item.ten || item.hoTen);
-                const maCH = safe(item.maCH || item.shopCode);
-                const sdt = safe(item.sdt || '');
-                const vung = safe(item.vung || '-');
-                
-                const tenLC = safe(getSafeName(item.maLienCum, 'mapLienCum'));
-                const tenCum = safe(getSafeName(item.maCum, 'mapCum'));
-
-                const statusClass = (item.trangThai === 'Nghỉ việc') 
-                    ? 'bg-red-50 text-red-600 border-red-100' 
-                    : 'bg-emerald-50 text-emerald-600 border-emerald-100';
-
-                html += `
-                    <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                        <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
-                        <td class="p-3 font-mono text-xs font-bold text-blue-700">${maGDV}</td>
-                        <td class="p-3 font-medium text-slate-700">${ten}</td>
-                        <td class="p-3 text-xs">
-                            <span class="px-2 py-0.5 bg-slate-100 rounded border border-slate-200 font-mono">${maCH}</span>
-                        </td>
-                        <td class="p-3 text-xs text-slate-600">${tenLC}</td>
-                        <td class="p-3 text-xs text-slate-600">${tenCum}</td>
-                        <td class="p-3 text-xs text-slate-500">${vung}</td>
-                        <td class="p-3 text-xs font-mono">${sdt}</td>
-                        <td class="p-3 text-center">
-                            <span class="text-[10px] px-2 py-0.5 rounded border ${statusClass} font-bold uppercase">
-                                ${safe(item.trangThai || 'Hoạt động')}
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        },
-
-        renderSalesList() {
-        console.log("🚀 Rendering Sales List (Secured - Fixed PhuongXa)...");
-
-        // 1. Helper an toàn cục bộ
-        const safe = (str) => {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        };
-
-        const getSafeName = (code, map) => {
-            if (!code) return '-';
-            return (this[map] && this[map][code]) ? this[map][code] : code;
-        };
-
-        // 2. Lấy data
-        const rawData = this.cachedData.sales || [];
-        const data = this.filterDataByScope(rawData);
-        
-        const tbody = document.getElementById('sales-list-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu NVBH.</td></tr>';
-            return;
-        }
-
-        let html = '';
-        data.forEach((item, idx) => {
-            const maNV = safe(item.maNV);
-            const ten = safe(item.ten || item.hoTen);
-            const sdt = safe(item.sdt || '');
-            const vung = safe(item.vung || '-');
-            
-            // [FIX] Bổ sung check item.phuongXas (theo Google Sheet)
-            const diaBan = safe(item.diaBan || item.phuongXa || item.phuongXas || '-');
-
-            const tenLC = safe(getSafeName(item.maLienCum, 'mapLienCum'));
-            const tenCum = safe(getSafeName(item.maCum, 'mapCum'));
-
-            const statusClass = (item.trangThai === 'Nghỉ việc') 
-                ? 'bg-red-50 text-red-600 border-red-100' 
-                : 'bg-orange-50 text-orange-600 border-orange-100';
-
-            html += `
-                <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                    <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
-                    <td class="p-3 font-mono text-xs font-bold text-orange-700">${maNV}</td>
-                    <td class="p-3 font-medium text-slate-700">${ten}</td>
-                    <td class="p-3 text-xs text-slate-600">${tenLC}</td>
-                    <td class="p-3 text-xs text-slate-600">${tenCum}</td>
-                    <td class="p-3 text-center text-xs text-slate-500">${vung}</td>
-                    <td class="p-3 text-xs text-slate-600 max-w-[200px] truncate" title="${diaBan}">${diaBan}</td>
-                    <td class="p-3 text-xs font-mono">${sdt}</td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] px-2 py-0.5 rounded border ${statusClass} font-bold uppercase">
-                            ${safe(item.trangThai || 'Hoạt động')}
-                        </span>
-                    </td>
-                </tr>
-            `;
-        });
-        tbody.innerHTML = html;
-    },
-    renderB2BList() {
-        console.log("🚀 Rendering B2B List (Secured)...");
-
-        // 1. Helper an toàn cục bộ
-        const safe = (str) => {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        };
-
-        const getSafeName = (code, map) => {
-            if (!code) return '-';
-            return (this[map] && this[map][code]) ? this[map][code] : code;
-        };
-
-        // 2. Lấy data
-        const rawData = this.cachedData.b2b || [];
-        const data = this.filterDataByScope(rawData);
-        
-        const tbody = document.getElementById('b2b-list-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu KHDN.</td></tr>';
-            return;
-        }
-
-        let html = '';
-        data.forEach((item, idx) => {
-            const maNV = safe(item.maNV);
-            const ten = safe(item.ten || item.hoTen);
-            const sdt = safe(item.sdt || '');
-            const vung = safe(item.vung || '-');
-
-            const tenLC = safe(getSafeName(item.maLienCum, 'mapLienCum'));
-            const tenCum = safe(getSafeName(item.maCum, 'mapCum'));
-
-            const statusClass = (item.trangThai === 'Nghỉ việc') 
-                ? 'bg-red-50 text-red-600 border-red-100' 
-                : 'bg-purple-50 text-purple-600 border-purple-100';
-
-            html += `
-                <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                    <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
-                    <td class="p-3 font-mono text-xs font-bold text-purple-700">${maNV}</td>
-                    <td class="p-3 font-medium text-slate-700">${ten}</td>
-                    <td class="p-3 text-xs text-slate-600">${tenLC}</td>
-                    <td class="p-3 text-xs text-slate-600">${tenCum}</td>
-                    <td class="p-3 text-center text-xs text-slate-500">${vung}</td>
-                    <td class="p-3 text-xs font-mono">${sdt}</td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] px-2 py-0.5 rounded border ${statusClass} font-bold uppercase">
-                            ${safe(item.trangThai || 'Hoạt động')}
-                        </span>
-                    </td>
-                </tr>
-            `;
-        });
-        tbody.innerHTML = html;
-    },
-
-     
         // ============================================================
         // 4. BUSINESS DATA & USER LOGS (CÁC TRANG DỮ LIỆU KHÁC)
         // ============================================================
@@ -1961,6 +1755,7 @@
             console.groupEnd();
         },
 
+        // Trong main.js - Thay thế đoạn switchTab cũ
         switchTab(tabId, btn) {
             const p = btn.closest('.view-section');
             if (!p) return;
@@ -1979,11 +1774,27 @@
                 this.initKPIReportTab();
             }
 
-            // --- KHỐI XỬ LÝ KÊNH TRỰC TIẾP ---
-            if (tabId === 'tab-sales') this.renderSalesList();
-            if (tabId === 'tab-b2b') this.renderB2BList();
-            if (tabId === 'tab-gdv') this.renderGDVList();
-            if (tabId === 'tab-stores') this.renderStoreList();
+            // --- KHỐI XỬ LÝ KÊNH TRỰC TIẾP (ĐÃ TỐI ƯU GENERIC) ---
+            if (tabId === 'tab-sales') {
+                const data = this.filterDataByScope(this.cachedData.sales || []);
+                // Gọi hàm generic bên UIRenderer (đảm bảo file ui-renderer.js đã có hàm này)
+                UIRenderer.renderStaffTable(data, 'sales-list-body', 'sales');
+            }
+            
+            if (tabId === 'tab-b2b') {
+                const data = this.filterDataByScope(this.cachedData.b2b || []);
+                UIRenderer.renderStaffTable(data, 'b2b-list-body', 'common'); // B2B dùng chung logic hiển thị cơ bản
+            }
+            
+            if (tabId === 'tab-gdv') {
+                const data = this.filterDataByScope(this.cachedData.gdvs || []);
+                UIRenderer.renderStaffTable(data, 'gdv-list-body', 'gdv');
+            }
+            
+            if (tabId === 'tab-stores') {
+                // Store có logic hiển thị khác biệt (ảnh, bản đồ) nên giữ nguyên hoặc tách riêng
+                this.renderStoreList(); 
+            }
         },
 
 
@@ -1999,7 +1810,7 @@
 
         renderFooter() {
             if (!document.getElementById('app-footer')) {
-                document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver Lunar.2026 </div>`);
+                document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver LunarNY.2026 </div>`);
             }
         },
 
@@ -2594,194 +2405,252 @@
         // ============================================================
 
         async saveIndirectChannel() {
-        // --- 1. LẤY ID BẢN GHI GỐC ---
-        const oldId = this.currentEditingIndirectId; 
-        if (!oldId) return alert("❌ Lỗi: Không xác định được ID bản ghi gốc.");
+            // --- 1. LẤY ID BẢN GHI GỐC ---
+            const oldId = this.currentEditingIndirectId; 
+            if (!oldId) return alert("❌ Lỗi: Không xác định được ID bản ghi gốc.");
 
-        // Tìm Item gốc để backup dữ liệu nếu form nhập thiếu
-        const originalItem = (this.cachedData.indirect || []).find(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
-        
-        // Helper lấy dữ liệu gốc an toàn
-        const getOriginalVal = (keys) => {
-            if (!originalItem) return '';
-            for (let k of keys) {
-                if (originalItem[k] !== undefined && originalItem[k] !== null) return originalItem[k];
-            }
-            return '';
-        };
-
-        // --- 2. LẤY DỮ LIỆU TỪ FORM (ĐÃ CHUẨN HÓA ID) ---
-        // Lưu ý: Hãy kiểm tra file HTML của bạn xem ID có đúng là 'edit-indirect-...' không nhé
-        const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
-        const newId = codeInput || oldId; 
-
-        const name = document.getElementById('edit-indirect-name')?.value.trim();
-        const phone = document.getElementById('edit-indirect-phone')?.value.trim(); // ID cũ có thể sai
-        const address = document.getElementById('edit-indirect-address')?.value.trim();
-        
-        // Sửa lại ID cho nhất quán (thêm prefix edit-)
-        const loai = document.getElementById('edit-indirect-type')?.value; 
-        const phanLoai = document.getElementById('edit-indirect-class')?.value; 
-        const tuyen = document.getElementById('edit-indirect-route')?.value;
-        const chu = document.getElementById('edit-indirect-owner')?.value;
-        
-        // Tọa độ (Sửa ID: thêm 'edit-' nếu HTML của bạn dùng pattern này)
-        const latVal = document.getElementById('edit-indirect-lat')?.value.trim() || document.getElementById('indirect-lat')?.value.trim();
-        const lngVal = document.getElementById('edit-indirect-lng')?.value.trim() || document.getElementById('indirect-lng')?.value.trim();
-
-        // Cụm/Liên Cụm
-        const valLienCum = document.getElementById('edit-indirect-liencum')?.value || getOriginalVal(['maLienCum', 'maliencum', 'lienCum']);
-        const valCum = document.getElementById('edit-indirect-cum')?.value || getOriginalVal(['maCum', 'macum', 'cum']);
-
-        // [DEBUG] In ra để xem Client có lấy được dữ liệu không?
-        console.log("📝 Form Data Check:", { name, phone, address, latVal, lngVal });
-
-        // Validate cơ bản
-        if ((latVal && isNaN(latVal)) || (lngVal && isNaN(lngVal))) {
-            return alert("⚠️ Tọa độ phải là số (VD: 10.762)!");
-        }
-
-        // --- 3. UI LOADING ---
-        const saveBtn = document.querySelector('#modal-edit-indirect .btn-save') || 
-                        document.querySelector('#modal-edit-indirect button[onclick*="save"]');
-        let oldBtnContent = 'Lưu thay đổi';
-        if (saveBtn) {
-            oldBtnContent = saveBtn.innerHTML;
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = `<i class="animate-spin mr-2">⏳</i> Đang xử lý & Gửi...`;
-        }
-
-        try {
-            // --- 4. XỬ LÝ ẢNH (NÉN & BASE64) ---
-            const fileOutInput = document.getElementById('file-outside');
-            const fileInInput = document.getElementById('file-inside');
+            // Tìm Item gốc để backup dữ liệu nếu form nhập thiếu
+            const originalItem = (this.cachedData.indirect || []).find(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
             
-            let imgOutBase64 = null;
-            let imgInBase64 = null;
-
-            // Hàm nén ảnh (giả định bạn đã có this.compressImage)
-            if (fileOutInput && fileOutInput.files.length > 0) {
-                try {
-                    console.log("📸 Đang nén ảnh ngoài...");
-                    imgOutBase64 = await this.compressImage(fileOutInput.files[0]);
-                } catch (e) { console.error(e); }
-            }
-            
-            if (fileInInput && fileInInput.files.length > 0) {
-                try {
-                    console.log("📸 Đang nén ảnh trong...");
-                    imgInBase64 = await this.compressImage(fileInInput.files[0]);
-                } catch (e) { console.error(e); }
-            }
-
-            // --- 5. TẠO PAYLOAD (ĐÃ CHUẨN HÓA KEY CHO SERVER) ---
-            // Key ở đây phải khớp với logic map cột ở Server
-            const payload = {
-                action: 'update_indirect',
-                data: {
-                    oldMaDL: oldId, // Key tìm dòng
-                    maDL: newId,    // Key cập nhật
-                    
-                    // Các trường thông tin (dùng key chữ thường cho lành)
-                    ten: name,
-                    sdt: phone,           
-                    diachi: address,      
-                    lat: latVal,          
-                    lng: lngVal,          
-                    tuyen: tuyen,         
-                    phanloai: phanLoai,   
-                    loai: loai,           
-                    chusohuu: chu,        
-                    maliencum: valLienCum,
-                    macum: valCum,
-
-                    // Ảnh
-                    imgOutside: imgOutBase64, 
-                    imgInside: imgInBase64    
+            // Helper lấy dữ liệu gốc an toàn
+            const getOriginalVal = (keys) => {
+                if (!originalItem) return '';
+                for (let k of keys) {
+                    if (originalItem[k] !== undefined && originalItem[k] !== null) return originalItem[k];
                 }
+                return '';
             };
 
-            console.log("🚀 Payload sending to Server:", payload); // Kiểm tra payload cuối cùng
+            // --- 2. LẤY DỮ LIỆU TỪ FORM (ĐÃ CHUẨN HÓA ID) ---
+            // Lưu ý: Hãy kiểm tra file HTML của bạn xem ID có đúng là 'edit-indirect-...' không nhé
+            const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
+            const newId = codeInput || oldId; 
 
-            // Gọi API
-            const response = await DataService.postData(payload);
+            const name = document.getElementById('edit-indirect-name')?.value.trim();
+            const phone = document.getElementById('edit-indirect-phone')?.value.trim(); // ID cũ có thể sai
+            const address = document.getElementById('edit-indirect-address')?.value.trim();
+            
+            // Sửa lại ID cho nhất quán (thêm prefix edit-)
+            const loai = document.getElementById('edit-indirect-type')?.value; 
+            const phanLoai = document.getElementById('edit-indirect-class')?.value; 
+            const tuyen = document.getElementById('edit-indirect-route')?.value;
+            const chu = document.getElementById('edit-indirect-owner')?.value;
+            
+            // Tọa độ (Sửa ID: thêm 'edit-' nếu HTML của bạn dùng pattern này)
+            const latVal = document.getElementById('edit-indirect-lat')?.value.trim() || document.getElementById('indirect-lat')?.value.trim();
+            const lngVal = document.getElementById('edit-indirect-lng')?.value.trim() || document.getElementById('indirect-lng')?.value.trim();
 
-            // --- 6. XỬ LÝ KẾT QUẢ (ĐÃ SỬA OPTIMISTIC UI) ---
-            if (response && (response.status === 'success' || response.result === 'success' || response.id)) {
+            // Cụm/Liên Cụm
+            const valLienCum = document.getElementById('edit-indirect-liencum')?.value || getOriginalVal(['maLienCum', 'maliencum', 'lienCum']);
+            const valCum = document.getElementById('edit-indirect-cum')?.value || getOriginalVal(['maCum', 'macum', 'cum']);
+
+            // [DEBUG] In ra để xem Client có lấy được dữ liệu không?
+            console.log("📝 Form Data Check:", { name, phone, address, latVal, lngVal });
+
+            // Validate cơ bản
+            if ((latVal && isNaN(latVal)) || (lngVal && isNaN(lngVal))) {
+                return alert("⚠️ Tọa độ phải là số (VD: 10.762)!");
+            }
+
+            // --- 3. UI LOADING ---
+            const saveBtn = document.querySelector('#modal-edit-indirect .btn-save') || 
+                            document.querySelector('#modal-edit-indirect button[onclick*="save"]');
+            let oldBtnContent = 'Lưu thay đổi';
+            if (saveBtn) {
+                oldBtnContent = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `<i class="animate-spin mr-2">⏳</i> Đang xử lý & Gửi...`;
+            }
+
+            try {
+                // --- 4. XỬ LÝ ẢNH (NÉN & BASE64) ---
+                const fileOutInput = document.getElementById('file-outside');
+                const fileInInput = document.getElementById('file-inside');
                 
-                // 1. Thông báo & Đóng Modal
-                alert("✅ Cập nhật thành công!");
-                this.closeModal('modal-edit-indirect');
+                let imgOutBase64 = null;
+                let imgInBase64 = null;
+
+                // Hàm nén ảnh (giả định bạn đã có this.compressImage)
+                if (fileOutInput && fileOutInput.files.length > 0) {
+                    try {
+                        console.log("📸 Đang nén ảnh ngoài...");
+                        imgOutBase64 = await this.compressImage(fileOutInput.files[0]);
+                    } catch (e) { console.error(e); }
+                }
                 
-                // 2. CHUẨN BỊ DỮ LIỆU MỚI ĐỂ CẬP NHẬT GIAO DIỆN NGAY
-                // (Tạo object từ các biến bạn đã lấy từ form ở trên)
-                const updatedItem = {
-                    ...originalItem, // Giữ lại các trường cũ không bị sửa
-                    id: newId,
-                    maDL: newId,
-                    maCode: newId,
-                    
-                    ten: name,
-                    sdt: phone,
-                    diaChi: address,
-                    lat: latVal,
-                    lng: lngVal,
-                    tuyen: tuyen,
-                    phanloai: phanLoai, // Chú ý: key phải khớp với hàm render (chữ thường)
-                    loai: loai,
-                    chuSoHuu: chu,
-                    
-                    maLienCum: valLienCum,
-                    maCum: valCum,
-                    
-                    // Xử lý ảnh: Nếu có ảnh mới upload (Base64) thì dùng, không thì giữ ảnh cũ
-                    // Lưu ý: Base64 cần thêm prefix để hiển thị được ngay
-                    anhNgoai: imgOutBase64 ? `data:image/jpeg;base64,${imgOutBase64}` : (originalItem ? (originalItem.anhNgoai || originalItem.imgOutside) : ''),
-                    anhTrong: imgInBase64 ? `data:image/jpeg;base64,${imgInBase64}` : (originalItem ? (originalItem.anhTrong || originalItem.imgInside) : '')
+                if (fileInInput && fileInInput.files.length > 0) {
+                    try {
+                        console.log("📸 Đang nén ảnh trong...");
+                        imgInBase64 = await this.compressImage(fileInInput.files[0]);
+                    } catch (e) { console.error(e); }
+                }
+
+                // --- 5. TẠO PAYLOAD (ĐÃ CHUẨN HÓA KEY CHO SERVER) ---
+                // Key ở đây phải khớp với logic map cột ở Server
+                const payload = {
+                    action: 'update_indirect',
+                    data: {
+                        oldMaDL: oldId, // Key tìm dòng
+                        maDL: newId,    // Key cập nhật
+                        
+                        // Các trường thông tin (dùng key chữ thường cho lành)
+                        ten: name,
+                        sdt: phone,           
+                        diachi: address,      
+                        lat: latVal,          
+                        lng: lngVal,          
+                        tuyen: tuyen,         
+                        phanloai: phanLoai,   
+                        loai: loai,           
+                        chusohuu: chu,        
+                        maliencum: valLienCum,
+                        macum: valCum,
+
+                        // Ảnh
+                        imgOutside: imgOutBase64, 
+                        imgInside: imgInBase64    
+                    }
                 };
 
-                // 3. CẬP NHẬT VÀO BỘ NHỚ CACHE (QUAN TRỌNG NHẤT)
-                if (!this.cachedData.indirect) this.cachedData.indirect = [];
-                
-                // Tìm vị trí dòng cũ
-                const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
+                console.log("🚀 Payload sending to Server:", payload); // Kiểm tra payload cuối cùng
 
-                if (index !== -1) {
-                    // TRƯỜNG HỢP SỬA: Ghi đè dữ liệu mới vào dòng cũ
-                    this.cachedData.indirect[index] = updatedItem;
-                    console.log("🔄 Đã cập nhật cache tại dòng:", index);
+                // Gọi API
+                const response = await DataService.postData(payload);
+
+                // --- 6. XỬ LÝ KẾT QUẢ (ĐÃ SỬA OPTIMISTIC UI) ---
+                if (response && (response.status === 'success' || response.result === 'success' || response.id)) {
+                    
+                    // 1. Thông báo & Đóng Modal
+                    alert("✅ Cập nhật thành công!");
+                    this.closeModal('modal-edit-indirect');
+                    
+                    // 2. CHUẨN BỊ DỮ LIỆU MỚI ĐỂ CẬP NHẬT GIAO DIỆN NGAY
+                    // (Tạo object từ các biến bạn đã lấy từ form ở trên)
+                    const updatedItem = {
+                        ...originalItem, // Giữ lại các trường cũ không bị sửa
+                        id: newId,
+                        maDL: newId,
+                        maCode: newId,
+                        
+                        ten: name,
+                        sdt: phone,
+                        diaChi: address,
+                        lat: latVal,
+                        lng: lngVal,
+                        tuyen: tuyen,
+                        phanloai: phanLoai, // Chú ý: key phải khớp với hàm render (chữ thường)
+                        loai: loai,
+                        chuSoHuu: chu,
+                        
+                        maLienCum: valLienCum,
+                        maCum: valCum,
+                        
+                        // Xử lý ảnh: Nếu có ảnh mới upload (Base64) thì dùng, không thì giữ ảnh cũ
+                        // Lưu ý: Base64 cần thêm prefix để hiển thị được ngay
+                        anhNgoai: imgOutBase64 ? `data:image/jpeg;base64,${imgOutBase64}` : (originalItem ? (originalItem.anhNgoai || originalItem.imgOutside) : ''),
+                        anhTrong: imgInBase64 ? `data:image/jpeg;base64,${imgInBase64}` : (originalItem ? (originalItem.anhTrong || originalItem.imgInside) : '')
+                    };
+
+                    // 3. CẬP NHẬT VÀO BỘ NHỚ CACHE (QUAN TRỌNG NHẤT)
+                    if (!this.cachedData.indirect) this.cachedData.indirect = [];
+                    
+                    // Tìm vị trí dòng cũ
+                    const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
+
+                    if (index !== -1) {
+                        // TRƯỜNG HỢP SỬA: Ghi đè dữ liệu mới vào dòng cũ
+                        this.cachedData.indirect[index] = updatedItem;
+                        console.log("🔄 Đã cập nhật cache tại dòng:", index);
+                    } else {
+                        // TRƯỜNG HỢP MỚI: Thêm vào đầu danh sách
+                        this.cachedData.indirect.unshift(updatedItem);
+                        console.log("➕ Đã thêm mới vào cache");
+                    }
+
+                    // 4. VẼ LẠI BẢNG NGAY LẬP TỨC
+                    // Lọc lại theo Scope (để đảm bảo nếu sửa Cụm sang cụm khác thì nó tự ẩn đi nếu không thuộc quyền xem)
+                    const dataToShow = this.filterDataByScope(this.cachedData.indirect);
+                    
+                    // Nếu đang có từ khóa tìm kiếm thì lọc lại luôn
+                    const searchInput = document.querySelector('input[placeholder*="Tìm kiếm"]'); // Tìm ô search
+                    if (searchInput && searchInput.value) {
+                        this.handleSearchIndirect(searchInput.value);
+                    } else {
+                        UIRenderer.renderIndirectTable(dataToShow);
+                    }
+
                 } else {
-                    // TRƯỜNG HỢP MỚI: Thêm vào đầu danh sách
-                    this.cachedData.indirect.unshift(updatedItem);
-                    console.log("➕ Đã thêm mới vào cache");
+                    alert("❌ Server báo lỗi: " + (response.message || response.error || JSON.stringify(response)));
                 }
 
-                // 4. VẼ LẠI BẢNG NGAY LẬP TỨC
-                // Lọc lại theo Scope (để đảm bảo nếu sửa Cụm sang cụm khác thì nó tự ẩn đi nếu không thuộc quyền xem)
-                const dataToShow = this.filterDataByScope(this.cachedData.indirect);
-                
-                // Nếu đang có từ khóa tìm kiếm thì lọc lại luôn
-                const searchInput = document.querySelector('input[placeholder*="Tìm kiếm"]'); // Tìm ô search
-                if (searchInput && searchInput.value) {
-                    this.handleSearchIndirect(searchInput.value);
-                } else {
-                    UIRenderer.renderIndirectTable(dataToShow);
+            } catch (error) {
+                console.error("Critical Save Error:", error);
+                alert("❌ Lỗi ứng dụng: " + error.message);
+            } finally {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = oldBtnContent;
                 }
+            }
+        },
 
-            } else {
-                alert("❌ Server báo lỗi: " + (response.message || response.error || JSON.stringify(response)));
+        // ============================================================
+    // HÀM TẢI FILE MẪU (IMPORT TEMPLATE)
+    // ============================================================
+        downloadTemplate(type) {
+            console.log("📥 Đang tải mẫu cho:", type);
+
+            // 1. Định nghĩa các cột header cho từng loại
+            const templates = {
+                'store': [
+                    ['Mã CH', 'Tên Cửa Hàng', 'Địa Chỉ', 'Loại CH', 'Mã Cụm', 'Kinh Độ (Lat)', 'Vĩ Độ (Lng)', 'SĐT', 'Ngày Hết Hạn (YYYY-MM-DD)']
+                ],
+                'gdv': [
+                    ['Mã NV', 'Họ Tên', 'Số Điện Thoại', 'Mã CH', 'Chức Vụ', 'Trạng Thái']
+                ],
+                'sales': [
+                    ['Mã NV', 'Họ Tên', 'Số Điện Thoại', 'Mã Cụm', 'Chức Vụ', 'Địa Bàn', 'Trạng Thái']
+                ],
+                'b2b': [
+                    ['Mã NV', 'Họ Tên', 'Số Điện Thoại', 'Mã Cụm', 'Vùng', 'Trạng Thái']
+                ],
+                'indirect': [
+                    ['Mã ĐL', 'Tên Điểm Bán', 'Số Điện Thoại', 'Địa Chỉ', 'Mã Cụm', 'Tuyến', 'Loại', 'Phân Loại', 'Kinh Độ', 'Vĩ Độ']
+                ],
+                'bts': [
+                    ['Mã Trạm', 'Tên Trạm', 'Mã Cụm', 'Kinh Độ', 'Vĩ Độ', 'Địa Chỉ', 'Loại Trạm']
+                ]
+            };
+
+            const data = templates[type];
+
+            if (!data) {
+                alert("⚠️ Chưa có file mẫu cho loại dữ liệu này (" + type + ")");
+                return;
             }
 
-        } catch (error) {
-            console.error("Critical Save Error:", error);
-            alert("❌ Lỗi ứng dụng: " + error.message);
-        } finally {
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = oldBtnContent;
+            // 2. Sử dụng thư viện SheetJS (XLSX) để tạo file Excel
+            // Lưu ý: Đảm bảo index.html đã import thư viện xlsx.full.min.js
+            if (typeof XLSX === 'undefined') {
+                alert("❌ Lỗi: Thư viện SheetJS chưa được tải. Vui lòng kiểm tra lại mạng hoặc file index.html");
+                return;
             }
-        }
-    },
+
+            try {
+                const ws = XLSX.utils.aoa_to_sheet(data); // Tạo sheet từ mảng
+                const wb = XLSX.utils.book_new();         // Tạo workbook mới
+                XLSX.utils.book_append_sheet(wb, ws, "Mau_Nhap_Lieu"); // Gắn sheet vào workbook
+
+                // 3. Xuất file
+                const fileName = `Mau_Import_${type.toUpperCase()}_${new Date().toISOString().slice(0,10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                console.log("✅ Đã tải xong:", fileName);
+            } catch (e) {
+                console.error("Lỗi tạo file mẫu:", e);
+                alert("Đã có lỗi khi tạo file mẫu.");
+            }
+        },
             // --- Helper: Chuyển file sang Base64 ---
         toBase64(file) {
             return new Promise((resolve, reject) => {
