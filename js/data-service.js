@@ -3,7 +3,7 @@
  * Update: Tích hợp xác thực Token, Caching thông minh & Xử lý lỗi
  * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwb_FoFaUWdpqXmxf-8G88-1dSmSbevX4XBZgmGQzhc_vCaf_gnBGrvSaZq2K3Nv2dmKw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzNNN5bdZINb3UzQTAh3QirGMBG_5wuCftteyUs4eqAWnAAU0pKYDsSoJQrojJASHCZ/exec";
 
 const DataService = {
     _cache: null,          // Core data (Users, Stores, BTS...)
@@ -354,8 +354,17 @@ const DataService = {
     },
 
     // ============================================================
-    // 6. GHI DỮ LIỆU (WRITE)
+        // 6. GHI DỮ LIỆU (WRITE)
     // ============================================================
+
+    // [NEW] Hàm cập nhật cửa hàng
+    async updateStore(data) {
+        // Gọi hàm postData chung
+        return this.postData({
+            action: 'update_store', // Đảm bảo trong doPost (GAS) bạn đã có case 'update_store' gọi đến handleUpdateStore_
+            data: data
+        });
+    },
 
     // Cập nhật điểm bán (Kênh gián tiếp)
     async updateIndirect(data) {
