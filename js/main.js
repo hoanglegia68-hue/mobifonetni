@@ -3,6 +3,16 @@
     * Updates:
     * - Clear & Optimized generic functions.
     * ============================ */
+    // Hàm helper chuyển đổi ngày từ Sheet (ISO) sang Input (YYYY-MM-DD)
+    function formatDateForInput(isoDateString) {
+        if (!isoDateString) return "";
+        try {
+            const d = new Date(isoDateString);
+            if (isNaN(d.getTime())) return ""; // Ngày lỗi
+            // Trả về YYYY-MM-DD
+            return d.toISOString().split('T')[0];
+        } catch (e) { return ""; }
+    }
 
     const app = {
         // ============================================================
@@ -37,7 +47,7 @@
     // ============================================================
             async init() {
 
-                console.log("App Starting... Version 15.03 (Scope Secured)");
+                console.log("App Starting... Version Ver Lunar.2026 (Scope Secured)");
 
                 // 1. Kiểm tra đăng nhập
                 const savedUser = localStorage.getItem('MIS_USER');
@@ -1155,17 +1165,244 @@
             });
         },
 
-        // --- HÀM MỚI: RENDER DANH SÁCH CỬA HÀNG ---
-        renderStoreList() {
-            console.log("Rendering Store List...");
-            const rawData = this.cachedData.stores || [];
-            const data = this.filterDataByScope(rawData);
-            UIRenderer.renderStoresTable(data);
+       // 1. Hàm Helper: Tạo HTML cho ảnh thumbnail
+        // ------------------------------------------------------------------
+        // Hàm Helper: Tạo HTML cho ảnh thumbnail
+        // Hàm Helper: Tạo HTML cho ảnh thumbnail
+        _convertDriveLink(url) {
+            if (!url) return '';
+            
+            // 1. Nếu link đã là link trực tiếp (có đuôi ảnh) hoặc không phải link Drive -> giữ nguyên
+            if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null || !url.includes('google.com')) {
+                return url;
+            }
+
+            // 2. Tách ID từ link Google Drive
+            // Hỗ trợ cả link /d/xxxx và id=xxxx
+            const idMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+            
+            if (idMatch && idMatch[1]) {
+                const fileId = idMatch[1];
+                
+                // [ĐÃ SỬA]: Thêm https, domain lh3 và cú pháp ${fileId}
+                return `https://lh3.googleusercontent.com/d/${fileId}=s220`;
+            }
+
+            return url; 
+        },
+        // ------------------------------------------------------------------
+        // CẬP NHẬT: Hàm Render Thumb (Đã gọi hàm convert ở trên)
+        // ------------------------------------------------------------------
+        _renderThumb(url, altText) {
+            if (url && url.length > 10) {
+                // [QUAN TRỌNG]: Gọi hàm chuyển đổi link ở đây
+                const directLink = this._convertDriveLink(url);
+
+                return `
+                    <div class="relative group cursor-pointer w-10 h-10" onclick="app.viewImage('${url}')">
+                        <img src="${directLink}" alt="${altText}" 
+                            class="w-full h-full rounded-lg object-cover border border-slate-200 shadow-sm group-hover:scale-150 group-hover:z-50 transition-all duration-200 origin-center bg-white"
+                            loading="lazy"
+                            onerror="this.onerror=null; this.src='https://placehold.co/40x40?text=Error';">
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300">
+                        <i data-lucide="image" class="w-5 h-5"></i>
+                    </div>
+                `;
+            }
         },
 
-        // --- HÀM MỚI: RENDER DANH SÁCH GIAO DỊCH VIÊN (GDV) ---
+        renderStoreList() {
+            console.log("🚀 Rendering Store List (Secured Version - Fixed)...");
+            
+            // 1. Lấy dữ liệu
+            const rawData = this.cachedData.stores || [];
+            const data = this.filterDataByScope(rawData);
+            
+            const tbody = document.getElementById('store-list-body');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu cửa hàng.</td></tr>';
+                return;
+            }
+
+            // --- KHAI BÁO CÁC HÀM HELPER CỤC BỘ (QUAN TRỌNG) ---
+            
+            // 1. Hàm bảo mật HTML (Định nghĩa tại chỗ để tránh lỗi this.escapeHTML is not a function)
+            const escapeHTML = (str) => {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            };
+
+            // 2. Helper render ảnh thumbnail
+            const renderThumb = (url, label) => {
+                if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300" title="Không có ảnh ${label}"><i data-lucide="image-off" class="w-4 h-4"></i></div>`;
+                
+                // Xử lý link Google Drive thumbnail nếu cần
+                let displayUrl = url;
+                if (url.includes('drive.google.com')) {
+                    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                    if (match && match[1]) displayUrl = `https://lh3.googleusercontent.com/d/${match[1]}=s100`;
+                }
+
+                return `
+                    <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
+                        title="${label}"
+                        onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                    </div>
+                `;
+            };
+
+            // 3. Helper lấy tên Cụm an toàn (tránh lỗi nếu app chưa load xong map)
+            const getSafeName = (code, map) => {
+                if (!code) return '-';
+                return (this[map] && this[map][code]) ? this[map][code] : code;
+            };
+
+            let html = '';
+            
+            data.forEach((s) => {
+                // --- XỬ LÝ DỮ LIỆU AN TOÀN (Dùng hàm escapeHTML vừa khai báo ở trên) ---
+                const tenCH = escapeHTML(s.ten || 'CH Chưa tên');
+                const maCH = escapeHTML(s.id || s.maCH);
+                const diaChi = escapeHTML(s.diaChi || '-');
+                const cht = escapeHTML(s.cht || '-');
+                const sdt = escapeHTML(s.sdt || '');
+                
+                // Các trường logic
+                const imgNgoai = s.AnhNgoai || s.imgOutside || s.anhNgoai || '';
+                const imgTrong = s.AnhTrong || s.imgInside || s.anhTrong || '';
+                const loai = escapeHTML(s.loaiCh || 'CHTT'); 
+                
+                // Style cho loại cửa hàng
+                const loaiClass = loai === 'CHTT' 
+                    ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                    : 'bg-purple-50 text-purple-700 border-purple-100';
+
+                // Xử lý Giờ mở cửa
+                const safeGioMo = escapeHTML(s.gioMo || '');
+
+                // Tên Cụm/Liên Cụm (Dùng helper getSafeName)
+                const tenLC = escapeHTML(getSafeName(s.maLienCum, 'mapLienCum')); 
+                const tenCum = escapeHTML(getSafeName(s.maCum, 'mapCum'));
+
+                // Xử lý ngày hết hạn
+                let contractBadge = '<span class="text-xs text-slate-400">Chưa rõ</span>';
+                let dateText = '-';
+                
+                if (s.ngayHetHan) {
+                    // Check nếu formatDateForInput có tồn tại global không, nếu không dùng raw string
+                    dateText = (typeof window.formatDateForInput === 'function') 
+                                ? formatDateForInput(s.ngayHetHan) 
+                                : escapeHTML(s.ngayHetHan);
+
+                    // Tính ngày còn lại
+                    const today = new Date();
+                    const endDate = new Date(s.ngayHetHan);
+                    if (!isNaN(endDate)) {
+                        const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+                        
+                        if (daysLeft < 0) contractBadge = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">Quá hạn</span>`;
+                        else if (daysLeft < 30) contractBadge = `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">Còn ${daysLeft} ngày</span>`;
+                        else contractBadge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap">Còn ${daysLeft} ngày</span>`;
+                    }
+                }
+
+                // Link bản đồ
+                const linkMap = (s.lat && s.lng) 
+                    ? `<a href="https://www.google.com/maps?q=${s.lat},${s.lng}" target="_blank" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Bản đồ</a>` 
+                    : '';
+
+                // --- RENDER HTML ---
+                html += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100 transition group align-top">
+                        
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col gap-1.5">
+                                <span class="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition cursor-pointer" onclick="app.openEditStoreModal('${maCH}')">
+                                    ${tenCH}
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono border border-slate-200">
+                                        ${maCH}
+                                    </span>
+                                    <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${loaiClass}">
+                                        ${loai}
+                                    </span>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="px-4 py-3 text-sm text-slate-600">
+                            <div class="flex flex-col gap-0.5">
+                                <span class="font-medium text-slate-800">${tenLC}</span>
+                                <span class="text-xs text-slate-400">${tenCum}</span>
+                            </div>
+                        </td>
+
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col">
+                                <span class="text-sm font-medium text-slate-700">${cht}</span>
+                                ${sdt ? `<a href="tel:${sdt}" class="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-0.5"><i data-lucide="phone" class="w-3 h-3"></i> ${sdt}</a>` : ''}
+                            </div>
+                        </td>
+
+                        <td class="px-4 py-3 max-w-[220px]">
+                            <div class="flex flex-col">
+                                <div class="text-sm text-slate-600 line-clamp-2 leading-relaxed" title="${diaChi}">${diaChi}</div>
+                                ${linkMap}
+                                
+                                ${safeGioMo ? `
+                                <div class="mt-2 pt-1.5 border-t border-slate-100 flex items-start gap-1.5 w-full group/time" title="${safeGioMo}">
+                                    <i data-lucide="clock" class="w-3 h-3 text-slate-400 mt-0.5 shrink-0"></i>
+                                    <span class="text-[11px] text-slate-500 truncate cursor-pointer hover:text-blue-700 transition font-medium">
+                                        ${safeGioMo}
+                                    </span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </td>
+
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col items-start gap-1">
+                                ${contractBadge}
+                                <span class="text-[10px] text-slate-400">Hết hạn: <b class="text-slate-600">${dateText}</b></span>
+                            </div>
+                        </td>
+
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2 justify-end">
+                                ${renderThumb(imgNgoai, 'Ngoại thất')}
+                                ${renderThumb(imgTrong, 'Nội thất')}
+                                
+                                <button onclick="app.openEditStoreModal('${maCH}')" class="ml-2 p-1.5 bg-white border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 rounded text-slate-400 transition shadow-sm" title="Chỉnh sửa thông tin">
+                                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            if(window.lucide) lucide.createIcons();
+        },
+
+        // --- HÀM MỚI: RENDER DANH SÁCH GIAO DỊCH VIÊN (GDV) - SECURED ---
         renderGDVList() {
-            console.log("Rendering GDV List...");
+            console.log("Rendering GDV List (Secured)...");
             const rawData = this.cachedData.gdvs || [];
             const data = this.filterDataByScope(rawData);
 
@@ -1180,28 +1417,35 @@
 
             let html = '';
             data.forEach((item, index) => {
-                const status = item.trangThai || 'Đang làm việc';
+                // Bảo mật dữ liệu đầu vào
+                const maGDV = this.escapeHTML(item.maGDV || item.maNV || '');
+                const ten = this.escapeHTML(item.ten || item.hoTen || '');
+                const tenCH = this.escapeHTML(item.tenCH || item.tench || item.cuaHang || '-');
+                const vung = this.escapeHTML(item.vung || '-');
+                const sdt = this.escapeHTML(item.sdt || '');
+                
+                const status = this.escapeHTML(item.trangThai || 'Đang làm việc');
                 const statusClass = status === 'Nghỉ việc' ? 'text-red-500' : 'text-emerald-600';
 
-                const tenCH = item.tenCH || item.tench || item.cuaHang || '-';
+                // Tên cấu trúc
                 const maLC = item.maLienCum || item.maliencum || item.lienCum || '';
                 const maCum = item.maCum || item.macum || item.cum || '';
-                const hienThiLC = this.getNameLienCum(maLC) || maLC;
-                const hienThiCum = this.getNameCum(maCum) || maCum;
+                const hienThiLC = this.escapeHTML(this.getNameLienCum(maLC) || maLC);
+                const hienThiCum = this.escapeHTML(this.getNameCum(maCum) || maCum);
 
                 html += `
                     <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
                         <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${item.maGDV || item.maNV || ''}</td>
-                        <td class="px-4 py-3 text-slate-700 font-medium">${item.ten || item.hoTen || ''}</td>
+                        <td class="px-4 py-3 font-bold text-slate-700">${maGDV}</td>
+                        <td class="px-4 py-3 text-slate-700 font-medium">${ten}</td>
 
                         <td class="px-4 py-3 text-sm text-blue-600 font-medium">${tenCH}</td>
 
                         <td class="px-4 py-3 text-sm">${hienThiLC}</td>
                         <td class="px-4 py-3 text-sm">${hienThiCum}</td>
 
-                        <td class="px-4 py-3 text-center text-sm">${item.vung || '-'}</td>
-                        <td class="px-4 py-3 text-sm font-mono">${item.sdt || ''}</td>
+                        <td class="px-4 py-3 text-center text-sm">${vung}</td>
+                        <td class="px-4 py-3 text-sm font-mono">${sdt}</td>
                         <td class="px-4 py-3 text-center text-xs font-bold ${statusClass}">${status}</td>
                     </tr>
                 `;
@@ -1211,9 +1455,9 @@
             if(window.lucide) lucide.createIcons();
         },
 
-        // --- HÀM MỚI: RENDER DANH SÁCH NV BÁN HÀNG ---
+        // --- HÀM MỚI: RENDER DANH SÁCH NV BÁN HÀNG - SECURED ---
         renderSalesList() {
-            console.log("Rendering Sales List...");
+            console.log("Rendering Sales List (Secured)...");
             const rawData = this.cachedData.sales || [];
             const data = this.filterDataByScope(rawData);
 
@@ -1228,31 +1472,37 @@
 
             let html = '';
             data.forEach((item, index) => {
-                const status = item.trangThai || 'Đang làm việc';
+                // Bảo mật dữ liệu
+                const maNV = this.escapeHTML(item.maNV || '');
+                const ten = this.escapeHTML(item.ten || item.hoTen || '');
+                const phuongXa = this.escapeHTML(item.phuongXas || item.phuongxas || item.phuongXa || '-');
+                const vung = this.escapeHTML(item.vung || '-');
+                const sdt = this.escapeHTML(item.sdt || '');
+                
+                const status = this.escapeHTML(item.trangThai || 'Đang làm việc');
                 const statusClass = status === 'Nghỉ việc' ? 'text-red-500' : 'text-emerald-600';
+
                 const maLC = item.maLienCum || item.maliencum || item.lienCum || '';
                 const maCum = item.maCum || item.macum || item.cum || '';
-                const phuongXa = item.phuongXas || item.phuongxas || item.phuongXa || '-';
-
-                const hienThiLC = this.getNameLienCum(maLC) || maLC;
-                const hienThiCum = this.getNameCum(maCum) || maCum;
+                const hienThiLC = this.escapeHTML(this.getNameLienCum(maLC) || maLC);
+                const hienThiCum = this.escapeHTML(this.getNameCum(maCum) || maCum);
 
                 html += `
                     <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
                         <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${item.maNV || ''}</td>
-                        <td class="px-4 py-3 text-slate-700 font-medium">${item.ten || item.hoTen || ''}</td>
+                        <td class="px-4 py-3 font-bold text-slate-700">${maNV}</td>
+                        <td class="px-4 py-3 text-slate-700 font-medium">${ten}</td>
 
                         <td class="px-4 py-3 text-sm">${hienThiLC}</td>
                         <td class="px-4 py-3 text-sm">${hienThiCum}</td>
 
-                        <td class="px-4 py-3 text-center text-sm">${item.vung || '-'}</td>
+                        <td class="px-4 py-3 text-center text-sm">${vung}</td>
 
                         <td class="px-4 py-3 text-sm max-w-[200px] truncate cursor-help" title="${phuongXa}">
                             ${phuongXa}
                         </td>
 
-                        <td class="px-4 py-3 text-sm font-mono">${item.sdt || ''}</td>
+                        <td class="px-4 py-3 text-sm font-mono">${sdt}</td>
                         <td class="px-4 py-3 text-center text-xs font-bold ${statusClass}">${status}</td>
 
                         </td>
@@ -1264,9 +1514,9 @@
             if(window.lucide) lucide.createIcons();
         },
 
-        // --- HÀM MỚI: RENDER DANH SÁCH KHÁCH HÀNG DOANH NGHIỆP (B2B) ---
+      // --- HÀM MỚI: RENDER DANH SÁCH KHÁCH HÀNG DOANH NGHIỆP (B2B) - SECURED ---
         renderB2BList() {
-            console.log("Rendering B2B List...");
+            console.log("Rendering B2B List (Secured)...");
             const rawData = this.cachedData.b2b || [];
             const data = this.filterDataByScope(rawData);
 
@@ -1281,18 +1531,26 @@
 
             let html = '';
             data.forEach((item, index) => {
-                const status = item.trangThai || 'Đang làm việc';
+                // Bảo mật
+                const maNV = this.escapeHTML(item.maNV || '');
+                const ten = this.escapeHTML(item.ten || item.hoTen || '');
+                const lienCumStr = this.escapeHTML(item.lienCum || '');
+                const cumStr = this.escapeHTML(item.cum || '');
+                const vung = this.escapeHTML(item.vung || '-');
+                const sdt = this.escapeHTML(item.sdt || '');
+
+                const status = this.escapeHTML(item.trangThai || 'Đang làm việc');
                 const statusClass = status === 'Nghỉ việc' ? 'text-red-500' : 'text-purple-600';
 
                 html += `
                     <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
                         <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${item.maNV || ''}</td>
-                        <td class="px-4 py-3 text-slate-700 font-medium">${item.ten || item.hoTen || ''}</td>
-                        <td class="px-4 py-3 text-sm">${item.lienCum || ''}</td>
-                        <td class="px-4 py-3 text-sm">${item.cum || ''}</td>
-                        <td class="px-4 py-3 text-center text-sm">${item.vung || '-'}</td>
-                        <td class="px-4 py-3 text-sm font-mono">${item.sdt || ''}</td>
+                        <td class="px-4 py-3 font-bold text-slate-700">${maNV}</td>
+                        <td class="px-4 py-3 text-slate-700 font-medium">${ten}</td>
+                        <td class="px-4 py-3 text-sm">${lienCumStr}</td>
+                        <td class="px-4 py-3 text-sm">${cumStr}</td>
+                        <td class="px-4 py-3 text-center text-sm">${vung}</td>
+                        <td class="px-4 py-3 text-sm font-mono">${sdt}</td>
                         <td class="px-4 py-3 text-center text-xs font-bold ${statusClass}">${status}</td>
                     </tr>
                 `;
@@ -1382,12 +1640,6 @@
                 }
             }
         },
-
-        // ============================================================
-        // THÊM VÀO APP OBJECT TRONG main.js
-        // ============================================================
-
-        // Tìm hàm toggleWidgetFullScreen trong app và thay thế bằng code sau:
 
         toggleWidgetFullScreen: function(btn) {
             // 1. Xác định Widget cha (thẻ div chứa class bg-white...)
@@ -1523,36 +1775,122 @@
                 if (sel) {
                     sel.value = initialScope;
                     
-                    // Nếu không phải Admin, có thể disable luôn dropdown để họ không chọn 'all' được
+                    // Nếu không phải Admin, disable để không chọn 'all' được (tuỳ chọn)
                     if (!isAdmin) {
-                        // sel.disabled = true; // Uncomment dòng này nếu muốn khóa cứng dropdown
+                        // sel.disabled = true; 
                     }
                 }
 
                 // 2. Cập nhật state hiện tại
                 this.currentFilterScope = initialScope;
 
-                // 3. Gọi render với Scope chính xác
+                // 3. Gọi render giao diện Dashboard
                 UIRenderer.renderDashboard(initialScope); 
+
+                // [QUAN TRỌNG] Cập nhật số liệu Cửa hàng/Hạ tầng ngay khi vào trang
+                // <--- BẮT ĐẦU THÊM MỚI --->
+                if (typeof this.updateInfrastructureStats === 'function') {
+                    this.updateInfrastructureStats();
+                }
+                // <--- KẾT THÚC THÊM MỚI --->
 
                 this.initKPIReportTab();
                 const btn = document.querySelector('[onclick*="dash-overview"]');
                 if (btn) this.switchTab('dash-overview', btn);
             }
             
-            
-            else if (pageId === 'clusters') UIRenderer.renderClusterTable(this.filterDataByScope(this.fullClusterData));
+            else if (pageId === 'clusters') {
+                UIRenderer.renderClusterTable(this.filterDataByScope(this.fullClusterData));
+            }
             else if (pageId === 'direct_channel') {
                 const defaultBtn = document.querySelector('[onclick*="tab-stores"]');
                 if (defaultBtn) {
                     this.switchTab('tab-stores', defaultBtn);
                 }
             }
-            else if (pageId === 'indirect_channel') UIRenderer.renderIndirectTable(this.filterDataByScope(this.cachedData.indirect));
+            else if (pageId === 'indirect_channel') {
+                UIRenderer.renderIndirectTable(this.filterDataByScope(this.cachedData.indirect));
+            }
             else if (pageId === 'bts') {
                 UIRenderer.renderBTSTable(this.filterDataByScope(this.cachedData.bts || []));
                 this.initBTSFilterControls();
             }
+        },
+        // ============================================================
+    // [NEW] HÀM CẬP NHẬT SỐ LIỆU HẠ TẦNG (DASHBOARD)
+    // ============================================================
+        updateInfrastructureStats() {
+            console.log("📊 Updating Infrastructure Stats...");
+
+            // 1. Helper: Gán text an toàn
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = UIRenderer.formatNumber(val);
+            };
+
+            // 2. Lấy dữ liệu đã lọc theo Scope
+            const stores = this.filterDataByScope(this.cachedData.stores || []);
+            const gdvs = this.filterDataByScope(this.cachedData.gdvs || []);
+            const sales = this.filterDataByScope(this.cachedData.sales || []);
+            const bts = this.filterDataByScope(this.cachedData.bts || []);
+
+            // --- A. TÍNH TOÁN CỬA HÀNG ---
+            let stTotal = stores.length;
+            let stType1 = 0;
+            let stType2 = 0;
+            let stExp = 0;
+            let stNoImg = 0;
+
+            const now = new Date();
+            const warningDate = new Date();
+            warningDate.setDate(now.getDate() + 30); // Cảnh báo trước 30 ngày
+
+            stores.forEach(s => {
+                // 1. Phân loại (Logic: Tên loại có chứa '1' hoặc 'Flagship' là Loại 1, còn lại Loại 2)
+                const loai = String(s.loaiCh || '').toUpperCase();
+                if (loai.includes('1') || loai.includes('FLAGSHIP') || loai.includes('L1')) {
+                    stType1++;
+                } else {
+                    stType2++;
+                }
+
+                // 2. Kiểm tra Hạn Hợp Đồng
+                if (s.ngayHetHan) {
+                    const d = this._parseAnyDate(s.ngayHetHan);
+                    if (d && d <= warningDate) {
+                        stExp++;
+                    }
+                }
+
+                // 3. Kiểm tra Hình ảnh (Thiếu 1 trong 2 là tính thiếu)
+                const hasOut = s.AnhNgoai || s.imgOutside || s.anhNgoai;
+                const hasIn = s.AnhTrong || s.imgInside || s.anhTrong;
+                if (!hasOut || !hasIn) {
+                    stNoImg++;
+                }
+            });
+
+            // Update UI Cửa hàng
+            setTxt('infra-store-total', stTotal);
+            setTxt('infra-store-type1', stType1);
+            setTxt('infra-store-type2', stType2);
+            setTxt('infra-store-contract-exp', stExp);
+            setTxt('infra-store-no-img', stNoImg);
+
+            // --- B. TÍNH TOÁN GDV ---
+            setTxt('infra-gdv-total', gdvs.length);
+            const chtCount = gdvs.filter(g => String(g.chucVu || '').toLowerCase().includes('trưởng')).length;
+            setTxt('infra-gdv-cht', chtCount);
+            setTxt('infra-gdv-staff', gdvs.length - chtCount);
+
+            // --- C. TÍNH TOÁN NV BÁN HÀNG ---
+            setTxt('infra-sales-total', sales.length);
+            const amCount = sales.filter(s => String(s.chucVu || '').toUpperCase().includes('AM')).length;
+            setTxt('infra-sales-am', amCount);
+            setTxt('infra-sales-staff', sales.length - amCount);
+
+            // --- D. TÍNH TOÁN BTS ---
+            setTxt('infra-bts-total', bts.length);
         },
 
         // ===========================
@@ -1615,7 +1953,7 @@
 
         renderFooter() {
             if (!document.getElementById('app-footer')) {
-                document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver 15.03 </div>`);
+                document.body.insertAdjacentHTML('beforeend', `<div id="app-footer" class="fixed bottom-1 right-2 text-[10px] text-slate-400 opacity-60 pointer-events-none z-50"> hoang.lehuu | Ver Lunar.2026 </div>`);
             }
         },
 
@@ -1765,7 +2103,7 @@
             // [FIX]: Sử dụng chính hàm checkScope để tận dụng logic tra cứu cha-con
             return data.filter(item => this.checkScope(item));
         },
-        // Thêm/Cập nhật hàm này trong main.js
+       
         // ============================================================
         // CẬP NHẬT: checkScope (Thêm Logic tra cứu cha con)
         // ============================================================
@@ -1913,11 +2251,297 @@
         },
 
         // ============================================================
-        // HÀM LƯU DỮ LIỆU (ĐÃ SỬA ĐỂ GỬI ĐỦ CỘT)
-        // ============================================================
         // 1. Thêm hàm xem ảnh (cho tiện)
         viewImage(url) {
             if (url) window.open(url, '_blank');
+        },
+
+        // 1. Biến tạm lưu ảnh
+        tempStoreImages: { trong: null, ngoai: null },
+
+        // --- 1. Hàm Mở Modal ---
+        openEditStoreModal(storeId) {
+            console.log("🚀 [OpenEditStore] Đang mở cho ID:", storeId);
+
+            // A. TÌM MODAL & FIX VỊ TRÍ
+            const modal = document.getElementById('modal-edit-store');
+            if (!modal) return alert("❌ Lỗi: Không tìm thấy HTML Modal id='modal-edit-store'!");
+
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+
+            // B. TÌM DỮ LIỆU STORE
+            if (!this.cachedData || !this.cachedData.stores) {
+                return alert("Dữ liệu đang tải, vui lòng thử lại sau!");
+            }
+            
+            const store = this.cachedData.stores.find(s => 
+                String(s.id) === String(storeId) || String(s.maCH) === String(storeId)
+            );
+
+            if (!store) return alert("Không tìm thấy dữ liệu cửa hàng này!");
+
+            // C. ĐIỀN DỮ LIỆU VÀO FORM
+            const setVal = (domId, val) => {
+                const el = document.getElementById(domId);
+                if (el) el.value = val || '';
+            };
+
+            setVal('store-id', store.id || store.maCH);
+            setVal('store-ten', store.ten);
+            setVal('store-diaChi', store.diaChi); // <--- Đã có input để điền vào
+            
+            const elLoai = document.getElementById('store-loaiCh');
+            if (elLoai) elLoai.value = store.loaiCh || 'CHTT'; // Mặc định CHTT nếu thiếu
+
+            setVal('store-cht', store.cht);
+            setVal('store-sdt', store.sdt);
+            setVal('store-email', store.email);
+
+            setVal('store-lat', store.lat);
+            setVal('store-lng', store.lng);
+            setVal('store-ngayThue', formatDateForInput(store.ngayThue));
+            setVal('store-ngayHetHan', formatDateForInput(store.ngayHetHan));
+
+            // D. XỬ LÝ ẢNH
+            this.tempStoreImages = { trong: null, ngoai: null }; 
+            
+            // Reset input file
+            modal.querySelectorAll('input[type="file"]').forEach(i => i.value = '');
+
+            // Setup hiển thị ảnh (Dùng hàm helper có sẵn trong class của bạn)
+            if (typeof this._setupStoreImagePreview === 'function') {
+                this._setupStoreImagePreview('trong', store.AnhTrong || store.anhtrong);
+                this._setupStoreImagePreview('ngoai', store.AnhNgoai || store.anhngoai);
+            } else {
+                // Fallback nếu hàm helper chưa define (phòng hờ)
+                const imgT = document.getElementById('preview-store-trong');
+                const holderT = document.getElementById('placeholder-store-trong');
+                if(store.AnhTrong) { imgT.src = store.AnhTrong; imgT.classList.remove('hidden'); holderT.classList.add('hidden'); }
+                else { imgT.classList.add('hidden'); holderT.classList.remove('hidden'); }
+                
+                const imgN = document.getElementById('preview-store-ngoai');
+                const holderN = document.getElementById('placeholder-store-ngoai');
+                if(store.AnhNgoai) { imgN.src = store.AnhNgoai; imgN.classList.remove('hidden'); holderN.classList.add('hidden'); }
+                else { imgN.classList.add('hidden'); holderN.classList.remove('hidden'); }
+            }
+
+            // E. HIỂN THỊ MODAL
+            modal.classList.remove('hidden');
+            modal.style.display = 'block';
+            modal.style.zIndex = '9999'; 
+            
+            // Reset nút Save
+            const btnLoad = document.getElementById('btn-save-loading');
+            const btnSave = document.getElementById('btn-save-store');
+            if(btnLoad) btnLoad.classList.add('hidden');
+            if(btnSave) btnSave.disabled = false;
+
+            console.log("✅ Đã mở Modal. Store:", store.ten);
+        },
+
+        /**
+         * 2. Hàm Helper nội bộ: Xử lý hiển thị/ẩn ảnh vs placeholder
+         * (Dùng chung cho lúc mở modal và lúc chọn ảnh mới)*/
+
+        _setupStoreImagePreview(type, url) {
+            // type: 'trong' hoặc 'ngoai'
+            const imgEl = document.getElementById(`preview-store-${type}`);
+            const placeholderEl = document.getElementById(`placeholder-store-${type}`);
+
+            if (!imgEl || !placeholderEl) return;
+
+            // [QUAN TRỌNG]: Chuyển đổi link Drive trước khi hiển thị
+            // Gọi hàm _convertDriveLink để lấy link lh3.googleusercontent...
+            const safeUrl = this._convertDriveLink(url);
+
+            // Kiểm tra URL hợp lệ (có dữ liệu và dài hơn 10 ký tự)
+            if (safeUrl && safeUrl.length > 10) {
+                imgEl.src = safeUrl; // Gán link đã chuyển đổi
+                imgEl.classList.remove('hidden');
+                placeholderEl.classList.add('hidden');
+
+                // --- [FIX] LOGIC CLICK ĐỂ XEM ẢNH LỚN ---
+                imgEl.style.cursor = 'pointer'; // Thêm con trỏ tay
+                imgEl.title = "Bấm để xem ảnh gốc";
+                
+                // Xóa sự kiện cũ (nếu có) để tránh double click
+                imgEl.onclick = null; 
+                
+                // Gán sự kiện mới
+                imgEl.onclick = function() {
+                    // Mở ảnh trong tab mới
+                    window.open(safeUrl, '_blank');
+                };
+            } else {
+                // Không có ảnh -> Hiện placeholder
+                imgEl.src = '';
+                imgEl.classList.add('hidden');
+                placeholderEl.classList.remove('hidden');
+                
+                // Bỏ sự kiện click
+                imgEl.onclick = null;
+                imgEl.style.cursor = 'default';
+            }
+        },
+
+        /**
+         * 3. Hàm xử lý sự kiện khi người dùng chọn file ảnh mới
+         * Được gọi từ HTML: onchange="app.handleStoreImageInput(this, 'trong')"
+         */
+        async handleStoreImageInput(input, type) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // 1. Validate dung lượng đầu vào (giữ nguyên)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("File ảnh quá lớn! Vui lòng chọn ảnh dưới 5MB.");
+                    input.value = ''; 
+                    return;
+                }
+
+                // 2. [FIX] Gọi hàm nén ảnh thay vì đọc file gốc
+                try {
+                    // Hiển thị loading nhẹ nếu cần
+                    console.log(`📸 Đang nén ảnh ${type}...`);
+                    
+                    // Gọi hàm nén (đã có sẵn ở cuối file main.js)
+                    const compressedBase64 = await this.compressImage(file);
+                    
+                    if (compressedBase64) {
+                        // Lưu vào biến tạm (thêm prefix data:image...)
+                        if (!this.tempStoreImages) this.tempStoreImages = {};
+                        this.tempStoreImages[type] = `data:image/jpeg;base64,${compressedBase64}`;
+
+                        // Hiển thị preview ngay
+                        this._setupStoreImagePreview(type, this.tempStoreImages[type]);
+                        console.log(`✅ Đã nén và lưu ảnh ${type}`);
+                    }
+                } catch (e) {
+                    console.error("Lỗi nén ảnh:", e);
+                    alert("Không thể xử lý ảnh này. Vui lòng thử ảnh khác!");
+                }
+            }
+        },
+
+        /**
+         * 4. Hàm đóng Modal (Helper tiện ích)
+         * Được gọi từ HTML: onclick="app.closeModal('modal-edit-store')"
+         */
+        closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        },
+
+        /**
+         * 5. Hàm Lưu thay đổi (Đã Fix: Gọi API thực tế)
+         */
+        async saveStoreChanges() {
+        // 1. UI FEEDBACK: HIỆN TRẠNG THÁI "ĐANG LƯU"
+        const btnSave = document.getElementById('btn-save-store');
+        const btnText = document.getElementById('btn-save-text');
+        const btnLoad = document.getElementById('btn-save-loading');
+
+        if (btnSave) {
+            btnSave.disabled = true; // Chặn click liên tục
+            if (btnText) btnText.innerText = "Đang lưu dữ liệu...";
+            if (btnLoad) btnLoad.classList.remove('hidden'); // Hiện vòng xoay
+        }
+
+        try {
+            const storeId = document.getElementById('store-id').value;
+            // Helper lấy giá trị an toàn từ input
+            const newVal = (id) => { 
+                const el = document.getElementById(id); 
+                return el ? el.value.trim() : ""; 
+            };
+
+            // 2. THU THẬP DỮ LIỆU (Đã bổ sung DiaChi)
+            const payload = {
+                id: storeId,
+                // --- Thông tin cơ bản ---
+                ten: newVal('store-ten'),
+                loaiCh: newVal('store-loaiCh'),
+                diaChi: newVal('store-diaChi'), // <=== ĐÃ BỔ SUNG TRƯỜNG ĐỊA CHỈ
+                
+                // --- Liên hệ ---
+                cht: newVal('store-cht'),
+                sdt: newVal('store-sdt'),
+                email: newVal('store-email'),
+                
+                // --- Vị trí & Hạn thuê ---
+                lat: newVal('store-lat'),
+                lng: newVal('store-lng'),
+                ngayThue: newVal('store-ngayThue'),   // YYYY-MM-DD
+                ngayHetHan: newVal('store-ngayHetHan'), // YYYY-MM-DD
+            };
+
+            // 3. XỬ LÝ ẢNH & KIỂM TRA BASE64 (Logic cũ của bạn)
+            if (!this.tempStoreImages) this.tempStoreImages = {};
+            // Nếu có ảnh mới (Base64) thì đưa vào payload gửi lên server
+            if (this.tempStoreImages.ngoai) payload.imgOutside = this.tempStoreImages.ngoai;
+            if (this.tempStoreImages.trong) payload.imgInside = this.tempStoreImages.trong;
+
+            console.log("📤 Đang gửi cập nhật:", payload);
+
+            // 4. GỌI API
+            // (Giả sử DataService.updateStore đã được định nghĩa đúng bên file service)
+            const response = await DataService.updateStore(payload);
+
+            if (response && response.success) {
+                // 5. CẬP NHẬT CACHE & GIAO DIỆN NGAY LẬP TỨC
+                if (this.cachedData && this.cachedData.stores) {
+                    const storeIndex = this.cachedData.stores.findIndex(s => String(s.id) === String(storeId) || String(s.maCH) === String(storeId));
+                    
+                    if (storeIndex !== -1) {
+                        // Merge thông tin mới (payload) vào thông tin cũ trong Cache
+                        // Việc này đảm bảo DiaChi, Ten, Lat, Lng... cập nhật ngay trên bảng
+                        let currentStore = this.cachedData.stores[storeIndex];
+                        
+                        this.cachedData.stores[storeIndex] = { 
+                            ...currentStore, 
+                            ...payload 
+                        };
+
+                        // Fix hiển thị ảnh ngay lập tức (Ưu tiên hiển thị Base64 vừa chọn)
+                        if (payload.imgOutside) {
+                            this.cachedData.stores[storeIndex].AnhNgoai = payload.imgOutside; 
+                        }
+                        if (payload.imgInside) {
+                            this.cachedData.stores[storeIndex].AnhTrong = payload.imgInside;
+                        }
+                    }
+                }
+
+                // Render lại bảng danh sách nếu đang ở tab Cửa hàng
+                // (Gọi hàm render của UIRenderer để bảng cập nhật dòng vừa sửa)
+                if (window.UIRenderer && typeof UIRenderer.renderStoresTable === 'function') {
+                    // Tìm đúng thẻ tbody để render lại (hoặc render lại cả bảng tuỳ logic cũ)
+                    const tbody = document.getElementById('store-list-body');
+                    if(tbody) UIRenderer.renderStoresTable(this.cachedData.stores);
+                }
+
+                alert("✅ Đã cập nhật thông tin cửa hàng thành công!");
+                this.closeModal('modal-edit-store');
+
+            } else {
+                throw new Error(response.error || "Lỗi server không xác định");
+            }
+
+        } catch (e) {
+            console.error("Lỗi Save Store:", e);
+            alert("⚠️ Không thể lưu: " + e.message);
+        } finally {
+            // 6. TẮT HIỆU ỨNG LOADING (Dù thành công hay thất bại)
+            if (btnSave) {
+                btnSave.disabled = false;
+                if (btnText) btnText.innerText = "Lưu Cập Nhật"; // Trả lại text gốc
+                if (btnLoad) btnLoad.classList.add('hidden');
+            }
+        }
         },
         // ============================================================
         // HÀM LƯU DỮ LIỆU (ĐÃ FIX: BỔ SUNG GỬI CỤM/LIÊN CỤM)
@@ -2206,8 +2830,20 @@
         },
 
         handleDashboardFilter(scope) {
+            // 1. Cập nhật Scope hiện tại
             this.currentFilterScope = scope;
+
+            // 2. Render lại các biểu đồ/bảng trong Dashboard (nếu UIRenderer hỗ trợ)
             UIRenderer.renderDashboard(scope);
+
+            // [QUAN TRỌNG] Tính lại số liệu Cửa hàng/Hạ tầng theo Scope mới chọn
+            // <--- BẮT ĐẦU THÊM MỚI --->
+            if (typeof this.updateInfrastructureStats === 'function') {
+                this.updateInfrastructureStats();
+            }
+            // <--- KẾT THÚC THÊM MỚI --->
+
+            // 3. Tính lại bảng xếp hạng
             this.calculateAndRenderRankings();
         },
 
@@ -2766,6 +3402,7 @@
             return d;
         },
 
+        
         _parseAnyDate(dateVal) {
             if (dateVal === null || dateVal === undefined) return null;
             if (dateVal instanceof Date && !isNaN(dateVal)) return dateVal;
@@ -2805,6 +3442,7 @@
             const d = new Date(s);
             return isNaN(d) ? null : d;
         },
+
 
         _dateKey(d) {
             const y = d.getFullYear();
