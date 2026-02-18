@@ -379,81 +379,161 @@ const UIRenderer = {
         } catch { return dateString; }
     },
 
-    // 3.2 Giao dịch viên
-    renderGDVTable(data) {
-        const tbody = document.getElementById('gdv-list-body');
+    // Hàm gộp hiển thị nhân sự (ĐÃ FIX LỖI LỆCH CỘT B2B/KHDN)
+    // ============================================================
+    renderStaffTable(data, containerId, type = 'common') {
+        const tbody = document.getElementById(containerId);
         if (!tbody) return;
+
+        // --- 1. XỬ LÝ HEADER (Tiêu đề bảng) ---
+        const table = tbody.closest('table');
+        if (table) {
+            let thead = table.querySelector('thead');
+            if (!thead) {
+                thead = document.createElement('thead');
+                table.insertBefore(thead, tbody);
+            }
+            
+            let headers = '';
+            const headerBaseClass = "p-3 font-bold border-b bg-slate-50 text-slate-700 text-sm align-middle";
+            
+            // LOGIC HEADER: Chỉ GDV và SALES có 5 cột, còn lại 4 cột
+            if (type === 'gdv') {
+                headers = `
+                    <th class="${headerBaseClass} text-center w-12">STT</th>
+                    <th class="${headerBaseClass} text-left">Thông tin GDV</th>
+                    <th class="${headerBaseClass} text-left">Khu vực Quản lý</th>
+                    <th class="${headerBaseClass} text-left">Tại Cửa hàng / Vùng</th>
+                    <th class="${headerBaseClass} text-center w-32">Trạng thái</th>
+                `;
+            } else if (type === 'sales') {
+                headers = `
+                    <th class="${headerBaseClass} text-center w-12">STT</th>
+                    <th class="${headerBaseClass} text-left">Thông tin NVBH</th>
+                    <th class="${headerBaseClass} text-left">Khu vực Quản lý</th>
+                    <th class="${headerBaseClass} text-left">Phụ trách / Vùng</th>
+                    <th class="${headerBaseClass} text-center w-32">Trạng thái</th>
+                `;
+            } else { 
+                // B2B (KHDN) hoặc Common: 4 Cột
+                let titleName = (type === 'b2b' || type === 'khdn') ? 'Nhân viên KHDN' : 'Thông tin Nhân sự';
+                headers = `
+                    <th class="${headerBaseClass} text-center w-12">STT</th>
+                    <th class="${headerBaseClass} text-left">${titleName}</th>
+                    <th class="${headerBaseClass} text-left">Khu vực Quản lý</th>
+                    <th class="${headerBaseClass} text-center">Trạng thái</th>
+                `;
+            }
+            thead.innerHTML = `<tr>${headers}</tr>`;
+        }
+
+        // --- 2. XỬ LÝ DỮ LIỆU (BODY) ---
         if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
+            // Colspan 5 cho an toàn, hoặc tính toán dựa trên type
+            const colSpan = (type === 'gdv' || type === 'sales') ? 5 : 4;
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center p-8 text-slate-400 italic">Không tìm thấy dữ liệu nhân sự</td></tr>`;
             return;
         }
-        tbody.innerHTML = data.map(item => `
-            <tr class="${this.getRowClass(item.trangThai)} border-b transition">
-                <td class="p-3 text-center text-slate-500">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-slate-600">${item.maNV}</td> 
-                <td class="p-3 font-medium">${item.ten}</td>
-                <td class="p-3 text-xs">
-                    <div class="font-bold text-blue-600">${item.maCH}</div>
-                    <div class="text-slate-500 truncate w-32">${item.tenCH}</div>
-                </td>
-                <td class="p-3 text-xs">${app.getNameLienCum ? app.getNameLienCum(item.maLienCum) : item.maLienCum}</td>
-                <td class="p-3 text-xs">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
-                <td class="p-3 text-xs font-mono">${item.sdt}</td>
-                <td class="p-3 text-center">${this.getStatusBadge(item.trangThai, item.ngayNghi)}</td>
-            </tr>
-        `).join('');
+
+        tbody.innerHTML = data.map((item, index) => {
+            const get = (k) => (item[k] !== undefined && item[k] !== null) ? item[k] : '';
+            const escape = (str) => this.escapeHTML(str || '');
+
+            // 1. Cột Thông tin
+            const ten = get('tenNV') || get('ten') || get('hoTen') || '---';
+            const ma = get('maNV') || get('MaNV') || '---';
+            const sdt = get('sdt') || get('soDT') || get('SoDienThoai') || '';
+
+            const colInfo = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition">${escape(ten)}</span>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200 font-bold">${escape(ma)}</span>
+                        ${sdt ? `<a href="tel:${sdt}" class="text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3"></i> ${escape(sdt)}</a>` : ''}
+                    </div>
+                </div>`;
+
+            // 2. Cột Khu vực
+            const maLC = get('lienCum') || get('maLienCum');
+            const maCum = get('cum') || get('maCum');
+            const tenLC = (window.app && app.getNameLienCum) ? app.getNameLienCum(maLC) : maLC;
+            const tenCum = (window.app && app.getNameCum) ? app.getNameCum(maCum) : maCum;
+
+            const colArea = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-blue-700 text-xs">${escape(tenLC || '-')}</span>
+                    <span class="text-[11px] text-slate-500 mt-0.5 font-medium">${escape(tenCum || '-')}</span>
+                </div>`;
+
+            // 3. Cột Vị trí / Vùng (Chỉ dùng cho GDV & Sales)
+            let colLocation = '';
+            const vung = get('vung') || get('Vung') || '-';
+            
+            if (type === 'gdv') {
+                const cuaHang = get('cuaHang') || get('tenCuaHang') || get('tenCH') || '-';
+                colLocation = `
+                    <div class="flex flex-col">
+                        <span class="text-xs font-bold text-slate-700">${escape(cuaHang)}</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wide">Vùng: <b class="text-slate-600">${escape(vung)}</b></span>
+                    </div>`;
+            } else if (type === 'sales') {
+                const rawPt = get('phuTrach') || get('phuongXa') || get('phuongXas') || '-';
+                const phuTrachStr = Array.isArray(rawPt) ? rawPt.join(', ') : rawPt;
+                colLocation = `
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium text-slate-700 line-clamp-2" title="${escape(phuTrachStr)}">${escape(phuTrachStr)}</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wide">Vùng: <b class="text-slate-600">${escape(vung)}</b></span>
+                    </div>`;
+            }
+
+            // 4. Trạng thái
+            const trangThaiVal = get('trangThai'); 
+            const isActive = (String(trangThaiVal) === '1');
+            
+            const statusBadge = isActive 
+                ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm whitespace-nowrap">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Đang làm việc
+                </span>`
+                : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Đã nghỉ việc
+                </span>`;
+
+            const rowClass = isActive ? 'bg-white hover:bg-blue-50/30' : 'bg-slate-50 opacity-60 grayscale-[0.8]';
+
+            // --- RENDER HTML DỰA TRÊN TYPE ---
+            // NẾU LÀ GDV HOẶC SALES THÌ VẼ 5 CỘT (Có colLocation)
+            if (type === 'gdv' || type === 'sales') {
+                return `
+                    <tr class="${rowClass} border-b border-slate-100 transition-colors group">
+                        <td class="p-3 text-center text-xs text-slate-400">${index + 1}</td>
+                        <td class="p-3 align-middle">${colInfo}</td>
+                        <td class="p-3 align-middle">${colArea}</td>
+                        <td class="p-3 align-middle">${colLocation}</td>
+                        <td class="p-3 align-middle">
+                            <div class="flex items-center justify-center w-full">
+                                ${statusBadge}
+                            </div>
+                        </td>
+                    </tr>`;
+            } 
+            // CÁC TRƯỜNG HỢP CÒN LẠI (B2B, KHDN, COMMON...) THÌ VẼ 4 CỘT
+            else {
+                return `
+                    <tr class="${rowClass} border-b border-slate-100 transition-colors group">
+                        <td class="p-3 text-center text-xs text-slate-400">${index + 1}</td>
+                        <td class="p-3 align-middle">${colInfo}</td>
+                        <td class="p-3 align-middle">${colArea}</td>
+                        <td class="p-3 align-middle">
+                            <div class="flex items-center justify-center w-full">
+                                ${statusBadge}
+                            </div>
+                        </td>
+                    </tr>`;
+            }
+        }).join('');
+
         if (window.lucide) lucide.createIcons();
     },
-
-    // 3.3 Nhân viên bán hàng
-    renderSalesTable(data) {
-        const tbody = document.getElementById('sales-list-body');
-        if (!tbody) return;
-        if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = data.map(item => `
-            <tr class="${this.getRowClass(item.trangThai)} border-b transition">
-                <td class="p-3 text-center text-slate-500">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-slate-600">${item.maNV}</td> 
-                <td class="p-3 font-medium">${item.ten}</td>
-                <td class="p-3 text-xs">${app.getNameLienCum ? app.getNameLienCum(item.maLienCum) : item.maLienCum}</td>
-                <td class="p-3 text-xs">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
-                <td class="p-3"><div class="flex flex-wrap gap-1">${(item.phuongXas || []).map(px => `<span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-100 text-[10px]">${px}</span>`).join('')}</div></td>
-                <td class="p-3 text-xs font-mono">${item.sdt}</td>
-                <td class="p-3 text-center">${this.getStatusBadge(item.trangThai, item.ngayNghi)}</td>
-            </tr>
-        `).join('');
-        if (window.lucide) lucide.createIcons();
-    },
-
-    // 3.4 Kênh B2B
-    renderB2BTable(data) {
-        const tbody = document.getElementById('b2b-list-body');
-        if (!tbody) return;
-        if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-4 text-slate-400">Không tìm thấy dữ liệu</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = data.map(item => `
-            <tr class="${this.getRowClass(item.trangThai)} border-b transition">
-                <td class="p-3 text-center text-slate-500">${item.stt}</td>
-                <td class="p-3 font-mono font-bold text-slate-600">${item.maNV}</td> 
-                <td class="p-3 font-medium">${item.ten}</td>
-                <td class="p-3 text-xs">${app.getNameLienCum ? app.getNameLienCum(item.maLienCum) : item.maLienCum}</td>
-                <td class="p-3 text-xs">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                <td class="p-3 text-center"><span class="badge-region">${item.vung}</span></td>
-                <td class="p-3 text-xs font-mono">${item.sdt}</td>
-                <td class="p-3 text-center">${this.getStatusBadge(item.trangThai, item.ngayNghi)}</td>
-            </tr>
-        `).join('');
-        if (window.lucide) lucide.createIcons();
-    },
-
-  // Thay thế hàm renderIndirectTable cũ trong file ui-renderer.js
 
     renderIndirectTable(data) {
         const tbody = document.getElementById('indirect-list-body');
@@ -1256,11 +1336,28 @@ const UIRenderer = {
 
         // --- HELPER DÙNG CHO MODAL ---
         const formatNum = (n) => this.formatNumber(n);
-        
-        // Helper: Logic tính trạng thái hợp đồng (Đồng bộ với renderStoresTable)
+        const escape = (str) => (this.escapeHTML ? this.escapeHTML(str) : String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+
+        // Helper "Săn" dữ liệu: Tìm giá trị trong nhiều key khác nhau (Case insensitive)
+        // Giúp tìm ra dữ liệu dù bên Sheet đặt tên là 'tenCH', 'CuaHang' hay 'store'
+        const pick = (row, ...aliases) => {
+            if (!row) return null;
+            const lmap = {};
+            Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+            for (const a of aliases) {
+                if (!a) continue;
+                // Check chính xác
+                if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
+                // Check không phân biệt hoa thường
+                const lk = lmap[String(a).toLowerCase()];
+                if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') return row[lk];
+            }
+            return null;
+        };
+
+        // Helper: Logic tính trạng thái hợp đồng
         const getContractStatus = (endDateStr) => {
             if (!endDateStr) return { label: 'KHÔNG XĐ', color: 'bg-slate-100 text-slate-500 border-slate-200' };
-            
             let end;
             try {
                 if (endDateStr instanceof Date) end = endDateStr;
@@ -1284,7 +1381,9 @@ const UIRenderer = {
             return { label: `CÒN ${daysLeft} NGÀY`, color: 'bg-emerald-50 text-emerald-700 border-emerald-100', days: daysLeft };
         };
 
-        // CASE 1: STAFF PERFORMANCE
+        // ==========================================================
+        // CASE 1: STAFF PERFORMANCE (KPI)
+        // ==========================================================
         if (type === 'staff-performance') {
             headerHtml = `
                 <tr>
@@ -1351,7 +1450,9 @@ const UIRenderer = {
                 </tr>`;
         }
         
+        // ==========================================================
         // CASE 2: KPI BREAKDOWN
+        // ==========================================================
         else if (type === 'kpi-breakdown') {
             headerHtml = `
                 <tr>
@@ -1387,7 +1488,9 @@ const UIRenderer = {
             }).join('');
         }
 
-        // CASE 3: STORE DETAIL (CẬP NHẬT ĐỒNG BỘ VỚI renderStoresTable)
+        // ==========================================================
+        // CASE 3: STORE DETAIL
+        // ==========================================================
         else if (type === 'store') {
             headerHtml = `
                 <tr>
@@ -1400,62 +1503,56 @@ const UIRenderer = {
                 </tr>`;
             
             bodyHtml = data.map((item, idx) => {
-                // Mapping dữ liệu (An toàn null)
-                const ten = item.ten || 'Chưa cập nhật tên';
-                const id = item.id || item.maCH || '';
-                const loai = item.loaiCh || 'CHTT';
-                const cum = app.getNameCum ? app.getNameCum(item.maCum) : (item.maCum || '-');
-                const cht = item.cht || '';
-                const sdt = item.sdt || '';
-                const diaChi = item.diaChi || '';
-                const gioMo = item.gioMo || '';
+                const ten = pick(item, 'ten', 'tenCH', 'tenCuaHang', 'CuaHang') || 'Chưa cập nhật tên';
+                const id = pick(item, 'id', 'maCH', 'maCuaHang') || '';
+                const loai = pick(item, 'loaiCh', 'loai', 'loaiCuaHang') || 'CHTT';
+                const maCum = pick(item, 'maCum', 'cum') || '-';
+                const cum = app.getNameCum ? app.getNameCum(maCum) : maCum;
+                const cht = pick(item, 'cht', 'truongCa', 'cuaHangTruong') || '';
+                const sdt = pick(item, 'sdt', 'soDienThoai', 'hotline') || '';
+                const diaChi = pick(item, 'diaChi', 'diachi', 'diaChiCH') || '';
+                const gioMo = pick(item, 'gioMo', 'time', 'openTime') || '';
                 
-                // Map
                 const mapLink = (item.lat && item.lng) 
                 ? `<a href="http://maps.google.com/maps?q=${item.lat},${item.lng}" target="_blank" class="text-blue-600 hover:text-blue-800 text-[11px] flex items-center gap-1 mt-1 font-medium transition">
                     <i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ
                 </a>` : '';
 
-                // Images
-                const imgTrong = item.AnhTrong || item.imgInside || item.anhTrong || '';
-                const imgNgoai = item.AnhNgoai || item.imgOutside || item.anhNgoai || '';
+                const imgTrong = pick(item, 'AnhTrong', 'imgInside', 'anhTrong') || '';
+                const imgNgoai = pick(item, 'AnhNgoai', 'imgOutside', 'anhNgoai') || '';
                 const hasImgIn = imgTrong.length > 5;
                 const hasImgOut = imgNgoai.length > 5;
 
-                // Status
-                const status = getContractStatus(item.ngayHetHan);
-                const safeDate = item.ngayHetHan ? (typeof item.ngayHetHan === 'string' ? item.ngayHetHan.split('T')[0] : item.ngayHetHan) : '';
+                const ngayHetHan = pick(item, 'ngayHetHan', 'hetHan', 'expireDate');
+                const status = getContractStatus(ngayHetHan);
+                const safeDate = ngayHetHan ? (typeof ngayHetHan === 'string' ? ngayHetHan.split('T')[0] : ngayHetHan) : '';
 
                 return `
                 <tr class="border-b hover:bg-slate-50 transition-colors align-top">
                     <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
-                    
                     <td class="p-3">
                         <div class="flex flex-col gap-1">
-                            <span class="font-bold text-slate-700 text-sm">${ten}</span>
+                            <span class="font-bold text-slate-700 text-sm">${escape(ten)}</span>
                             <div class="flex items-center gap-2">
-                                <span class="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">${id}</span>
+                                <span class="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">${escape(id)}</span>
                                 <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${loai === 'CHTT' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-purple-50 text-purple-700 border-purple-100'}">
-                                    ${loai}
+                                    ${escape(loai)}
                                 </span>
                             </div>
                         </div>
                     </td>
-
                     <td class="p-3 text-center">
-                         <span class="inline-block px-2 py-1 rounded bg-slate-100 text-slate-600 text-xs font-semibold border border-slate-200 whitespace-nowrap">${cum}</span>
+                        <span class="inline-block px-2 py-1 rounded bg-slate-100 text-slate-600 text-xs font-semibold border border-slate-200 whitespace-nowrap">${escape(cum)}</span>
                     </td>
-
                     <td class="p-3">
                         <div class="flex flex-col text-sm">
-                            <span class="font-medium text-slate-700 text-xs mb-0.5"><i data-lucide="user" class="w-3 h-3 inline text-slate-400"></i> ${cht || '-'}</span>
-                            ${sdt ? `<a href="tel:${sdt}" class="text-slate-500 hover:text-blue-600 text-xs flex items-center gap-1 mb-1"><i data-lucide="phone" class="w-3 h-3"></i> ${sdt}</a>` : ''}
-                            <span class="text-xs text-slate-600 line-clamp-2 leading-tight" title="${diaChi}">${diaChi || '-'}</span>
+                            <span class="font-medium text-slate-700 text-xs mb-0.5"><i data-lucide="user" class="w-3 h-3 inline text-slate-400"></i> ${escape(cht || '-')}</span>
+                            ${sdt ? `<a href="tel:${sdt}" class="text-slate-500 hover:text-blue-600 text-xs flex items-center gap-1 mb-1"><i data-lucide="phone" class="w-3 h-3"></i> ${escape(sdt)}</a>` : ''}
+                            <span class="text-xs text-slate-600 line-clamp-2 leading-tight" title="${escape(diaChi)}">${escape(diaChi || '-')}</span>
                             ${mapLink}
-                            ${gioMo ? `<div class="mt-1 flex items-center gap-1 text-[10px] text-slate-500"><i data-lucide="clock" class="w-3 h-3"></i> ${gioMo}</div>` : ''}
+                            ${gioMo ? `<div class="mt-1 flex items-center gap-1 text-[10px] text-slate-500"><i data-lucide="clock" class="w-3 h-3"></i> ${escape(gioMo)}</div>` : ''}
                         </div>
                     </td>
-
                     <td class="p-3 text-center align-middle">
                         <div class="flex gap-2 justify-center">
                             <div class="relative group/tooltip" title="Ảnh nội thất">
@@ -1468,41 +1565,119 @@ const UIRenderer = {
                             </div>
                         </div>
                     </td>
-
                     <td class="p-3 text-center align-middle">
-                         <div class="flex flex-col items-center gap-1">
+                        <div class="flex flex-col items-center gap-1">
                             <span class="inline-flex w-fit px-2 py-0.5 rounded text-[10px] font-bold border ${status.color} uppercase whitespace-nowrap">
                                 ${status.label}
                             </span>
-                             ${safeDate ? `<span class="text-[10px] text-slate-400">${this.formatDateVN(safeDate)}</span>` : ''}
+                            ${safeDate ? `<span class="text-[10px] text-slate-400">${this.formatDateVN(safeDate)}</span>` : ''}
                         </div>
                     </td>
                 </tr>`;
             }).join('');
         }
 
-        // CASE 4: HUMAN RESOURCES (GDV, SALES, B2B)
+       // ==========================================================
+    // CASE 4: HUMAN RESOURCES (GDV, SALES, B2B)
+    // ==========================================================
         else if (['gdv', 'sales', 'b2b'].includes(type)) {
-             headerHtml = `
+            // 1. CHUẨN BỊ TIÊU ĐỀ
+            let thName = 'Nhân sự', thArea = 'Khu vực', thLoc = 'Vị trí';
+            if (type === 'gdv') { thName = 'Giao Dịch Viên'; thLoc = 'Tại Cửa hàng / Vùng'; }
+            else if (type === 'sales') { thName = 'Nhân viên BH'; thLoc = 'Phụ trách / Vùng'; }
+            else { thName = 'Nhân viên KHDN'; } // B2B
+
+            // --- XỬ LÝ RIÊNG CHO B2B (4 CỘT) ---
+            if (type === 'b2b') {
+                headerHtml = `
                 <tr>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Mã NV</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Họ tên</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Trạng thái</th>
-                </tr>`;
+                    <th class="p-3 border-b bg-slate-100 text-center w-12 sticky top-0 z-20">STT</th> <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">${thName}</th>     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">${thArea}</th>     <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Trạng thái</th>   </tr>`;
+            } 
+            // --- XỬ LÝ CHO GDV/SALES (5 CỘT) ---
+            else {
+                headerHtml = `
+                <tr>
+                    <th class="p-3 border-b bg-slate-100 text-center w-12 sticky top-0 z-20">STT</th> <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">${thName}</th>     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">${thArea}</th>     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">${thLoc}</th>      <th class="p-3 border-b bg-slate-100 text-center w-32 sticky top-0 z-20">Trạng thái</th> </tr>`;
+            }
             
-            bodyHtml = data.map(item => `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 font-mono text-slate-600 font-bold">${item.maNV}</td>
-                    <td class="p-3 font-medium text-slate-800">${item.ten}</td>
-                    <td class="p-3 text-sm text-slate-500">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                    <td class="p-3 text-center text-xs">
-                        ${this.getStatusBadge ? this.getStatusBadge(item.trangThai) : `<span class="badge badge-outline">${item.trangThai}</span>`}
-                    </td>
-                </tr>`).join('');
+            // 2. CHUẨN BỊ DỮ LIỆU
+            bodyHtml = data.map((item, index) => {
+                // Helper lấy dữ liệu an toàn
+                const ten = pick(item, 'tenNV', 'ten', 'hoTen', 'name') || '---';
+                const ma = pick(item, 'maNV', 'MaNV', 'code') || '---';
+                const sdt = pick(item, 'sdt', 'soDT', 'SoDienThoai', 'phone') || '';
+                const trangThaiVal = pick(item, 'trangThai', 'status', 'working');
+                
+                // Khu vực
+                const maLC = pick(item, 'lienCum', 'maLienCum', 'LienCum');
+                const maCum = pick(item, 'cum', 'maCum', 'Cum');
+                const tenLC = (window.app && app.getNameLienCum) ? app.getNameLienCum(maLC) : (maLC || '-');
+                const tenCum = (window.app && app.getNameCum) ? app.getNameCum(maCum) : (maCum || '-');
+
+                // Vị trí & Vùng (Chỉ dùng cho GDV/Sales)
+                const vung = pick(item, 'vung', 'Vung', 'region') || '-';
+                let locHtml = '';
+                
+                if (type === 'gdv') {
+                    const ch = pick(item, 'cuaHang', 'tenCuaHang', 'tenCH', 'store', 'CuaHang') || '-';
+                    locHtml = `<div class="flex flex-col"><span class="text-xs font-bold text-slate-700">${escape(ch)}</span><span class="text-[10px] text-slate-400 mt-0.5">Vùng: ${escape(vung)}</span></div>`;
+                } else if (type === 'sales') {
+                    let rawPt = pick(item, 'phuTrach', 'phuongXa', 'phuongXas', 'khuVuc', 'PhuTrach');
+                    if (Array.isArray(rawPt)) rawPt = rawPt.join(', ');
+                    const pt = rawPt || '-';
+                    locHtml = `<div class="flex flex-col"><span class="text-xs font-medium text-slate-700 line-clamp-2" title="${escape(pt)}">${escape(pt)}</span><span class="text-[10px] text-slate-400 mt-0.5">Vùng: ${escape(vung)}</span></div>`;
+                }
+
+                // Trạng thái Badge
+                const isActive = String(trangThaiVal) === '1';
+                const statusBadge = isActive 
+                    ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Đang làm việc</span>`
+                    : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Đã nghỉ việc</span>`;
+                
+                const rowClass = isActive ? 'bg-white hover:bg-slate-50' : 'bg-slate-50 opacity-60 grayscale-[0.8]';
+
+                // HTML thông tin chung
+                const infoHtml = `
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition">${escape(ten)}</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200 font-bold">${escape(ma)}</span>
+                            ${sdt ? `<a href="tel:${sdt}" class="text-[10px] text-slate-500 hover:text-blue-600 flex items-center gap-1"><i data-lucide="phone" class="w-3 h-3"></i> ${escape(sdt)}</a>` : ''}
+                        </div>
+                    </div>`;
+                
+                const areaHtml = `
+                    <div class="flex flex-col">
+                        <span class="font-bold text-blue-700 text-xs">${escape(tenLC)}</span>
+                        <span class="text-[10px] text-slate-500 mt-0.5">${escape(tenCum)}</span>
+                    </div>`;
+
+                // --- RENDER HÀNG CHO B2B (4 CỘT) ---
+                if (type === 'b2b') {
+                    return `
+                    <tr class="${rowClass} border-b transition-colors group">
+                        <td class="p-3 text-center text-xs text-slate-400">${index + 1}</td> <td class="p-3 align-middle">${infoHtml}</td>                         <td class="p-3 align-middle">${areaHtml}</td>                         <td class="p-3 align-middle">                                         <div class="flex items-center justify-center w-full">
+                                ${statusBadge}
+                            </div>
+                        </td>
+                    </tr>`;
+                } 
+                // --- RENDER HÀNG CHO GDV/SALES (5 CỘT) ---
+                else {
+                    return `
+                    <tr class="${rowClass} border-b transition-colors group">
+                        <td class="p-3 text-center text-xs text-slate-400">${index + 1}</td> <td class="p-3 align-middle">${infoHtml}</td>                         <td class="p-3 align-middle">${areaHtml}</td>                         <td class="p-3 align-middle">${locHtml}</td>                          <td class="p-3 align-middle">                                         <div class="flex items-center justify-center w-full">
+                                ${statusBadge}
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+            }).join('');
         }
         
+        // ==========================================================
         // CASE 5: BTS
+        // ==========================================================
         else if (type === 'bts') {
             headerHtml = `
                 <tr>
@@ -1523,7 +1698,9 @@ const UIRenderer = {
                 </tr>`).join('');
         }
 
+        // ==========================================================
         // CASE 6: LIST CUM
+        // ==========================================================
         else if (type === 'list_cum') {
             headerHtml = `
                 <tr>
@@ -1541,9 +1718,11 @@ const UIRenderer = {
                 </tr>`).join('');
         }
 
+        // ==========================================================
         // CASE 7: COMMUNES
+        // ==========================================================
         else if (type === 'commune') {
-             headerHtml = `
+                headerHtml = `
                 <tr>
                     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Phường/Xã</th>
                     <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">Dân Số</th>
@@ -1562,7 +1741,9 @@ const UIRenderer = {
                 </tr>`).join('');
         }
         
-        // CASE 8: INDIRECT (ĐÃ SỬA: Render trực tiếp vào Modal thay vì gọi hàm renderIndirectTable)
+        // ==========================================================
+        // CASE 8: INDIRECT
+        // ==========================================================
         else if (type === 'indirect') {
             headerHtml = `
                 <tr>
@@ -1575,21 +1756,6 @@ const UIRenderer = {
                     <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Hình ảnh</th>
                 </tr>`;
 
-            // Helper: Lấy dữ liệu an toàn (Copy từ renderIndirectTable vì phạm vi biến cục bộ)
-            const pick = (row, ...aliases) => {
-                if (!row) return '';
-                const lmap = {};
-                Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
-                for (const a of aliases) {
-                    if (!a) continue;
-                    if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
-                    const lk = lmap[String(a).toLowerCase()];
-                    if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') return row[lk];
-                }
-                return '';
-            };
-
-            // Helper: Xử lý link Google Drive thumbnail
             const getDisplayUrl = (url) => {
                 if (!url) return '';
                 const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
@@ -1597,13 +1763,12 @@ const UIRenderer = {
                 return url;
             };
 
-            // Helper: Render ô ảnh
             const renderImgCell = (url, icon) => {
                 if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300"><i data-lucide="${icon}" class="w-4 h-4"></i></div>`;
                 const displayUrl = getDisplayUrl(url);
                 return `
                     <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
-                          onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                            onclick="event.stopPropagation(); window.open('${url}', '_blank')">
                         <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
                     </div>`;
             };
