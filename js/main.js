@@ -1400,166 +1400,212 @@
             if(window.lucide) lucide.createIcons();
         },
 
-        // --- HÀM MỚI: RENDER DANH SÁCH GIAO DỊCH VIÊN (GDV) - SECURED ---
         renderGDVList() {
-            console.log("Rendering GDV List (Secured)...");
-            const rawData = this.cachedData.gdvs || [];
-            const data = this.filterDataByScope(rawData);
+            console.log("🚀 Rendering GDV List (Secured - Fixed Variable)...");
+            
+            // 1. Helper an toàn cục bộ
+            const safe = (str) => {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            };
 
+            const getSafeName = (code, map) => {
+                if (!code) return '-';
+                return (this[map] && this[map][code]) ? this[map][code] : code;
+            };
+
+            // 2. Lấy data (SỬA LỖI Ở ĐÂY: gdv -> gdvs)
+            const rawData = this.cachedData.gdvs || []; 
+            const data = this.filterDataByScope(rawData);
+            
             const tbody = document.getElementById('gdv-list-body');
-            if (!tbody) return console.warn("Không tìm thấy ID: gdv-list-body");
+            if (!tbody) return;
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-slate-500">Chưa có dữ liệu GDV.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu GDV.</td></tr>';
                 return;
             }
 
             let html = '';
-            data.forEach((item, index) => {
-                // Bảo mật dữ liệu đầu vào
-                const maGDV = this.escapeHTML(item.maGDV || item.maNV || '');
-                const ten = this.escapeHTML(item.ten || item.hoTen || '');
-                const tenCH = this.escapeHTML(item.tenCH || item.tench || item.cuaHang || '-');
-                const vung = this.escapeHTML(item.vung || '-');
-                const sdt = this.escapeHTML(item.sdt || '');
+            data.forEach((item, idx) => {
+                const maGDV = safe(item.maGDV || item.maNV);
+                const ten = safe(item.ten || item.hoTen);
+                const maCH = safe(item.maCH || item.shopCode);
+                const sdt = safe(item.sdt || '');
+                const vung = safe(item.vung || '-');
                 
-                const status = this.escapeHTML(item.trangThai || 'Đang làm việc');
-                const statusClass = status === 'Nghỉ việc' ? 'text-red-500' : 'text-emerald-600';
+                const tenLC = safe(getSafeName(item.maLienCum, 'mapLienCum'));
+                const tenCum = safe(getSafeName(item.maCum, 'mapCum'));
 
-                // Tên cấu trúc
-                const maLC = item.maLienCum || item.maliencum || item.lienCum || '';
-                const maCum = item.maCum || item.macum || item.cum || '';
-                const hienThiLC = this.escapeHTML(this.getNameLienCum(maLC) || maLC);
-                const hienThiCum = this.escapeHTML(this.getNameCum(maCum) || maCum);
+                const statusClass = (item.trangThai === 'Nghỉ việc') 
+                    ? 'bg-red-50 text-red-600 border-red-100' 
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-100';
 
                 html += `
                     <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                        <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${maGDV}</td>
-                        <td class="px-4 py-3 text-slate-700 font-medium">${ten}</td>
-
-                        <td class="px-4 py-3 text-sm text-blue-600 font-medium">${tenCH}</td>
-
-                        <td class="px-4 py-3 text-sm">${hienThiLC}</td>
-                        <td class="px-4 py-3 text-sm">${hienThiCum}</td>
-
-                        <td class="px-4 py-3 text-center text-sm">${vung}</td>
-                        <td class="px-4 py-3 text-sm font-mono">${sdt}</td>
-                        <td class="px-4 py-3 text-center text-xs font-bold ${statusClass}">${status}</td>
+                        <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
+                        <td class="p-3 font-mono text-xs font-bold text-blue-700">${maGDV}</td>
+                        <td class="p-3 font-medium text-slate-700">${ten}</td>
+                        <td class="p-3 text-xs">
+                            <span class="px-2 py-0.5 bg-slate-100 rounded border border-slate-200 font-mono">${maCH}</span>
+                        </td>
+                        <td class="p-3 text-xs text-slate-600">${tenLC}</td>
+                        <td class="p-3 text-xs text-slate-600">${tenCum}</td>
+                        <td class="p-3 text-xs text-slate-500">${vung}</td>
+                        <td class="p-3 text-xs font-mono">${sdt}</td>
+                        <td class="p-3 text-center">
+                            <span class="text-[10px] px-2 py-0.5 rounded border ${statusClass} font-bold uppercase">
+                                ${safe(item.trangThai || 'Hoạt động')}
+                            </span>
+                        </td>
                     </tr>
                 `;
             });
-
             tbody.innerHTML = html;
-            if(window.lucide) lucide.createIcons();
         },
 
-        // --- HÀM MỚI: RENDER DANH SÁCH NV BÁN HÀNG - SECURED ---
         renderSalesList() {
-            console.log("Rendering Sales List (Secured)...");
-            const rawData = this.cachedData.sales || [];
-            const data = this.filterDataByScope(rawData);
+        console.log("🚀 Rendering Sales List (Secured - Fixed PhuongXa)...");
 
-            const tbody = document.getElementById('sales-list-body');
-            if (!tbody) return console.warn("Không tìm thấy ID: sales-list-body");
-            tbody.innerHTML = '';
+        // 1. Helper an toàn cục bộ
+        const safe = (str) => {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-slate-500">Chưa có dữ liệu hoặc không thuộc phạm vi quản lý.</td></tr>';
-                return;
-            }
+        const getSafeName = (code, map) => {
+            if (!code) return '-';
+            return (this[map] && this[map][code]) ? this[map][code] : code;
+        };
 
-            let html = '';
-            data.forEach((item, index) => {
-                // Bảo mật dữ liệu
-                const maNV = this.escapeHTML(item.maNV || '');
-                const ten = this.escapeHTML(item.ten || item.hoTen || '');
-                const phuongXa = this.escapeHTML(item.phuongXas || item.phuongxas || item.phuongXa || '-');
-                const vung = this.escapeHTML(item.vung || '-');
-                const sdt = this.escapeHTML(item.sdt || '');
-                
-                const status = this.escapeHTML(item.trangThai || 'Đang làm việc');
-                const statusClass = status === 'Nghỉ việc' ? 'text-red-500' : 'text-emerald-600';
+        // 2. Lấy data
+        const rawData = this.cachedData.sales || [];
+        const data = this.filterDataByScope(rawData);
+        
+        const tbody = document.getElementById('sales-list-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
 
-                const maLC = item.maLienCum || item.maliencum || item.lienCum || '';
-                const maCum = item.maCum || item.macum || item.cum || '';
-                const hienThiLC = this.escapeHTML(this.getNameLienCum(maLC) || maLC);
-                const hienThiCum = this.escapeHTML(this.getNameCum(maCum) || maCum);
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu NVBH.</td></tr>';
+            return;
+        }
 
-                html += `
-                    <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                        <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${maNV}</td>
-                        <td class="px-4 py-3 text-slate-700 font-medium">${ten}</td>
+        let html = '';
+        data.forEach((item, idx) => {
+            const maNV = safe(item.maNV);
+            const ten = safe(item.ten || item.hoTen);
+            const sdt = safe(item.sdt || '');
+            const vung = safe(item.vung || '-');
+            
+            // [FIX] Bổ sung check item.phuongXas (theo Google Sheet)
+            const diaBan = safe(item.diaBan || item.phuongXa || item.phuongXas || '-');
 
-                        <td class="px-4 py-3 text-sm">${hienThiLC}</td>
-                        <td class="px-4 py-3 text-sm">${hienThiCum}</td>
+            const tenLC = safe(getSafeName(item.maLienCum, 'mapLienCum'));
+            const tenCum = safe(getSafeName(item.maCum, 'mapCum'));
 
-                        <td class="px-4 py-3 text-center text-sm">${vung}</td>
+            const statusClass = (item.trangThai === 'Nghỉ việc') 
+                ? 'bg-red-50 text-red-600 border-red-100' 
+                : 'bg-orange-50 text-orange-600 border-orange-100';
 
-                        <td class="px-4 py-3 text-sm max-w-[200px] truncate cursor-help" title="${phuongXa}">
-                            ${phuongXa}
-                        </td>
+            html += `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
+                    <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
+                    <td class="p-3 font-mono text-xs font-bold text-orange-700">${maNV}</td>
+                    <td class="p-3 font-medium text-slate-700">${ten}</td>
+                    <td class="p-3 text-xs text-slate-600">${tenLC}</td>
+                    <td class="p-3 text-xs text-slate-600">${tenCum}</td>
+                    <td class="p-3 text-center text-xs text-slate-500">${vung}</td>
+                    <td class="p-3 text-xs text-slate-600 max-w-[200px] truncate" title="${diaBan}">${diaBan}</td>
+                    <td class="p-3 text-xs font-mono">${sdt}</td>
+                    <td class="p-3 text-center">
+                        <span class="text-[10px] px-2 py-0.5 rounded border ${statusClass} font-bold uppercase">
+                            ${safe(item.trangThai || 'Hoạt động')}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    },
+    renderB2BList() {
+        console.log("🚀 Rendering B2B List (Secured)...");
 
-                        <td class="px-4 py-3 text-sm font-mono">${sdt}</td>
-                        <td class="px-4 py-3 text-center text-xs font-bold ${statusClass}">${status}</td>
+        // 1. Helper an toàn cục bộ
+        const safe = (str) => {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
 
-                        </td>
-                    </tr>
-                `;
-            });
+        const getSafeName = (code, map) => {
+            if (!code) return '-';
+            return (this[map] && this[map][code]) ? this[map][code] : code;
+        };
 
-            tbody.innerHTML = html;
-            if(window.lucide) lucide.createIcons();
-        },
+        // 2. Lấy data
+        const rawData = this.cachedData.b2b || [];
+        const data = this.filterDataByScope(rawData);
+        
+        const tbody = document.getElementById('b2b-list-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
 
-      // --- HÀM MỚI: RENDER DANH SÁCH KHÁCH HÀNG DOANH NGHIỆP (B2B) - SECURED ---
-        renderB2BList() {
-            console.log("Rendering B2B List (Secured)...");
-            const rawData = this.cachedData.b2b || [];
-            const data = this.filterDataByScope(rawData);
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu KHDN.</td></tr>';
+            return;
+        }
 
-            const tbody = document.getElementById('b2b-list-body');
-            if (!tbody) return console.warn("Không tìm thấy ID: b2b-list-body");
-            tbody.innerHTML = '';
+        let html = '';
+        data.forEach((item, idx) => {
+            const maNV = safe(item.maNV);
+            const ten = safe(item.ten || item.hoTen);
+            const sdt = safe(item.sdt || '');
+            const vung = safe(item.vung || '-');
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-slate-500">Chưa có dữ liệu KHDN.</td></tr>';
-                return;
-            }
+            const tenLC = safe(getSafeName(item.maLienCum, 'mapLienCum'));
+            const tenCum = safe(getSafeName(item.maCum, 'mapCum'));
 
-            let html = '';
-            data.forEach((item, index) => {
-                // Bảo mật
-                const maNV = this.escapeHTML(item.maNV || '');
-                const ten = this.escapeHTML(item.ten || item.hoTen || '');
-                const lienCumStr = this.escapeHTML(item.lienCum || '');
-                const cumStr = this.escapeHTML(item.cum || '');
-                const vung = this.escapeHTML(item.vung || '-');
-                const sdt = this.escapeHTML(item.sdt || '');
+            const statusClass = (item.trangThai === 'Nghỉ việc') 
+                ? 'bg-red-50 text-red-600 border-red-100' 
+                : 'bg-purple-50 text-purple-600 border-purple-100';
 
-                const status = this.escapeHTML(item.trangThai || 'Đang làm việc');
-                const statusClass = status === 'Nghỉ việc' ? 'text-red-500' : 'text-purple-600';
+            html += `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
+                    <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
+                    <td class="p-3 font-mono text-xs font-bold text-purple-700">${maNV}</td>
+                    <td class="p-3 font-medium text-slate-700">${ten}</td>
+                    <td class="p-3 text-xs text-slate-600">${tenLC}</td>
+                    <td class="p-3 text-xs text-slate-600">${tenCum}</td>
+                    <td class="p-3 text-center text-xs text-slate-500">${vung}</td>
+                    <td class="p-3 text-xs font-mono">${sdt}</td>
+                    <td class="p-3 text-center">
+                        <span class="text-[10px] px-2 py-0.5 rounded border ${statusClass} font-bold uppercase">
+                            ${safe(item.trangThai || 'Hoạt động')}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    },
 
-                html += `
-                    <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                        <td class="px-4 py-3 text-center text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3 font-bold text-slate-700">${maNV}</td>
-                        <td class="px-4 py-3 text-slate-700 font-medium">${ten}</td>
-                        <td class="px-4 py-3 text-sm">${lienCumStr}</td>
-                        <td class="px-4 py-3 text-sm">${cumStr}</td>
-                        <td class="px-4 py-3 text-center text-sm">${vung}</td>
-                        <td class="px-4 py-3 text-sm font-mono">${sdt}</td>
-                        <td class="px-4 py-3 text-center text-xs font-bold ${statusClass}">${status}</td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
-            if(window.lucide) lucide.createIcons();
-        },
-
+     
         // ============================================================
         // 4. BUSINESS DATA & USER LOGS (CÁC TRANG DỮ LIỆU KHÁC)
         // ============================================================
