@@ -370,7 +370,100 @@
                                     <div class="h-[1px] bg-slate-200 flex-1"></div>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="dashboard-infrastructure">
-                                    <div class="col-span-4 text-center text-slate-400 py-8"><i class="animate-spin" data-lucide="loader-2"></i> Đang tải dữ liệu...</div>
+    
+                                    <div onclick="app.switchTab('tab-stores'); app.navigate('direct_channel')" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-blue-100"></div>
+                                        <div class="relative z-10">
+                                            <div class="flex items-center gap-3 mb-3">
+                                                <div class="p-2 bg-blue-100 text-blue-600 rounded-lg"><i data-lucide="store" class="w-5 h-5"></i></div>
+                                                <div>
+                                                    <h4 class="font-bold text-slate-700">Cửa Hàng</h4>
+                                                    <span class="text-[10px] text-slate-400 font-normal">Nhấn để xem chi tiết</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="flex items-end justify-between mb-3">
+                                                <div>
+                                                    <span class="text-3xl font-bold text-blue-700" id="infra-store-total">0</span>
+                                                    <span class="text-xs text-slate-500 block font-medium">Tổng điểm giao dịch</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="space-y-1.5 border-t border-slate-100 pt-2 text-[11px] font-medium text-slate-600">
+                                                <div class="flex justify-between items-center">
+                                                    <span>Loại 1 (Flagship):</span>
+                                                    <span class="font-bold text-slate-800" id="infra-store-type1">0</span>
+                                                </div>
+                                                <div class="flex justify-between items-center">
+                                                    <span>Loại 2 (Chuẩn):</span>
+                                                    <span class="font-bold text-slate-800" id="infra-store-type2">0</span>
+                                                </div>
+                                                
+                                                <div class="flex justify-between items-center text-red-600 bg-red-50 px-2 py-0.5 rounded mt-1">
+                                                    <span class="flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Sắp hết hạn HĐ:</span>
+                                                    <span class="font-bold" id="infra-store-contract-exp">0</span>
+                                                </div>
+
+                                                <div class="flex justify-between items-center text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
+                                                    <span class="flex items-center gap-1"><i data-lucide="image-off" class="w-3 h-3"></i> Thiếu hình ảnh:</span>
+                                                    <span class="font-bold" id="infra-store-no-img">0</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div onclick="app.switchTab('tab-gdv'); app.navigate('direct_channel')" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-emerald-100"></div>
+                                        <div class="relative z-10">
+                                            <div class="flex items-center gap-3 mb-4">
+                                                <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><i data-lucide="user-check" class="w-5 h-5"></i></div>
+                                                <h4 class="font-bold text-slate-700">Giao Dịch Viên</h4>
+                                            </div>
+                                            <div class="mb-2">
+                                                <span class="text-3xl font-bold text-emerald-700" id="infra-gdv-total">0</span>
+                                                <span class="text-xs text-slate-500 block">Nhân sự hiện hữu</span>
+                                            </div>
+                                            <div class="space-y-1 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+                                                <div class="flex justify-between"><span>Cửa hàng trưởng:</span> <b class="text-slate-700" id="infra-gdv-cht">0</b></div>
+                                                <div class="flex justify-between"><span>Giao dịch viên:</span> <b class="text-slate-700" id="infra-gdv-staff">0</b></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div onclick="app.switchTab('tab-sales'); app.navigate('direct_channel')" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-orange-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-orange-100"></div>
+                                        <div class="relative z-10">
+                                            <div class="flex items-center gap-3 mb-4">
+                                                <div class="p-2 bg-orange-100 text-orange-600 rounded-lg"><i data-lucide="users" class="w-5 h-5"></i></div>
+                                                <h4 class="font-bold text-slate-700">NV Bán Hàng</h4>
+                                            </div>
+                                            <div class="mb-2">
+                                                <span class="text-3xl font-bold text-orange-700" id="infra-sales-total">0</span>
+                                                <span class="text-xs text-slate-500 block">Nhân sự chuyên trách</span>
+                                            </div>
+                                            <div class="space-y-1 border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+                                                <div class="flex justify-between"><span>Quản lý Địa bàn:</span> <b class="text-slate-700" id="infra-sales-am">0</b></div>
+                                                <div class="flex justify-between"><span>NV phát triển:</span> <b class="text-slate-700" id="infra-sales-staff">0</b></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div onclick="app.navigate('bts')" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer group relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-indigo-50 rounded-bl-full -mr-2 -mt-2 transition group-hover:bg-indigo-100"></div>
+                                        <div class="relative z-10">
+                                            <div class="flex items-center gap-3 mb-4">
+                                                <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><i data-lucide="signal" class="w-5 h-5"></i></div>
+                                                <h4 class="font-bold text-slate-700">Trạm BTS</h4>
+                                            </div>
+                                            <div class="mb-2">
+                                                <span class="text-3xl font-bold text-indigo-700" id="infra-bts-total">0</span>
+                                                <span class="text-xs text-slate-500 block">Tổng trạm phát sóng</span>
+                                            </div>
+                                            <div class="text-[11px] text-slate-500 mt-auto pt-2 border-t border-slate-100 flex justify-between">
+                                                <span>Hạ tầng 3G/4G:</span> <span class="text-indigo-600 font-bold">Hoạt động</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <div class="mb-2 flex items-center gap-2">
@@ -695,25 +788,22 @@
                         <div class="p-6 flex-1 overflow-auto bg-white">
                             <div id="tab-stores" class="tab-content block">
                                 <div class="flex justify-between items-center mb-4">
-                                    <input type="text" placeholder="Tìm tên Cửa hàng..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchStore(this.value)">
-                                </div>
+                                    <input type="text" placeholder="Tìm tên Cửa hàng, CHT..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchStore(this.value)">
+                                    </div>
                                 <div class="overflow-x-auto border rounded-lg">
-                                    <table class="modern-table">
-                                        <thead class="bg-slate-50 text-slate-700">
+                                    <table class="modern-table w-full text-left border-collapse">
+                                        <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
                                             <tr>
-                                                <th class="w-10 text-center">STT</th>
-                                                <th>Mã CH</th>
-                                                <th>Tên Cửa Hàng</th>
-                                                <th>Liên Cụm</th>
-                                                <th>Cụm</th>
-                                                <th>Địa chỉ</th>
-                                                <th>Diện tích (D x R)</th>
-                                                <th>Thời hạn thuê (BĐ - KT)</th>
-                                                <th>Cảnh báo Hết hạn</th>
-                                                <th>Ghi chú</th>
+                                                <th class="p-3 font-bold border-b w-[25%]">Cửa Hàng / Loại</th>
+                                                <th class="p-3 font-bold border-b w-[15%]">Khu Vực</th>
+                                                <th class="p-3 font-bold border-b w-[20%]">Liên Hệ (CHT)</th>
+                                                <th class="p-3 font-bold border-b w-[20%]">Địa Điểm</th>
+                                                <th class="p-3 font-bold border-b w-[15%]">Hợp Đồng</th>
+                                                <th class="p-3 text-right font-bold border-b w-[100px]">Hình Ảnh</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="store-list-body"></tbody>
+                                        <tbody id="store-list-body">
+                                            </tbody>
                                     </table>
                                 </div>
                             </div>
@@ -1195,139 +1285,264 @@
         </div>
     </div>
 
-<div id="modal-edit-indirect" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] hidden flex items-center justify-center transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-fade-in">
-            
-            <div class="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex justify-between items-center">
-                <h3 class="text-white font-bold text-lg flex items-center gap-2">
-                    <i data-lucide="edit-3" class="w-5 h-5"></i> Cập Nhật Điểm Bán
-                </h3>
-                <button onclick="app.closeModal('modal-edit-indirect')" class="text-white/80 hover:text-white transition">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </div>
-
-            <div class="p-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+    <div id="modal-edit-indirect" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[80] hidden flex items-center justify-center transition-opacity">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-fade-in">
                 
-                <input type="hidden" id="edit-id"> 
-                <input type="hidden" id="base64-outside">
-                <input type="hidden" id="base64-inside">
-
-                <div class="mb-3">
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Mã Đại Lý / Điểm Bán</label>
-                    <input type="text" id="edit-indirect-code" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-slate-500 font-bold focus:outline-none" readonly>
-                </div>
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Liên Cụm</label>
-                    <input type="text" id="edit-indirect-liencum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cụm</label>
-                    <input type="text" id="edit-indirect-cum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
+                <div class="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex justify-between items-center">
+                    <h3 class="text-white font-bold text-lg flex items-center gap-2">
+                        <i data-lucide="edit-3" class="w-5 h-5"></i> Cập Nhật Điểm Bán
+                    </h3>
+                    <button onclick="app.closeModal('modal-edit-indirect')" class="text-white/80 hover:text-white transition">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tên Điểm Bán <span class="text-red-500">*</span></label>
-                        <input type="text" id="edit-indirect-name" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none font-bold text-blue-800">
-                    </div>
+                <div class="p-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
                     
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Chủ Sở Hữu / Người đại diện</label>
-                        <input type="text" id="edit-indirect-owner" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" placeholder="Tên chủ cửa hàng">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Số Điện Thoại</label>
-                        <input type="text" id="edit-indirect-phone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
-                    </div>
-                </div>
+                    <input type="hidden" id="edit-id"> 
+                    <input type="hidden" id="base64-outside">
+                    <input type="hidden" id="base64-inside">
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Địa Chỉ</label>
-                        <input type="text" id="edit-indirect-address" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                    <div class="mb-3">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Mã Đại Lý / Điểm Bán</label>
+                        <input type="text" id="edit-indirect-code" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-slate-500 font-bold focus:outline-none" readonly>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Liên Cụm</label>
+                        <input type="text" id="edit-indirect-liencum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Loại / Hạng</label>
-                        <input type="text" id="edit-indirect-type" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Cụm</label>
+                        <input type="text" id="edit-indirect-cum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tuyến</label>
-                        <input type="text" id="edit-indirect-route" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-4 mt-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">Vĩ độ (Lat)</label>
-                        <input type="text" id="indirect-lat" 
-                            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
-                            placeholder="VD: 10.7769">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 mb-1">Kinh độ (Lng)</label>
-                        <input type="text" id="indirect-lng" 
-                            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
-                            placeholder="VD: 106.7009">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 mt-4">
-                    
-                    <div>
-                        <span class="text-xs font-semibold text-slate-600 block mb-2">Ảnh Bên Ngoài</span>
-                        <div class="h-32 bg-white border border-dashed border-slate-300 rounded mb-2 flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition">
-                            
-                            <div id="placeholder-outside" class="flex flex-col items-center pointer-events-none">
-                                <i data-lucide="image" class="w-8 h-8 text-slate-300 mb-1"></i>
-                                <span class="text-xs text-slate-400">Chưa có ảnh</span>
-                            </div>
-                            
-                            <img id="img-preview-outside" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-50">
-                            
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tên Điểm Bán <span class="text-red-500">*</span></label>
+                            <input type="text" id="edit-indirect-name" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none font-bold text-blue-800">
                         </div>
-                        <input type="file" id="file-outside" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                               onchange="app.handleImagePreview(this, 'outside')">
+                        
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Chủ Sở Hữu / Người đại diện</label>
+                            <input type="text" id="edit-indirect-owner" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" placeholder="Tên chủ cửa hàng">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Số Điện Thoại</label>
+                            <input type="text" id="edit-indirect-phone" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
                     </div>
 
-                    <div>
-                        <span class="text-xs font-semibold text-slate-600 block mb-2">Ảnh Bên Trong</span>
-                        <div class="h-32 bg-white border border-dashed border-slate-300 rounded mb-2 flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition">
-                            
-                            <div id="placeholder-inside" class="flex flex-col items-center pointer-events-none">
-                                <i data-lucide="image" class="w-8 h-8 text-slate-300 mb-1"></i>
-                                <span class="text-xs text-slate-400">Chưa có ảnh</span>
-                            </div>
-                            
-                            <img id="img-preview-inside" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-50">
-                            
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Địa Chỉ</label>
+                            <input type="text" id="edit-indirect-address" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
                         </div>
-                        <input type="file" id="file-inside" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                               onchange="app.handleImagePreview(this, 'inside')">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Loại / Hạng</label>
+                            <input type="text" id="edit-indirect-type" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tuyến</label>
+                            <input type="text" id="edit-indirect-route" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
+                        </div>
                     </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Vĩ độ (Lat)</label>
+                            <input type="text" id="indirect-lat" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                                placeholder="VD: 10.7769">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Kinh độ (Lng)</label>
+                            <input type="text" id="indirect-lng" 
+                                class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                                placeholder="VD: 106.7009">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 mt-4">
+                        
+                        <div>
+                            <span class="text-xs font-semibold text-slate-600 block mb-2">Ảnh Bên Ngoài</span>
+                            <div class="h-32 bg-white border border-dashed border-slate-300 rounded mb-2 flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition">
+                                
+                                <div id="placeholder-outside" class="flex flex-col items-center pointer-events-none">
+                                    <i data-lucide="image" class="w-8 h-8 text-slate-300 mb-1"></i>
+                                    <span class="text-xs text-slate-400">Chưa có ảnh</span>
+                                </div>
+                                
+                                <img id="img-preview-outside" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-50">
+                                
+                            </div>
+                            <input type="file" id="file-outside" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                onchange="app.handleImagePreview(this, 'outside')">
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-semibold text-slate-600 block mb-2">Ảnh Bên Trong</span>
+                            <div class="h-32 bg-white border border-dashed border-slate-300 rounded mb-2 flex items-center justify-center overflow-hidden relative group hover:border-blue-400 transition">
+                                
+                                <div id="placeholder-inside" class="flex flex-col items-center pointer-events-none">
+                                    <i data-lucide="image" class="w-8 h-8 text-slate-300 mb-1"></i>
+                                    <span class="text-xs text-slate-400">Chưa có ảnh</span>
+                                </div>
+                                
+                                <img id="img-preview-inside" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-50">
+                                
+                            </div>
+                            <input type="file" id="file-inside" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                onchange="app.handleImagePreview(this, 'inside')">
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-red-500 mt-2 italic">* Chọn ảnh mới sẽ thay thế ảnh cũ. Ảnh sẽ được tự động nén trước khi tải lên.</p>
                 </div>
 
-                <p class="text-[10px] text-red-500 mt-2 italic">* Chọn ảnh mới sẽ thay thế ảnh cũ. Ảnh sẽ được tự động nén trước khi tải lên.</p>
-            </div>
-
-            <div class="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-slate-100">
-                <button onclick="app.closeModal('modal-edit-indirect')" class="px-4 py-2 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm font-medium transition">
-                    Hủy bỏ
-                </button>
-                <button onclick="app.saveIndirectChannel()" class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm font-medium shadow-sm flex items-center gap-1 transition">
-                    <i data-lucide="save" class="w-4 h-4"></i> Lưu Thay Đổi
-                </button>
+                <div class="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-slate-100">
+                    <button onclick="app.closeModal('modal-edit-indirect')" class="px-4 py-2 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm font-medium transition">
+                        Hủy bỏ
+                    </button>
+                    <button onclick="app.saveIndirectChannel()" class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm font-medium shadow-sm flex items-center gap-1 transition">
+                        <i data-lucide="save" class="w-4 h-4"></i> Lưu Thay Đổi
+                    </button>
+                </div>
             </div>
         </div>
+
+   <div id="modal-edit-store" class="fixed inset-0 z-[60] hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="app.closeModal('modal-edit-store')"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <div class="bg-blue-800 text-white px-6 py-4 flex justify-between items-center shrink-0">
+            <h3 class="text-lg font-bold flex items-center gap-2">
+                <i data-lucide="store" class="w-5 h-5"></i> Cập Nhật Thông Tin Cửa Hàng
+            </h3>
+            <button onclick="app.closeModal('modal-edit-store')" class="hover:bg-blue-700 p-1 rounded transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto grow">
+            <form id="form-edit-store" class="space-y-4">
+                <input type="hidden" name="id" id="store-id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tên Cửa Hàng</label>
+                        <input type="text" name="ten" id="store-ten" class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-800">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Loại CH</label>
+                        <select name="loaiCh" id="store-loaiCh" class="w-full px-3 py-2 border rounded text-sm bg-slate-50">
+                            <option value="Loai1">Loại 1</option>
+                            <option value="Loai2">Loại 2</option>
+                            <option value="Loai3">Loại 3</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Địa chỉ chi tiết</label>
+                    <input type="text" name="diaChi" id="store-diaChi" placeholder="Số nhà, đường, phường/xã..." class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Cửa Hàng Trưởng</label>
+                        <input type="text" name="cht" id="store-cht" class="w-full px-3 py-2 border rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Số Điện Thoại</label>
+                        <input type="text" name="sdt" id="store-sdt" class="w-full px-3 py-2 border rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+                        <input type="text" name="email" id="store-email" class="w-full px-3 py-2 border rounded text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tọa độ (Lat, Lng)</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="store-lat" placeholder="Vĩ độ (Lat)" class="w-1/2 px-3 py-2 border rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                            <input type="text" id="store-lng" placeholder="Kinh độ (Lng)" class="w-1/2 px-3 py-2 border rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1">Lấy từ Google Maps (VD: 10.762..., 106.660...)</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Ngày thuê</label>
+                        <input type="date" id="store-ngayThue" class="w-full px-3 py-2 border rounded text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Ngày hết hạn</label>
+                        <input type="date" id="store-ngayHetHan" class="w-full px-3 py-2 border rounded text-sm">
+                    </div>
+                </div>
+                
+                <div class="border-t border-slate-100 pt-4">
+                    <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                        <i data-lucide="image" class="w-4 h-4 text-blue-600"></i> Hình Ảnh Cửa Hàng
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-50 p-4 rounded border border-slate-200">
+                            <label class="block text-xs font-bold text-slate-700 mb-2">Ảnh Bên Trong</label>
+                            <div class="relative w-full h-48 bg-white border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center mb-3 overflow-hidden group">
+                                <img id="preview-store-trong" src="" class="w-full h-full object-contain hidden">
+                                <div id="placeholder-store-trong" class="text-center text-slate-400">
+                                    <i data-lucide="image-plus" class="w-8 h-8 mx-auto mb-1"></i>
+                                    <span class="text-xs">Chưa có ảnh</span>
+                                </div>
+                            </div>
+                            <input type="file" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                onchange="app.handleStoreImageInput(this, 'trong')">
+                        </div>
+
+                        <div class="bg-slate-50 p-4 rounded border border-slate-200">
+                            <label class="block text-xs font-bold text-slate-700 mb-2">Ảnh Bên Ngoài</label>
+                            <div class="relative w-full h-48 bg-white border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center mb-3 overflow-hidden group">
+                                <img id="preview-store-ngoai" src="" class="w-full h-full object-contain hidden">
+                                <div id="placeholder-store-ngoai" class="text-center text-slate-400">
+                                    <i data-lucide="image-plus" class="w-8 h-8 mx-auto mb-1"></i>
+                                    <span class="text-xs">Chưa có ảnh</span>
+                                </div>
+                            </div>
+                            <input type="file" accept="image/*" class="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                onchange="app.handleStoreImageInput(this, 'ngoai')">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-slate-100 shrink-0">
+            <button onclick="app.closeModal('modal-edit-store')" class="px-4 py-2 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm font-medium transition">
+                Hủy bỏ
+            </button>
+            
+            <button id="btn-save-store" onclick="app.saveStoreChanges()" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 text-sm font-medium shadow-sm flex items-center transition">
+                <span id="btn-save-text">Lưu Cập Nhật</span>
+                <svg id="btn-save-loading" class="animate-spin ml-2 h-4 w-4 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
     </div>
+</div>
     <script src="js/data-service.js"></script>
     <script src="js/ui-renderer.js"></script>
     <script src="js/main.js"></script>
     
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Đảm bảo icon Lucide được render
             if (window.refreshLucide) window.refreshLucide();
         });
     </script>
