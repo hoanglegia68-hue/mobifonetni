@@ -1215,15 +1215,20 @@
             }
         },
 
-        renderStoreList() {
+        renderStoreList(customData = null) {
             console.log("🚀 Rendering Store List (Secured Version - Fixed)...");
             
             // 1. Lấy dữ liệu
-            const rawData = this.cachedData.stores || [];
-            const data = this.filterDataByScope(rawData);
-            
-            const tbody = document.getElementById('store-list-body');
-            if (!tbody) return;
+            let data;
+                if (customData) {
+                    data = customData;
+                } else {
+                    const rawData = this.cachedData.stores || [];
+                    data = this.filterDataByScope(rawData);
+                }
+
+                const tbody = document.getElementById('store-list-body');
+                if (!tbody) return;
 
             tbody.innerHTML = '';
 
@@ -2990,6 +2995,94 @@
             // 5. Render kết quả
             UIRenderer.renderIndirectTable(filtered);
         },
+
+        // ============================================================
+    // [BỔ SUNG] CÁC HÀM TÌM KIẾM CÒN THIẾU
+    // ============================================================
+
+    // 1. Tìm kiếm Cửa hàng (Stores)
+    handleSearchStore(k) {
+        const keyword = (k || '').toString().toLowerCase().trim();
+        
+        // Lấy dữ liệu gốc đã được lọc theo quyền (Scope)
+        const sourceData = this.filterDataByScope(this.cachedData.stores || []);
+
+        if (!keyword) {
+            // Nếu ô tìm kiếm rỗng, render lại danh sách gốc
+            this.renderStoreList(null); 
+            return;
+        }
+
+        // Lọc dữ liệu
+        const filtered = sourceData.filter(s => {
+            const ten = (s.ten || '').toLowerCase();
+            const ma = (s.id || s.maCH || '').toString().toLowerCase();
+            const diachi = (s.diaChi || '').toLowerCase();
+            const sdt = (s.sdt || '').toString();
+
+            return ten.includes(keyword) || 
+                   ma.includes(keyword) || 
+                   diachi.includes(keyword) || 
+                   sdt.includes(keyword);
+        });
+
+        // Render danh sách đã lọc
+        this.renderStoreList(filtered);
+    },
+
+    // 2. Tìm kiếm Nhân viên (Dùng chung cho GDV, Sales, B2B)
+
+        handleSearchStaff(k, type) {
+            const keyword = (k || '').toString().toLowerCase().trim();
+            
+            let sourceRaw = [];
+            let renderId = '';
+            let renderType = '';
+
+            // Xác định nguồn dữ liệu dựa trên type
+            if (type === 'gdv') {
+                sourceRaw = this.cachedData.gdvs;
+                renderId = 'gdv-list-body';
+                renderType = 'gdv';
+            } else if (type === 'sales') {
+                sourceRaw = this.cachedData.sales;
+                renderId = 'sales-list-body';
+                renderType = 'sales';
+            } else if (type === 'b2b') {
+                sourceRaw = this.cachedData.b2b;
+                renderId = 'b2b-list-body';
+                renderType = 'common';
+            }
+
+            const sourceData = this.filterDataByScope(sourceRaw || []);
+
+            // Nếu keyword rỗng -> render lại full
+            if (!keyword) {
+                if(window.UIRenderer) UIRenderer.renderStaffTable(sourceData, renderId, renderType);
+                return;
+            }
+
+            // Lọc dữ liệu
+            const filtered = sourceData.filter(s => {
+                // Mapping các trường dữ liệu có thể khác nhau
+                const ten = (s.ten || s.name || s.hoTen || '').toLowerCase();
+                const ma = (s.maNV || s.code || s.id || '').toString().toLowerCase();
+                const sdt = (s.sdt || s.phone || s.soDienThoai || '').toString();
+                const cum = (s.maCum || '').toString().toLowerCase();
+
+                return ten.includes(keyword) || 
+                    ma.includes(keyword) || 
+                    sdt.includes(keyword) || 
+                    cum.includes(keyword);
+            });
+
+            // Gọi UIRenderer để vẽ lại bảng
+            if(window.UIRenderer) UIRenderer.renderStaffTable(filtered, renderId, renderType);
+        },
+
+        handleSearchGDV(k) { this.handleSearchStaff(k, 'gdv'); },
+        handleSearchSales(k) { this.handleSearchStaff(k, 'sales'); },
+        handleSearchB2B(k) { this.handleSearchStaff(k, 'b2b'); },
 
         handleSearchBTS(k) {
             this.btsFilterState.keyword = (k || '').toString();
