@@ -576,7 +576,8 @@ const UIRenderer = {
             const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'Mã ĐL/ĐB');
             const chu = pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'nguoiDaiDien', 'Chủ sở hữu');
             const sdt = pick(item, 'sdt', 'SDT', 'soDienThoai', 'SĐT');
-            const phanLoai = pick(item, 'phanloai', 'Phanloai', 'PhanLoai', 'loai', 'Loại'); 
+            const loai = pick(item, 'loai', 'Loai', 'Loại'); 
+            const phanLoai = pick(item, 'phanloai', 'Phanloai', 'phanLoai'); 
             const tuyen = pick(item, 'tuyen', 'Tuyen', 'tuyenBanHang', 'Tuyến');
             const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC', 'Địa chỉ');
             const lat = pick(item, 'lat', 'Lat', 'ViDo');
@@ -627,8 +628,11 @@ const UIRenderer = {
                 </td>
 
                 <td class="p-3 align-top">
-                    <div class="flex flex-col items-start gap-1">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Đại lý'}</span>
+                    <div class="flex flex-col items-start gap-1.5">
+                        ${loai ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-indigo-50 text-indigo-700 border-indigo-200">${loai}</span>` : ''}
+                        
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Chưa phân loại'}</span>
+                        
                         ${tuyen ? `<span class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><i data-lucide="route" class="w-3 h-3 text-slate-400"></i> Tuyến: <b class="text-slate-600">${tuyen}</b></span>` : ''}
                     </div>
                 </td>
@@ -1778,7 +1782,8 @@ const UIRenderer = {
                 const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'Mã ĐL/ĐB');
                 const chu = pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'nguoiDaiDien', 'Chủ sở hữu');
                 const sdt = pick(item, 'sdt', 'SDT', 'soDienThoai', 'SĐT');
-                const phanLoai = pick(item, 'phanloai', 'Phanloai', 'PhanLoai', 'loai', 'Loại');
+                const loai = pick(item, 'loai', 'Loai', 'Loại'); 
+                const phanLoai = pick(item, 'phanloai', 'Phanloai', 'phanLoai');
                 const tuyen = pick(item, 'tuyen', 'Tuyen', 'tuyenBanHang', 'Tuyến');
                 const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC', 'Địa chỉ');
                 const lat = pick(item, 'lat', 'Lat', 'ViDo');
@@ -1810,8 +1815,9 @@ const UIRenderer = {
                         </div>
                     </td>
                     <td class="p-3 align-top">
-                        <div class="flex flex-col items-start gap-1">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Đại lý'}</span>
+                        <div class="flex flex-col items-start gap-1.5">
+                            ${loai ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-indigo-50 text-indigo-700 border-indigo-200">${loai}</span>` : ''}
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Chưa phân loại'}</span>
                             ${tuyen ? `<span class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><i data-lucide="route" class="w-3 h-3 text-slate-400"></i> Tuyến: <b class="text-slate-600">${tuyen}</b></span>` : ''}
                         </div>
                     </td>
