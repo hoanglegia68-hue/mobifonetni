@@ -2098,10 +2098,18 @@
         showPreviewImage(type, src) {
             const imgEl = document.getElementById(`img-preview-${type}`);
             const phEl = document.getElementById(`placeholder-${type}`);
-            if (src && src.length > 10) {
-                imgEl.src = src; imgEl.classList.remove('hidden'); phEl.classList.add('hidden');
+            
+            // [FIXED] Thêm bước chuyển đổi link Drive giống như Popup Cửa hàng
+            const safeUrl = this._convertDriveLink(src);
+
+            if (safeUrl && safeUrl.length > 10) {
+                imgEl.src = safeUrl; 
+                imgEl.classList.remove('hidden'); 
+                phEl.classList.add('hidden');
             } else {
-                imgEl.classList.add('hidden'); phEl.classList.remove('hidden');
+                imgEl.src = ''; // Clear src thừa
+                imgEl.classList.add('hidden'); 
+                phEl.classList.remove('hidden');
             }
         },
         handleImagePreview(input, type) {
@@ -2427,20 +2435,21 @@
             };
 
             // --- 2. LẤY DỮ LIỆU TỪ FORM (ĐÃ CHUẨN HÓA ID) ---
-            // Lưu ý: Hãy kiểm tra file HTML của bạn xem ID có đúng là 'edit-indirect-...' không nhé
             const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
             const newId = codeInput || oldId; 
 
             const name = document.getElementById('edit-indirect-name')?.value.trim();
-            const phone = document.getElementById('edit-indirect-phone')?.value.trim(); // ID cũ có thể sai
+            const phone = document.getElementById('edit-indirect-phone')?.value.trim();
             const address = document.getElementById('edit-indirect-address')?.value.trim();
-            
-            // Sửa lại ID cho nhất quán (thêm prefix edit-)
-            const loai = document.getElementById('edit-indirect-type')?.value; 
-            const phanLoai = document.getElementById('edit-indirect-class')?.value; 
+
+            // --- BẮT ĐẦU ĐOẠN THAY THẾ ---
+            // Lấy giá trị Loại và Phân loại từ form
+            const loai = document.getElementById('edit-indirect-loai')?.value.trim() || '';
+            const phanLoai = document.getElementById('edit-indirect-phanloai')?.value.trim() || '';
+            // --- KẾT THÚC ĐOẠN THAY THẾ ---
+
             const tuyen = document.getElementById('edit-indirect-route')?.value;
             const chu = document.getElementById('edit-indirect-owner')?.value;
-            
             // Tọa độ (Sửa ID: thêm 'edit-' nếu HTML của bạn dùng pattern này)
             const latVal = document.getElementById('edit-indirect-lat')?.value.trim() || document.getElementById('indirect-lat')?.value.trim();
             const lngVal = document.getElementById('edit-indirect-lng')?.value.trim() || document.getElementById('indirect-lng')?.value.trim();
