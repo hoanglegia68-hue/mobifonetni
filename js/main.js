@@ -1916,15 +1916,34 @@
             return { full: dateStr, month: dateStr };
         },
 
-        buildDictionary() {
+       buildDictionary() {
             this.fullClusterData.forEach(lc => {
-                if (lc.maLienCum) this.mapLienCum[lc.maLienCum] = lc.tenLienCum;
-                lc.cums.forEach(c => { if (c.maCum) this.mapCum[c.maCum] = c.tenCum; });
+                // Lưu cả mã gốc và mã đã "dọn dẹp" (viết hoa, xóa khoảng trắng)
+                if (lc.maLienCum) {
+                    this.mapLienCum[lc.maLienCum] = lc.tenLienCum;
+                    this.mapLienCum[this.cleanCode(lc.maLienCum)] = lc.tenLienCum;
+                }
+                if (lc.cums && Array.isArray(lc.cums)) {
+                    lc.cums.forEach(c => { 
+                        if (c.maCum) {
+                            this.mapCum[c.maCum] = c.tenCum; 
+                            this.mapCum[this.cleanCode(c.maCum)] = c.tenCum; 
+                        }
+                    });
+                }
             });
         },
 
-        getNameLienCum(code) { return this.mapLienCum[code] || code || ''; },
-        getNameCum(code) { return this.mapCum[code] || code || ''; },
+        getNameLienCum(code) { 
+            if (!code) return '';
+            // Ưu tiên tìm mã gốc, nếu không thấy thì tìm mã đã dọn dẹp
+            return this.mapLienCum[code] || this.mapLienCum[this.cleanCode(code)] || code; 
+        },
+        
+        getNameCum(code) { 
+            if (!code) return '';
+            return this.mapCum[code] || this.mapCum[this.cleanCode(code)] || code; 
+        },
         cleanCode(code) { return String(code || '').trim().toUpperCase().replace('KPI_', ''); },
 
         // CẬP NHẬT: filterDataByScope (Áp dụng logic checkScope chuẩn)
@@ -2609,62 +2628,7 @@
         },
 
         // ============================================================
-    // HÀM TẢI FILE MẪU (IMPORT TEMPLATE)
-    // ============================================================
-        downloadTemplate(type) {
-            console.log("📥 Đang tải mẫu cho:", type);
-
-            // 1. Định nghĩa các cột header cho từng loại
-            const templates = {
-                'store': [
-                    ['Mã CH', 'Tên Cửa Hàng', 'Địa Chỉ', 'Loại CH', 'Mã Cụm', 'Kinh Độ (Lat)', 'Vĩ Độ (Lng)', 'SĐT', 'Ngày Hết Hạn (YYYY-MM-DD)']
-                ],
-                'gdv': [
-                    ['Mã NV', 'Họ Tên', 'Số Điện Thoại', 'Mã CH', 'Chức Vụ', 'Trạng Thái']
-                ],
-                'sales': [
-                    ['Mã NV', 'Họ Tên', 'Số Điện Thoại', 'Mã Cụm', 'Chức Vụ', 'Địa Bàn', 'Trạng Thái']
-                ],
-                'b2b': [
-                    ['Mã NV', 'Họ Tên', 'Số Điện Thoại', 'Mã Cụm', 'Vùng', 'Trạng Thái']
-                ],
-                'indirect': [
-                    ['Mã ĐL', 'Tên Điểm Bán', 'Số Điện Thoại', 'Địa Chỉ', 'Mã Cụm', 'Tuyến', 'Loại', 'Phân Loại', 'Kinh Độ', 'Vĩ Độ']
-                ],
-                'bts': [
-                    ['Mã Trạm', 'Tên Trạm', 'Mã Cụm', 'Kinh Độ', 'Vĩ Độ', 'Địa Chỉ', 'Loại Trạm']
-                ]
-            };
-
-            const data = templates[type];
-
-            if (!data) {
-                alert("⚠️ Chưa có file mẫu cho loại dữ liệu này (" + type + ")");
-                return;
-            }
-
-            // 2. Sử dụng thư viện SheetJS (XLSX) để tạo file Excel
-            // Lưu ý: Đảm bảo index.html đã import thư viện xlsx.full.min.js
-            if (typeof XLSX === 'undefined') {
-                alert("❌ Lỗi: Thư viện SheetJS chưa được tải. Vui lòng kiểm tra lại mạng hoặc file index.html");
-                return;
-            }
-
-            try {
-                const ws = XLSX.utils.aoa_to_sheet(data); // Tạo sheet từ mảng
-                const wb = XLSX.utils.book_new();         // Tạo workbook mới
-                XLSX.utils.book_append_sheet(wb, ws, "Mau_Nhap_Lieu"); // Gắn sheet vào workbook
-
-                // 3. Xuất file
-                const fileName = `Mau_Import_${type.toUpperCase()}_${new Date().toISOString().slice(0,10)}.xlsx`;
-                XLSX.writeFile(wb, fileName);
-                
-                console.log("✅ Đã tải xong:", fileName);
-            } catch (e) {
-                console.error("Lỗi tạo file mẫu:", e);
-                alert("Đã có lỗi khi tạo file mẫu.");
-            }
-        },
+    
             // --- Helper: Chuyển file sang Base64 ---
         toBase64(file) {
             return new Promise((resolve, reject) => {
@@ -2932,8 +2896,7 @@
             this.handleKPIReportFilter();
         },
 
-        openUploadModal(type) { document.getElementById('upload-type').value = type; document.getElementById('modal-upload').classList.add('open'); },
-        // main.js (Mới - Đã sửa lỗi)
+       
         closeModal(id) { 
             // Nếu không truyền id, mặc định thử đóng các modal phổ biến hoặc return
             const modalId = id || 'modal-edit-ward'; 
@@ -2966,78 +2929,92 @@
 
     // ============================================================
         handleSearchIndirect(k) {
-            // 1. Chuẩn hóa từ khóa
             const keyword = (k || '').toString().toLowerCase().trim();
             const sourceData = this.filterDataByScope(this.cachedData.indirect || []);
 
-            // 2. Nếu rỗng -> Render lại toàn bộ
             if (!keyword) {
                 UIRenderer.renderIndirectTable(sourceData);
                 return;
             }
 
-            // 3. Helper lấy chuỗi an toàn không dấu (nếu muốn xịn hơn) hoặc thường
+            // Hàm hỗ trợ lấy chuỗi an toàn để tìm kiếm
             const getVal = (val) => String(val || '').toLowerCase();
 
-            // 4. Lọc đa tiêu chí (Khớp với các cột hiển thị trên UI)
+            // BỔ SUNG HÀM PICK TẠI ĐÂY
+            // Hàm này tìm giá trị trong object dựa trên danh sách các key (không phân biệt hoa/thường)
+            const pick = (row, ...keys) => {
+                for (let k of keys) {
+                    let lk = Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase());
+                    if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') {
+                        return String(row[lk]);
+                    }
+                }
+                return '';
+            };
+
             const filtered = sourceData.filter(item => {
-                // Nhóm 1: Định danh (Tên, Mã)
-                if (getVal(item.ten).includes(keyword)) return true;
-                if (getVal(item.maDL).includes(keyword)) return true;
-                if (getVal(item.maCode).includes(keyword)) return true;
-
-                // Nhóm 2: Liên lạc & Phân loại
-                if (getVal(item.sdt).includes(keyword)) return true;
-                if (getVal(item.chuSoHuu).includes(keyword)) return true;
-                if (getVal(item.loai).includes(keyword)) return true; // VD: tìm "C2C"
-
-                // Nhóm 3: Vị trí & Tuyến (QUAN TRỌNG CHO UI MỚI)
-                if (getVal(item.diaChi).includes(keyword)) return true; // Tìm theo địa chỉ
-                if (getVal(item.tuyen).includes(keyword)) return true;  // Tìm theo tuyến
-
-                // Nhóm 4: Cụm/Liên Cụm (Cho quản lý)
-                if (getVal(item.maCum).includes(keyword)) return true;
+                // Tìm thông tin bổ sung từ Cụm để search
+                let clusterExtraInfo = "";
+                const maC = pick(item, 'maCum', 'MaCum', 'cum', 'Cum');
                 
-                return false;
+                if (maC && this.fullClusterData) {
+                    for (const lc of this.fullClusterData) {
+                        const found = lc.cums.find(c => String(c.maCum).toUpperCase() === String(maC).toUpperCase());
+                        if (found) {
+                            clusterExtraInfo = (found.tenCum || "") + " " + (found.phuTrach || "");
+                            break;
+                        }
+                    }
+                }
+
+                return (
+                    getVal(item.ten).includes(keyword) ||
+                    getVal(item.maDL).includes(keyword) ||
+                    getVal(item.maCode).includes(keyword) ||
+                    getVal(item.sdt).includes(keyword) ||
+                    getVal(item.chuSoHuu).includes(keyword) ||
+                    getVal(item.diaChi).includes(keyword) ||
+                    getVal(item.tuyen).includes(keyword) ||
+                    getVal(maC).includes(keyword) ||
+                    getVal(clusterExtraInfo).includes(keyword) // Tìm được theo Tên cụm/Trưởng cụm
+                );
             });
 
-            // 5. Render kết quả
             UIRenderer.renderIndirectTable(filtered);
         },
 
-        // ============================================================
     // [BỔ SUNG] CÁC HÀM TÌM KIẾM CÒN THIẾU
     // ============================================================
 
-    // 1. Tìm kiếm Cửa hàng (Stores)
-    handleSearchStore(k) {
-        const keyword = (k || '').toString().toLowerCase().trim();
-        
-        // Lấy dữ liệu gốc đã được lọc theo quyền (Scope)
-        const sourceData = this.filterDataByScope(this.cachedData.stores || []);
+        // 1. Tìm kiếm Cửa hàng (Stores)
+        handleSearchStore(k) {
+            const keyword = (k || '').toString().toLowerCase().trim();
+            
+            // Lấy dữ liệu gốc đã được lọc theo quyền (Scope)
+            const sourceData = this.filterDataByScope(this.cachedData.stores || []);
 
-        if (!keyword) {
-            // Nếu ô tìm kiếm rỗng, render lại danh sách gốc
-            this.renderStoreList(null); 
-            return;
-        }
+            if (!keyword) {
+                // Nếu ô tìm kiếm rỗng, render lại danh sách gốc
+                this.renderStoreList(null); 
+                return;
+            }
 
-        // Lọc dữ liệu
-        const filtered = sourceData.filter(s => {
-            const ten = (s.ten || '').toLowerCase();
-            const ma = (s.id || s.maCH || '').toString().toLowerCase();
-            const diachi = (s.diaChi || '').toLowerCase();
-            const sdt = (s.sdt || '').toString();
+            // Lọc dữ liệu
+            const filtered = sourceData.filter(s => {
+                const ten = (s.ten || '').toLowerCase();
+                const ma = (s.id || s.maCH || '').toString().toLowerCase();
+                const diachi = (s.diaChi || '').toLowerCase();
+                const sdt = (s.sdt || '').toString();
 
-            return ten.includes(keyword) || 
-                   ma.includes(keyword) || 
-                   diachi.includes(keyword) || 
-                   sdt.includes(keyword);
-        });
+                return ten.includes(keyword) || 
+                    ma.includes(keyword) || 
+                    diachi.includes(keyword) || 
+                    sdt.includes(keyword);
+            });
 
-        // Render danh sách đã lọc
-        this.renderStoreList(filtered);
-    },
+            // Render danh sách đã lọc
+            this.renderStoreList(filtered);
+        },
 
     // 2. Tìm kiếm Nhân viên (Dùng chung cho GDV, Sales, B2B)
 
@@ -3315,10 +3292,7 @@
 
             // Hàm lọc chung cho danh sách phẳng
             const filterFn = (item) => {
-                // [Lớp 1] Security: User có quyền xem không?
                 if (!this.checkScope(item)) return false; 
-                
-                // [Lớp 2] View Filter: Có khớp với cái đang click không?
                 if (isViewAll) return true;
                 const field = stype === 'liencum' ? 'maLienCum' : 'maCum';
                 return this.cleanCode(item[field]) === cleanScope;
@@ -3327,25 +3301,26 @@
             // --- XỬ LÝ THEO TỪNG LOẠI ---
 
             if (type === 'list_cum') {
-                // ... (Giữ nguyên code cũ của phần list_cum) ...
                 title = 'Danh sách Đơn vị trực thuộc (Cụm)';
                 this.fullClusterData.forEach(lc => {
                     if (!isViewAll && this.cleanCode(lc.maLienCum) !== cleanScope) return;
                     const enrichedCums = (lc.cums || []).map(c => {
                         if (!this.checkScope(c)) return null;
-                        // ... (Logic map dữ liệu cũ) ...
-                        // Copy đoạn logic map areaAgg, vlr, danSo... từ code cũ vào đây
+                        
                         const areaAgg = (c.phuongXas || []).reduce((acc, px) => {
-                            const v = px.dienTich;
+                            // [FIX 1]: Quét cả px.dienTich và px.dientich
+                            const v = px.dienTich || px.dientich;
                             if (v === null || v === undefined || v === '') return acc;
                             const n = Number(v);
                             if (!isFinite(n)) return acc;
                             acc.sum += n; acc.count += 1; return acc;
                         }, { sum: 0, count: 0 });
+                        
                         return {
                             ...c, ten: c.tenCum, tenLienCum: lc.tenLienCum,
                             vlr: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.vlr) || 0), 0),
-                            danSo: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.danSo) || 0), 0),
+                            // [FIX 2]: Quét cả danSo và danso
+                            danSo: (c.phuongXas || []).reduce((acc, px) => acc + (Number(px.danSo || px.danso) || 0), 0),
                             dienTich: areaAgg.count ? areaAgg.sum : null,
                             lanhDao: c.phuTrach ? [{ chucVu: 'Phụ trách', ten: c.phuTrach, sdt: c.sdtCum || '' }] : []
                         };
@@ -3354,32 +3329,31 @@
                 });
             }
 
-            else if (type === 'commune') { // [ĐOẠN CẦN SỬA]
+            else if (type === 'commune') {
                 title = 'Chi tiết Dân số & Phủ trạm theo Phường/Xã';
                 
                 this.fullClusterData.forEach(lc => {
-                    // Check Filter theo LC
                     if (stype === 'liencum' && !isViewAll && this.cleanCode(lc.maLienCum) !== cleanScope) return;
 
                     (lc.cums || []).forEach(c => {
-                        // [FIX]: Gán mã Liên Cụm cha vào object con tạm thời để checkScope hoạt động đúng
                         const cToCheck = { ...c, maLienCum: lc.maLienCum };
                         if (!this.checkScope(cToCheck)) return;
 
-                        // Check Filter theo Cụm
                         if (stype === 'cum' && !isViewAll && this.cleanCode(c.maCum) !== cleanScope) return;
 
                         const enrichedPX = (c.phuongXas || []).map(px => ({
                             ...px,
                             tenLienCum: lc.tenLienCum,
-                            tenCum: c.tenCum
+                            tenCum: c.tenCum,
+                            // [FIX 3]: Ép cứng biến dienTich để UI đọc chuẩn xác
+                            dienTich: px.dienTich || px.dientich,
+                            danSo: px.danSo || px.danso
                         }));
                         detailData.push(...enrichedPX);
                     });
                 });
             }
 
-            // Các danh sách phẳng (Store, Indirect, BTS...) dùng filterFn đã được cập nhật logic
             else if (type === 'store') { title = 'Danh sách Cửa hàng'; detailData = (stores || []).filter(filterFn); }
             else if (type === 'gdv') { title = 'Danh sách Giao dịch viên'; detailData = (gdvs || []).filter(filterFn); }
             else if (type === 'sales') { title = 'Danh sách NV Bán hàng'; detailData = (sales || []).filter(filterFn); }
@@ -3485,3 +3459,4 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => { app.init(); });   
+    window.app = app;
