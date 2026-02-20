@@ -316,8 +316,9 @@ const DataService = {
                 const cumObj = {
                     maCum: cumCode,
                     tenCum: (r.tenCum || r.cum || cumCode).trim(),
-                    sdtCum: (r.sdtCum || "").trim(),
-                    phuTrach: (r.phuTrach || "").trim(),
+                    // Bổ sung các key có thể có từ Google Sheet
+                    sdtCum: (r.sdtCum || r.sdt || r.soDienThoai || r.phone || "").trim(),
+                    phuTrach: (r.phuTrach || r.truongCum || r.nguoiPhuTrach || r.quanLy || "").trim(),
                     phuongXas: []
                 };
                 lc._cumMap.set(cumCode, cumObj);
@@ -333,7 +334,7 @@ const DataService = {
                     else if (r.ld_Ten) lanhDao = [{ ten: r.ld_Ten, chucVu: r.ld_ChucVu || "Lãnh đạo", sdt: r.ld_Sdt }];
                 } catch(e) { console.warn("Lỗi parse lanhDao:", e); }
 
-                const area = Number(String(r.dienTich || 0).replace(',', '.')) || 0;
+                const area = Number(String(r.dienTich || r.dientich || 0).replace(',', '.')) || 0;
 
                 cum.phuongXas.push({
                     id: r.idPX || `${lcCode}_${cumCode}_${r.tenPX}`,
