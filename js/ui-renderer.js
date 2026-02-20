@@ -1862,23 +1862,51 @@ const UIRenderer = {
         }
 
         // ==========================================================
-        // CASE 6: LIST CUM
+        // CASE 6: LIST CUM (Đã Nâng Cấp Giao Diện)
         // ==========================================================
         else if (type === 'list_cum') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Mã Cụm</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Tên Cụm</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Phụ trách</th>
-                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Số Xã</th>
+                    <th class="p-3 border-b bg-slate-100 text-center w-12 sticky top-0 z-20">STT</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Thông tin Cụm</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Nhân sự phụ trách</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Số lượng Phường/Xã</th>
                 </tr>`;
-            bodyHtml = data.map(item => `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 font-mono font-bold text-slate-600">${item.maCum}</td>
-                    <td class="p-3 font-bold text-blue-700">${item.tenCum}</td>
-                    <td class="p-3 text-sm text-slate-500">${item.phuTrach || '-'}</td>
-                    <td class="p-3 text-center font-bold text-slate-700">${item.phuongXas ? item.phuongXas.length : 0}</td>
-                </tr>`).join('');
+            
+            bodyHtml = data.map((item, idx) => {
+                const soXa = item.phuongXas ? item.phuongXas.length : 0;
+                const phuTrach = item.phuTrach || 'Chưa cập nhật';
+                const sdt = item.sdtCum || item.sdt || '';
+
+                return `
+                <tr class="border-b hover:bg-slate-50 transition-colors align-middle group">
+                    <td class="p-3 text-center text-slate-400 text-xs">${idx + 1}</td>
+                    <td class="p-3">
+                        <div class="flex flex-col gap-1.5">
+                            <span class="font-bold text-blue-700 group-hover:text-blue-800 transition">${item.tenCum}</span>
+                            <span class="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200 w-fit flex items-center gap-1">
+                                <i data-lucide="layers" class="w-3 h-3 text-slate-400"></i> ${item.maCum}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="p-3">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                <i data-lucide="user" class="w-4 h-4 text-slate-400"></i> ${phuTrach}
+                            </span>
+                            ${sdt ? `
+                            <a href="tel:${sdt}" class="text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1 mt-1 transition w-fit">
+                                <i data-lucide="phone" class="w-3 h-3"></i> ${sdt}
+                            </a>` : ''}
+                        </div>
+                    </td>
+                    <td class="p-3 text-center">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${soXa > 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm' : 'bg-slate-100 text-slate-400'} font-bold text-xs">
+                            <i data-lucide="map" class="w-3 h-3"></i> ${soXa} Xã
+                        </span>
+                    </td>
+                </tr>`;
+            }).join('');
         }
 
         // ==========================================================
