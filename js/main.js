@@ -2918,12 +2918,37 @@
         handleSearchCluster(k) {
             k = k.toLowerCase().trim();
             let d = this.filterDataByScope(this.fullClusterData);
+            
+            // Nếu không nhập gì, render lại toàn bộ
             if (!k) { UIRenderer.renderClusterTable(d); return; }
+            
             const res = d.map(lc => {
-                const sub = lc.cums.filter(c => (c.tenCum || '').toLowerCase().includes(k));
-                if (sub.length || (lc.tenLienCum || '').toLowerCase().includes(k)) return { ...lc, cums: sub.length ? sub : lc.cums };
+                // 1. Tìm ở cấp độ Cụm con (Tên Cụm, Mã Cụm, Trưởng Cụm)
+                const sub = (lc.cums || []).filter(c => 
+                    (c.tenCum || '').toLowerCase().includes(k) ||
+                    (c.maCum || '').toLowerCase().includes(k) ||
+                    (c.phuTrach || '').toLowerCase().includes(k)
+                );
+
+                // 2. Tìm ở cấp độ Liên Cụm (Tên Liên Cụm, Mã Liên Cụm, Trưởng Liên Cụm)
+                const matchLienCum = 
+                    (lc.tenLienCum || '').toLowerCase().includes(k) ||
+                    (lc.maLienCum || '').toLowerCase().includes(k) ||
+                    (lc.truongLienCum || '').toLowerCase().includes(k);
+
+                // 3. Logic hiển thị:
+                // - Nếu khớp thông tin Liên Cụm: Hiển thị Liên cụm đó và TẤT CẢ các cụm con.
+                // - Nếu chỉ khớp thông tin Cụm con: Hiển thị Liên cụm đó nhưng CHỈ xổ ra các cụm con khớp từ khóa.
+                if (matchLienCum || sub.length > 0) {
+                    return { 
+                        ...lc, 
+                        cums: matchLienCum ? lc.cums : sub 
+                    };
+                }
+                
                 return null;
             }).filter(Boolean);
+            
             UIRenderer.renderClusterTable(res);
         },
 
