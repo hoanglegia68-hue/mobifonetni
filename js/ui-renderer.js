@@ -142,14 +142,21 @@ const UIRenderer = {
                             </td>`;
                     }
 
-                    // Cột Cụm (Rowspan)
+                    // Cột Cụm (Rowspan) - ĐÃ BỔ SUNG SĐT TRƯỞNG CỤM
                     if (indexPx === 0) {
                         html += `
                             <td class="border-r border-slate-100 align-top pt-4 w-48" rowspan="${totalRowsCum}">
                                 <div class="font-semibold text-slate-700">${cum.tenCum}</div>
                                 <div class="text-slate-400 text-[10px] italic">(${cum.maCum})</div>
-                                <div class="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                                    <i data-lucide="user" class="w-3 h-3"></i> ${cum.phuTrach}
+                                <div class="text-xs text-slate-500 mt-2 flex flex-col gap-1">
+                                    <div class="flex items-center gap-1">
+                                        <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
+                                        <span class="font-medium text-slate-700">${cum.phuTrach || 'Chưa cập nhật'}</span>
+                                    </div>
+                                    ${(cum.sdtCum || cum.sdt) ? `
+                                    <a href="tel:${cum.sdtCum || cum.sdt}" class="flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 ml-4 transition">
+                                        <i data-lucide="phone" class="w-3 h-3"></i> ${cum.sdtCum || cum.sdt}
+                                    </a>` : ''}
                                 </div>
                             </td>`;
                     }
@@ -163,18 +170,47 @@ const UIRenderer = {
                                 </div>`;
                     }).join('') : '<span class="text-xs text-slate-300 italic">Chưa cập nhật</span>';
 
-                    // Cột Phường/Xã
+                                    // --- ĐOẠN CODE MỚI ---
+                    const vlrNum = Number(px.vlr) || 0;
+                    const danNum = Number(px.danSo) || 0;
+                    const dienTichNum = Number(px.dienTich || px.dientich) || 0;
+
+                    // Tính tỷ lệ VLR / Dân số
+                    const tyLeVLR = danNum > 0 ? ((vlrNum / danNum) * 100).toFixed(1) : 0;
+                    let progressColor = tyLeVLR >= 80 ? 'bg-emerald-500' : (tyLeVLR >= 50 ? 'bg-yellow-500' : 'bg-red-500');
+                    let textColor = tyLeVLR >= 80 ? 'text-emerald-600' : (tyLeVLR >= 50 ? 'text-yellow-600' : 'text-red-600');
+
                     html += `
-                        <td class="font-medium text-slate-800 border-b border-slate-100 p-3">${px.ten}</td>
-                        <td class="text-sm border-b border-slate-100 p-3">
-                            <div class="flex flex-col gap-1">
-                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">VLR:</span> <span class="font-mono font-bold text-blue-600">${this.formatNumber(px.vlr)}</span></div>
-                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">Dân:</span> <span class="font-mono text-slate-600">${this.formatNumber(px.danSo)}</span></div>
-                                <div class="flex justify-between items-center"><span class="text-slate-400 text-xs w-8">Trạm:</span> <span class="font-mono text-emerald-600 font-bold">${px.tram}</span></div>
+                        <td class="font-medium text-slate-800 border-b border-slate-100 p-3 align-top">
+                            <div class="flex items-center gap-1.5">
+                                <i data-lucide="map" class="w-4 h-4 text-slate-400"></i> ${px.ten}
                             </div>
                         </td>
-                        <td class="text-sm border-b border-slate-100 p-3 text-right font-mono">${this.formatAreaKm2(px.dienTich)}</td>
-                        <td class="border-b border-slate-100 p-3"><div class="flex flex-col items-start gap-1">${leadersHtml}</div></td>
+                        <td class="text-sm border-b border-slate-100 p-3 align-top min-w-[160px]">
+                            <div class="flex flex-col gap-1.5">
+                                <div class="flex justify-between items-center"><span class="text-slate-500 text-[11px] w-8">VLR:</span> <span class="font-mono font-bold text-blue-700">${this.formatNumber(vlrNum)}</span></div>
+                                <div class="flex justify-between items-center"><span class="text-slate-500 text-[11px] w-8">Dân:</span> <span class="font-mono text-slate-600">${this.formatNumber(danNum)}</span></div>
+                                
+                                <div class="mt-1 group relative cursor-pointer" title="Tỷ lệ VLR/Dân số: ${tyLeVLR}%">
+                                    <div class="flex justify-between items-end mb-0.5">
+                                        <span class="text-[10px] text-slate-400">Thị phần ước tính</span>
+                                        <span class="text-[10px] font-bold ${textColor}">${tyLeVLR}%</span>
+                                    </div>
+                                    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full ${progressColor} transition-all" style="width: ${Math.min(tyLeVLR, 100)}%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex justify-between items-center mt-1 border-t border-slate-50 pt-1.5"><span class="text-slate-500 text-[11px]"><i data-lucide="antenna" class="w-3 h-3 inline"></i> Trạm BTS:</span> <span class="font-mono text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">${px.tram || 0}</span></div>
+                            </div>
+                        </td>
+                        <td class="text-sm border-b border-slate-100 p-3 text-right align-top">
+                            <div class="flex flex-col items-end">
+                                <span class="font-mono font-medium text-slate-700">${this.formatAreaKm2(dienTichNum)}</span>
+                                ${dienTichNum > 0 && danNum > 0 ? `<span class="text-[10px] text-slate-400 mt-1" title="Mật độ dân số">${this.formatNumber(Math.round(danNum/dienTichNum))} người/km²</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="border-b border-slate-100 p-3 align-top"><div class="flex flex-col items-start gap-1">${leadersHtml}</div></td>
                         <td class="text-center align-middle border-b border-slate-100 p-3">
                             <button onclick="app.openEditModal('${px.id}')" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition" title="Chỉnh sửa"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
                         </td>
@@ -539,75 +575,106 @@ const UIRenderer = {
         const tbody = document.getElementById('indirect-list-body');
         if (!tbody) return;
 
-        // Helper: Lấy dữ liệu an toàn từ nhiều tên cột khác nhau (Case insensitive)
         const pick = (row, ...aliases) => {
             if (!row) return '';
+            const norm = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const allKeys = Object.keys(row);
             const lmap = {};
-            Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+            allKeys.forEach(k => { lmap[norm(k)] = k; });
+
             for (const a of aliases) {
                 if (!a) continue;
                 if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
-                const lk = lmap[String(a).toLowerCase()];
+                const cleanAlias = norm(a);
+                const lk = lmap[cleanAlias];
                 if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') return row[lk];
+                const targetKey = allKeys.find(k => norm(k).includes(cleanAlias));
+                if (targetKey && row[targetKey] !== undefined && row[targetKey] !== null && String(row[targetKey]).trim() !== '') return row[targetKey];
             }
             return '';
         };
 
-        // Helper: Xử lý link Google Drive để hiển thị thumbnail nhanh
         const getDisplayUrl = (url) => {
             if (!url) return '';
-            // Nếu là link Google Drive, chuyển sang link thumbnail lh3
             const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
             if (match && match[1]) {
-                return `https://lh3.googleusercontent.com/d/${match[1]}=s100`; // s100 = size 100px
+                return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
             }
             return url;
         };
 
         if (!data || data.length === 0) {
-            // Colspan = 8 để khớp với header mới
             tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-400">Không tìm thấy dữ liệu điểm bán</td></tr>`;
             return;
         }
 
+        // Biến an toàn kiểm tra app (thay vì dùng window.app)
+        const isAppReady = typeof app !== 'undefined';
+
         tbody.innerHTML = data.map((item, idx) => {
-            // Mapping dữ liệu linh hoạt
-            const ten = pick(item, 'ten', 'Ten', 'tenDiemBan', 'Tên Điểm Bán');
-            const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'Mã ĐL/ĐB');
-            const chu = pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'nguoiDaiDien', 'Chủ sở hữu');
-            const sdt = pick(item, 'sdt', 'SDT', 'soDienThoai', 'SĐT');
-            const loai = pick(item, 'loai', 'Loai', 'Loại'); 
-            const phanLoai = pick(item, 'phanloai', 'Phanloai', 'phanLoai'); 
-            const tuyen = pick(item, 'tuyen', 'Tuyen', 'tuyenBanHang', 'Tuyến');
-            const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC', 'Địa chỉ');
+            const ten = pick(item, 'ten', 'Ten', 'tenDiemBan', 'diemban');
+            const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'madldb');
+            const chu = pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'nguoiDaiDien', 'chusohuu');
+            const sdt = pick(item, 'sdt', 'SDT', 'soDienThoai', 'phone', 'dienthoai');
+            const loai = pick(item, 'loai', 'Loai');
+            const phanLoai = pick(item, 'phanloai', 'Phanloai');
+            const tuyen = pick(item, 'tuyen', 'Tuyen', 'tuyenBanHang');
+            const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC');
             const lat = pick(item, 'lat', 'Lat', 'ViDo');
             const lng = pick(item, 'lng', 'Lng', 'KinhDo');
             
-            const maCum = pick(item, 'maCum', 'MaCum', 'cum', 'Cum') || '-';
-            const tenCum = (window.app && app.getNameCum) ? app.getNameCum(maCum) : maCum;
+            const maCumRaw = pick(item, 'macum', 'maCum', 'cum', 'MaCum') || '-';
+            
+            let tenCum = (isAppReady && app.getNameCum) ? (app.getNameCum(maCumRaw) || maCumRaw) : maCumRaw;
+            let truongCum = '-';
+            let sdtTruongCum = '-';
 
-            // Lấy link ảnh (Ưu tiên cột AnhTrong/AnhNgoai)
+            // Dùng isAppReady thay vì window.app
+            if (isAppReady && app.fullClusterData && maCumRaw !== '-') {
+                // Regex có giữ lại dấu gạch ngang (\-)
+                const superClean = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+                const targetCode = superClean(maCumRaw);
+                
+                for (const lc of app.fullClusterData) {
+                    const found = (lc.cums || []).find(c => {
+                        return superClean(c.maCum) === targetCode || superClean(c.tenCum) === targetCode;
+                    });
+                    
+                    if (found) {
+                        tenCum = found.tenCum || tenCum;
+                        truongCum = found.phuTrach || found.truongCum || '-';
+                        // Ưu tiên SĐT của Cụm, nếu trống thì mượn SĐT của Liên Cụm
+                        sdtTruongCum = found.sdtCum || found.sdt || lc.sdtLienCum || '-';
+                        break; 
+                    }
+                }
+            }
+
             const imgTrong = pick(item, 'anhTrong', 'AnhTrong', 'imgInside', 'img1');
             const imgNgoai = pick(item, 'anhNgoai', 'AnhNgoai', 'imgOutside', 'img2');
 
-            // Render 1 ô ảnh
             const renderImgCell = (url, icon) => {
                 if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300"><i data-lucide="${icon}" class="w-4 h-4"></i></div>`;
                 const displayUrl = getDisplayUrl(url);
                 return `
                     <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
-                         onclick="event.stopPropagation(); window.open('${url}', '_blank')">
+                        onclick="event.stopPropagation(); window.open('${url}', '_blank')">
                         <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
                     </div>
                 `;
             };
 
-            // Badge phân loại
             let badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
             const loaiLower = String(phanLoai).toLowerCase();
             if (loaiLower.includes('loại 1') || loaiLower.includes('chiến lược')) badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
             else if (loaiLower.includes('loại 2') || loaiLower.includes('tiềm năng')) badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
             else if (loaiLower.includes('c2c')) badgeClass = 'bg-orange-100 text-orange-700 border-orange-200';
+
+            const linkMapUrl = (isAppReady && lat && lng) ? app.getMapLink(lat, lng) : '';
+            const mapHtml = linkMapUrl 
+                ? `<div class="text-sm text-slate-600 line-clamp-2" title="${diaChi}">${diaChi || '---'}</div>
+                   <a href="${linkMapUrl}" target="_blank" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ</a>`
+                : `<div class="text-sm text-slate-600 line-clamp-2" title="${diaChi}">${diaChi || '---'}</div>`;
 
             return `
             <tr class="bg-white border-b hover:bg-blue-50/30 transition group">
@@ -630,22 +697,28 @@ const UIRenderer = {
                 <td class="p-3 align-top">
                     <div class="flex flex-col items-start gap-1.5">
                         ${loai ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-indigo-50 text-indigo-700 border-indigo-200">${loai}</span>` : ''}
-                        
                         <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${phanLoai || 'Chưa phân loại'}</span>
-                        
                         ${tuyen ? `<span class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5"><i data-lucide="route" class="w-3 h-3 text-slate-400"></i> Tuyến: <b class="text-slate-600">${tuyen}</b></span>` : ''}
                     </div>
                 </td>
 
                 <td class="p-3 align-top max-w-[200px]">
-                    ${this.getMapLink(lat, lng, diaChi)}
+                    ${mapHtml}
                 </td>
 
-                <td class="p-3 text-center align-top">
-                     <div class="flex flex-col items-center">
-                        <span class="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">${tenCum}</span>
-                        ${tenCum !== maCum ? `<span class="text-[9px] text-slate-400 mt-0.5">(${maCum})</span>` : ''}
-                     </div>
+                <td class="p-3 align-top min-w-[140px]">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-blue-600 text-[11px] bg-blue-50 px-2 py-1 rounded border border-blue-100 w-fit">${tenCum}</span>
+                        <div class="flex flex-col gap-1 mt-2 text-[10px]">
+                            <span class="flex items-center gap-1 text-slate-600 font-medium">
+                                <i data-lucide="user-check" class="w-3 h-3 text-blue-400"></i> ${truongCum}
+                            </span>
+                            ${sdtTruongCum !== '-' ? `
+                            <a href="tel:${sdtTruongCum}" class="flex items-center gap-1 text-slate-500 hover:text-blue-600 transition">
+                                <i data-lucide="phone-forwarded" class="w-3 h-3 text-slate-400"></i> ${sdtTruongCum}
+                            </a>` : ''}
+                        </div>
+                    </div>
                 </td>
 
                 <td class="p-3 text-center align-middle">
@@ -656,18 +729,17 @@ const UIRenderer = {
                 </td>
 
                 <td class="p-3 text-center align-middle">
-                     <button onclick="app.openEditIndirectModal('${ma}')" 
-                            class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-300 hover:shadow-sm transition"
-                            title="Chỉnh sửa & Upload ảnh">
+                    <button onclick="app.openEditIndirectModal('${ma}')"
+                        class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-300 transition shadow-sm">
                         <i data-lucide="file-pen-line" class="w-4 h-4"></i>
                     </button>
                 </td>
             </tr>
             `;
         }).join('');
-        
         if (window.lucide) lucide.createIcons();
     },
+
     // 3.6 Trạm BTS
     renderBTSTable(data) {
         const tbody = document.getElementById('bts-list-body');
@@ -1680,26 +1752,113 @@ const UIRenderer = {
         }
         
         // ==========================================================
-        // CASE 5: BTS
+        // CASE 5: BTS (Đã nâng cấp UI & Dữ liệu tương tự Menu Trạm BTS)
         // ==========================================================
         else if (type === 'bts') {
             headerHtml = `
                 <tr>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Mã Trạm</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Loại</th>
-                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Đơn vị</th>
-                    <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">VLR (4G)</th>
-                    <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">Data (GB)</th>
+                    <th class="p-3 border-b bg-slate-100 text-center w-10 sticky top-0 z-20">#</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Trạm / Loại</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Đơn vị (Cụm)</th>
+                    <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20 min-w-[180px]">Địa chỉ</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">VLR & Data</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">MVNO & M2M</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Cố định (AON/GPON)</th>
                 </tr>`;
-            
-            bodyHtml = data.map(item => `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 font-bold text-blue-700">${item['Mã Trạm'] || item.maTram}</td>
-                    <td class="p-3 text-sm"><span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600 text-xs">${item['Loại trạm'] || item.loai || '-'}</span></td>
-                    <td class="p-3 text-sm text-slate-500">${app.getNameCum ? app.getNameCum(item.maCum) : item.maCum}</td>
-                    <td class="p-3 text-right font-mono text-slate-700">${formatNum(item['VLR 4G'] || item.vlr)}</td>
-                    <td class="p-3 text-right font-mono text-slate-700">${formatNum(item['Data (GB/BQN)'] || item.data)}</td>
-                </tr>`).join('');
+
+            bodyHtml = data.map((item, idx) => {
+                // 1. Mapping fields cơ bản
+                const maTram = pick(item, 'maTram', 'Mã Trạm', 'matram') || '---';
+                const loaiTram = pick(item, 'loaitram', 'Loại trạm', 'loai') || '---';
+                const maLC = pick(item, 'maLienCum', 'Mã Liên Cụm') || '-';
+                const maCum = pick(item, 'maCum', 'Mã Cụm', 'cum') || '-';
+                const diaChi = pick(item, 'diaChi', 'Địa chỉ', 'diachi') || '-';
+                const lat = pick(item, 'lat', 'Lat', 'vido');
+                const lng = pick(item, 'lng', 'Lng', 'kinhdo');
+                const ghiChu = pick(item, 'ghiChu', 'Ghi chú', 'ghichu');
+
+                // 2. Dữ liệu VLR & Data
+                const vlr3g = pick(item, 'VLR 3G') || 0;
+                const vlr4g = pick(item, 'VLR 4G') || 0;
+                const dataGB = pick(item, 'Data (GB/BQN)', 'data') || 0;
+
+                // 3. Dữ liệu Mạng ảo & M2M
+                const asim = pick(item, 'ASIM') || 0;
+                const gtel = pick(item, 'GTEL') || 0;
+                const vnsky = pick(item, 'VNSKY') || 0;
+                const saymee = pick(item, 'SAYMEE') || 0;
+                const m2m = pick(item, 'M2M - Tổng') || 0;
+
+                // 4. Dữ liệu Cố định (Băng rộng)
+                const csg = pick(item, 'CSG') || 0;
+                const olt = pick(item, 'OLT') || 0;
+                const tbaon = pick(item, 'TBAON_ACTIVE') || 0;
+                const tbaonEmpty = pick(item, 'PORTAON_EMTY') || 0;
+                const tbgpon = pick(item, 'TBGPON_ACTIVE') || 0;
+                const tbgponEmpty = pick(item, 'LINEGPON_EMTY') || 0;
+
+                // --- Xử lý hiển thị thông minh ---
+                const isAppReady = typeof app !== 'undefined';
+                const tenLC = (isAppReady && app.getNameLienCum) ? app.getNameLienCum(maLC) : maLC;
+                const tenCum = (isAppReady && app.getNameCum) ? app.getNameCum(maCum) : maCum;
+
+                const mapLink = (lat && lng) 
+                    ? `<a href="http://googleusercontent.com/maps.google.com/?q=${lat},${lng}" target="_blank" class="text-blue-500 hover:text-blue-700 text-[11px] flex items-center gap-1 mt-1 font-medium transition"><i data-lucide="map-pin" class="w-3 h-3"></i> Xem Bản đồ</a>` 
+                    : '';
+
+                return `
+                <tr class="border-b hover:bg-slate-50 transition-colors align-top">
+                    <td class="p-3 text-center text-slate-500 text-xs">${idx + 1}</td>
+                    
+                    <td class="p-3">
+                        <div class="flex flex-col gap-1">
+                            <span class="font-bold text-blue-700">${escape(maTram)}</span>
+                            <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border bg-slate-100 text-slate-600 border-slate-200 w-fit">${escape(loaiTram)}</span>
+                            ${ghiChu ? `<span class="text-[10px] text-slate-500 italic mt-1 line-clamp-2" title="${escape(ghiChu)}"><span class="font-semibold text-slate-400">Note:</span> ${escape(ghiChu)}</span>` : ''}
+                        </div>
+                    </td>
+
+                    <td class="p-3">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-700 text-xs">${escape(tenLC)}</span>
+                            <span class="text-[10px] text-slate-500 mt-0.5">${escape(tenCum)}</span>
+                        </div>
+                    </td>
+
+                    <td class="p-3">
+                        <div class="text-xs text-slate-600 line-clamp-2 leading-relaxed" title="${escape(diaChi)}">${escape(diaChi)}</div>
+                        ${mapLink}
+                    </td>
+
+                    <td class="p-3">
+                        <div class="flex flex-col gap-1.5 text-xs w-full min-w-[120px]">
+                            <div class="flex justify-between gap-3"><span class="text-slate-400">VLR 3G:</span> <span class="font-mono text-slate-700">${formatNum(vlr3g)}</span></div>
+                            <div class="flex justify-between gap-3"><span class="text-slate-400">VLR 4G:</span> <span class="font-mono font-bold text-blue-600">${formatNum(vlr4g)}</span></div>
+                            <div class="flex justify-between gap-3 border-t border-slate-100 pt-1 mt-0.5"><span class="text-slate-500 font-medium">Data (GB):</span> <span class="font-mono font-bold text-emerald-600">${formatNum(dataGB)}</span></div>
+                        </div>
+                    </td>
+
+                    <td class="p-3">
+                        <div class="flex flex-col gap-1 text-[10px] w-full min-w-[140px]">
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                                <span class="text-slate-500 flex justify-between">ASIM: <b class="text-slate-700">${formatNum(asim)}</b></span>
+                                <span class="text-slate-500 flex justify-between">GTEL: <b class="text-slate-700">${formatNum(gtel)}</b></span>
+                                <span class="text-slate-500 flex justify-between">VNSKY: <b class="text-slate-700">${formatNum(vnsky)}</b></span>
+                                <span class="text-slate-500 flex justify-between">SAYMEE: <b class="text-slate-700">${formatNum(saymee)}</b></span>
+                            </div>
+                            <div class="flex justify-between border-t border-slate-100 pt-1 mt-0.5"><span class="text-slate-500 font-semibold">M2M - Tổng:</span> <span class="font-mono font-bold text-indigo-600">${formatNum(m2m)}</span></div>
+                        </div>
+                    </td>
+
+                    <td class="p-3">
+                        <div class="flex flex-col gap-1.5 text-[10px] w-full min-w-[150px]">
+                            <div class="flex justify-between gap-3 border-b border-slate-50 pb-1"><span class="text-slate-500">CSG / OLT:</span> <span class="font-mono text-slate-700">${formatNum(csg)} <span class="text-slate-300">/</span> ${formatNum(olt)}</span></div>
+                            <div class="flex justify-between gap-3"><span class="text-slate-500">AON (Active/Empty):</span> <span class="font-mono font-bold text-slate-700">${formatNum(tbaon)} <span class="text-slate-400 font-normal">/ ${formatNum(tbaonEmpty)}</span></span></div>
+                            <div class="flex justify-between gap-3"><span class="text-slate-500">GPON (Active/Empty):</span> <span class="font-mono font-bold text-slate-700">${formatNum(tbgpon)} <span class="text-slate-400 font-normal">/ ${formatNum(tbgponEmpty)}</span></span></div>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
         }
 
         // ==========================================================
@@ -1723,26 +1882,63 @@ const UIRenderer = {
         }
 
         // ==========================================================
-        // CASE 7: COMMUNES
+        // CASE 7: COMMUNES (Đã Nâng Cấp)
         // ==========================================================
         else if (type === 'commune') {
-                headerHtml = `
+            headerHtml = `
                 <tr>
+                    <th class="p-3 border-b bg-slate-100 text-center w-10 sticky top-0 z-20">#</th>
                     <th class="p-3 border-b bg-slate-100 text-left sticky top-0 z-20">Phường/Xã</th>
                     <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">Dân Số</th>
-                    <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">Diện Tích</th>
                     <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">VLR</th>
-                    <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">Trạm</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20 min-w-[120px]">Hiệu suất (VLR/Dân)</th>
+                    <th class="p-3 border-b bg-slate-100 text-right sticky top-0 z-20">Diện Tích & Mật độ</th>
+                    <th class="p-3 border-b bg-slate-100 text-center sticky top-0 z-20">Trạm</th>
                 </tr>`;
             
-            bodyHtml = data.map(item => `
-                <tr class="border-b hover:bg-slate-50 transition-colors">
-                    <td class="p-3 font-medium text-slate-700">${item.ten}</td>
-                    <td class="p-3 text-right font-mono text-slate-600">${formatNum(item.danSo)}</td>
-                    <td class="p-3 text-right font-mono text-slate-600">${this.formatAreaKm2(item.dienTich)}</td>
-                    <td class="p-3 text-right font-mono font-bold text-blue-600">${formatNum(item.vlr)}</td>
-                    <td class="p-3 text-right font-mono font-bold text-emerald-600">${item.tram}</td>
-                </tr>`).join('');
+            bodyHtml = data.map((item, idx) => {
+                const vlrNum = Number(item.vlr) || 0;
+                const danNum = Number(item.danSo) || 0;
+                const dienTichNum = Number(item.dienTich || item.dientich) || 0;
+                
+                // Tính toán
+                const tyLe = danNum > 0 ? ((vlrNum / danNum) * 100).toFixed(1) : 0;
+                const matDo = dienTichNum > 0 ? Math.round(danNum / dienTichNum) : 0;
+                
+                let colorClass = tyLe >= 80 ? 'text-emerald-600 bg-emerald-50' : (tyLe >= 50 ? 'text-yellow-600 bg-yellow-50' : 'text-red-600 bg-red-50');
+                let barClass = tyLe >= 80 ? 'bg-emerald-500' : (tyLe >= 50 ? 'bg-yellow-500' : 'bg-red-500');
+
+                return `
+                <tr class="border-b hover:bg-slate-50 transition-colors align-middle">
+                    <td class="p-3 text-center text-slate-400 text-xs">${idx + 1}</td>
+                    <td class="p-3">
+                        <span class="font-bold text-slate-700 flex items-center gap-1.5">
+                            <i data-lucide="map" class="w-4 h-4 text-blue-500"></i> ${item.ten}
+                        </span>
+                    </td>
+                    <td class="p-3 text-right font-mono text-slate-600">${formatNum(danNum)}</td>
+                    <td class="p-3 text-right font-mono font-bold text-blue-700">${formatNum(vlrNum)}</td>
+                    <td class="p-3 align-middle">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] font-bold px-1.5 py-0.5 rounded w-12 text-center ${colorClass}">${tyLe}%</span>
+                            <div class="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden min-w-[50px]">
+                                <div class="h-full ${barClass}" style="width: ${Math.min(tyLe, 100)}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-3 text-right">
+                        <div class="flex flex-col items-end">
+                            <span class="font-mono text-slate-700 font-medium">${this.formatAreaKm2(dienTichNum)}</span>
+                            ${matDo > 0 ? `<span class="text-[10px] text-slate-400 mt-0.5">${formatNum(matDo)} người/km²</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="p-3 text-center">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg ${item.tram > 0 ? 'bg-indigo-50 text-indigo-700 font-bold' : 'bg-slate-100 text-slate-400'} font-mono text-xs border border-indigo-100/50">
+                            <i data-lucide="radio-tower" class="w-3 h-3"></i> ${item.tram || 0}
+                        </span>
+                    </td>
+                </tr>`;
+            }).join('');
         }
         
         // ==========================================================
@@ -1763,7 +1959,8 @@ const UIRenderer = {
             const getDisplayUrl = (url) => {
                 if (!url) return '';
                 const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                if (match && match[1]) return `https://lh3.googleusercontent.com/d/${match[1]}=s100`;
+                // Cập nhật link ảnh cho chuẩn
+                if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
                 return url;
             };
 
@@ -1777,6 +1974,8 @@ const UIRenderer = {
                     </div>`;
             };
 
+            const isAppReady = typeof app !== 'undefined';
+
             bodyHtml = data.map((item, idx) => {
                 const ten = pick(item, 'ten', 'Ten', 'tenDiemBan', 'Tên Điểm Bán');
                 const ma = pick(item, 'maDL', 'MaDL', 'maCode', 'code', 'id', 'Mã ĐL/ĐB');
@@ -1788,8 +1987,7 @@ const UIRenderer = {
                 const diaChi = pick(item, 'diaChi', 'DiaChi', 'diachi', 'DC', 'Địa chỉ');
                 const lat = pick(item, 'lat', 'Lat', 'ViDo');
                 const lng = pick(item, 'lng', 'Lng', 'KinhDo');
-                const maCum = pick(item, 'maCum', 'MaCum', 'cum', 'Cum') || '-';
-                const tenCum = (window.app && app.getNameCum) ? app.getNameCum(maCum) : maCum;
+                
                 const imgTrong = pick(item, 'anhTrong', 'AnhTrong', 'imgInside', 'img1');
                 const imgNgoai = pick(item, 'anhNgoai', 'AnhNgoai', 'imgOutside', 'img2');
 
@@ -1798,6 +1996,29 @@ const UIRenderer = {
                 if (loaiLower.includes('loại 1') || loaiLower.includes('chiến lược')) badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
                 else if (loaiLower.includes('loại 2') || loaiLower.includes('tiềm năng')) badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
                 else if (loaiLower.includes('c2c')) badgeClass = 'bg-orange-100 text-orange-700 border-orange-200';
+
+                // --- LOGIC TÌM CỤM CHUẨN ---
+                const maCumRaw = pick(item, 'maCum', 'MaCum', 'cum', 'Cum', 'macum') || '-';
+                let tenCum = (isAppReady && app.getNameCum) ? (app.getNameCum(maCumRaw) || maCumRaw) : maCumRaw;
+                let truongCum = '-';
+                let sdtTruongCum = '-';
+
+                if (isAppReady && app.fullClusterData && maCumRaw !== '-') {
+                    const superClean = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+                    const targetCode = superClean(maCumRaw);
+                    
+                    for (const lc of app.fullClusterData) {
+                        const found = (lc.cums || []).find(c => {
+                            return superClean(c.maCum) === targetCode || superClean(c.tenCum) === targetCode;
+                        });
+                        if (found) {
+                            tenCum = found.tenCum || tenCum;
+                            truongCum = found.phuTrach || found.truongCum || '-';
+                            sdtTruongCum = found.sdtCum || found.sdt || lc.sdtLienCum || '-';
+                            break;
+                        }
+                    }
+                }
 
                 return `
                 <tr class="bg-white border-b hover:bg-slate-50 transition-colors">
@@ -1822,10 +2043,21 @@ const UIRenderer = {
                         </div>
                     </td>
                     <td class="p-3 align-top max-w-[200px]">
-                        ${this.getMapLink(lat, lng, diaChi)}
+                        ${(isAppReady && lat && lng) ? `<div class="text-sm text-slate-600 line-clamp-2" title="${diaChi}">${diaChi || '---'}</div><a href="${app.getMapLink ? app.getMapLink(lat, lng) : `http://googleusercontent.com/maps.google.com/?q=${lat},${lng}`}" target="_blank" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ</a>` : `<div class="text-sm text-slate-600 line-clamp-2" title="${diaChi}">${diaChi || '---'}</div>`}
                     </td>
-                    <td class="p-3 text-center align-top">
-                        <span class="font-bold text-blue-600 text-xs bg-blue-50 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">${tenCum}</span>
+                    <td class="p-3 align-top min-w-[140px]">
+                        <div class="flex flex-col items-center">
+                            <span class="font-bold text-blue-600 text-[11px] bg-blue-50 px-2 py-1 rounded border border-blue-100 whitespace-nowrap">${tenCum}</span>
+                            <div class="flex flex-col gap-1 mt-2 text-[10px] text-center w-full">
+                                <span class="flex justify-center items-center gap-1 text-slate-600 font-medium">
+                                    <i data-lucide="user-check" class="w-3 h-3 text-blue-400"></i> ${truongCum}
+                                </span>
+                                ${sdtTruongCum !== '-' ? `
+                                <a href="tel:${sdtTruongCum}" class="flex justify-center items-center gap-1 text-slate-500 hover:text-blue-600 transition">
+                                    <i data-lucide="phone-forwarded" class="w-3 h-3 text-slate-400"></i> ${sdtTruongCum}
+                                </a>` : ''}
+                            </div>
+                        </div>
                     </td>
                     <td class="p-3 text-center align-middle">
                         <div class="flex gap-2 justify-center">
@@ -1835,7 +2067,7 @@ const UIRenderer = {
                     </td>
                 </tr>`;
             }).join('');
-        }
+        }   
 
         // Render HTML
         thead.innerHTML = headerHtml;
