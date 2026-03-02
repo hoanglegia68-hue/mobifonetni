@@ -3,7 +3,7 @@
  * Update: Tích hợp xác thực Token, Caching thông minh & Xử lý lỗi
  * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbx--5PLPp1SZrslLARQzutISxpcu8GQZN-ZViLD_6jso55VxefXPBGang30Zp-GHBkidg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwU2eOu5tgY5O7ih17ZZ6dW5OVu413uTJGIYWES_rVJZiArbpSs6LIUGm-FHkYNORHgXw/exec";
 
 const DataService = {
     _cache: null,          // Core data (Users, Stores, BTS...)
@@ -304,6 +304,9 @@ const DataService = {
     getMarketBeat() { return this._getLazy("market"); },
     getFocusReports() { return this._getLazy("report"); },
     getProducts() { return this._getLazy("products"); },
+    getIndirectCheckins() { return this._getLazy("indirect_checkins"); },
+    getIndirectKpiPlans() { return this._getLazy("indirect_kpi_plan"); },
+    getIndirectKpiReports() { return this._getLazy("indirect_kpi_report"); },
 
     invalidateLocalCache_(keys = []) {
         if (!this._cache) return;
@@ -483,6 +486,27 @@ const DataService = {
         });
     },
 
+    async saveIndirectCheckin(data) {
+        return this.postData({
+            action: 'upsert_indirect_checkin',
+            data: data
+        });
+    },
+
+    async upsertIndirectKpiPlan(data) {
+        return this.postData({
+            action: 'upsert_indirect_kpi_plan',
+            data: data
+        });
+    },
+
+    async upsertIndirectKpiReport(data) {
+        return this.postData({
+            action: 'upsert_indirect_kpi_report',
+            data: data
+        });
+    },
+
     async upsertWeeklyPlan(data) {
         return this.postData({
             action: 'upsert_weekly_plan',
@@ -568,6 +592,15 @@ const DataService = {
                 }
                 if (safePayload.action === 'upsert_product' || safePayload.action === 'delete_product') {
                     this.invalidateLocalCache_(['products']);
+                }
+                if (safePayload.action === 'upsert_indirect_checkin') {
+                    this.invalidateLocalCache_(['indirect_checkins']);
+                }
+                if (safePayload.action === 'upsert_indirect_kpi_plan') {
+                    this.invalidateLocalCache_(['indirect_kpi_plan']);
+                }
+                if (safePayload.action === 'upsert_indirect_kpi_report') {
+                    this.invalidateLocalCache_(['indirect_kpi_report']);
                 }
             }
             
