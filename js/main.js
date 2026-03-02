@@ -29,6 +29,7 @@
         currentKPIReportData: null,
         currentStaffDataGroups: null,
         isSidebarOpen: false,
+        mobileBreakpoint: 1024,
 
         // BTS Filter State (lọc theo Liên Cụm/Cụm + tìm kiếm)
         btsFilterState: { keyword: '', liencum: 'all', cum: 'all' },
@@ -98,7 +99,7 @@
                 // 3. Xử lý khi co giãn màn hình (Resize)
                 window.addEventListener('resize', () => {
                     // Nếu màn hình to lên (Desktop) mà menu đang mở kiểu mobile -> Reset lại
-                    if (window.innerWidth >= 768 && this.isSidebarOpen) {
+                    if (window.innerWidth >= this.mobileBreakpoint && this.isSidebarOpen) {
                         this.isSidebarOpen = false; 
                         
                         const sb = document.getElementById('sidebar');
@@ -148,6 +149,7 @@
                 // Vào Dashboard
                 this.navigate('dashboard');
                 this.calculateAndRenderRankings();
+                this.prefetchAuxiliaryData();
 
                 const loadingOverlay = document.getElementById('global-loader');
                 if (loadingOverlay) loadingOverlay.classList.add('hidden-loader');
@@ -673,7 +675,55 @@
                     const logData = normalize(logs);
 
                     const detectKey = (sampleRow, ...candidates) => { if (!sampleRow) return candidates[0]; const keys = Object.keys(sampleRow); const lowerKeys = keys.map(k => k.toLowerCase()); for (const c of candidates) { const idx = lowerKeys.indexOf(c.toLowerCase()); if (idx > -1) return keys[idx]; } return candidates[0]; };
-                    const typeMap = {}; struct.forEach(s => { if (s.active) { const k = app.cleanCode(s.ma); const u = (s.dvt || '').toLowerCase(); typeMap[k] = (u.includes('tb') || u.includes('sim') || u.includes('cái')) ? 'sub' : 'rev'; } });
+                    const normToken = (v) => String(v || '')
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-z0-9]+/g, ' ')
+                        .trim();
+                    const classifyKpiType = (code, dvt, name) => {
+                        const raw = `${normToken(code)} ${normToken(dvt)} ${normToken(name)}`.trim();
+                        const compact = raw.replace(/\s+/g, '');
+                        const isSub = (
+                            raw.includes('thue bao') ||
+                            compact.includes('thuebao') ||
+                            /\btb\b/.test(raw) ||
+                            compact.startsWith('tb') ||
+                            raw.includes('tbptm') ||
+                            raw.includes('tb ptm') ||
+                            raw.includes('ptm') ||
+                            raw.includes('sim') ||
+                            raw.includes('cai') ||
+                            raw.includes('sub') ||
+                            raw.includes('phat trien moi')
+                        );
+                        if (isSub) return 'sub';
+                        const isRev = (
+                            raw.includes('doanh thu') ||
+                            compact.includes('doanhthu') ||
+                            raw.includes('revenue') ||
+                            raw.includes('rev') ||
+                            /\bdt\b/.test(raw)
+                        );
+                        if (isRev) return 'rev';
+                        return null;
+                    };
+                    const typeMap = {};
+                    struct.forEach(s => {
+                        if (!s) return;
+                        const activeRaw = String(s.active === undefined ? 'true' : s.active).trim().toLowerCase();
+                        if (activeRaw === 'false' || activeRaw === '0' || activeRaw === 'no') return;
+                        const k = app.cleanCode(s.ma);
+                        let t = classifyKpiType(k, s.dvt, s.tenHienThi || s.ten || '');
+                        if (!t) {
+                            const dvt = normToken(s.dvt || '');
+                            if (dvt.includes('thue bao') || /\btb\b/.test(dvt) || dvt.includes('sim') || dvt.includes('cai')) {
+                                t = 'sub';
+                            }
+                        }
+                        if (!t) t = 'rev';
+                        if (k) typeMap[k] = t;
+                    });
                     
                     // Init Variables
                     const subData = { actual: 0, plan: 0, daily: {}, channel: {}, cluster: {}, breakdown: {} };
@@ -718,7 +768,8 @@
                             const chVal = String(row[kCh] || 'KHÁC').split('-')[0].trim();
                             if (channelFilter !== 'all' && chVal !== channelFilter) return;
 
-                            const type = typeMap[kpiCode];
+                            let type = typeMap[kpiCode] || classifyKpiType(kpiCode, '', '');
+                            if (!type) type = 'rev';
                             if (!type) return;
                             
                             let val = Number(row[kVal]) || 0;
@@ -765,7 +816,8 @@
 
                             const kpiCode = app.cleanCode(row[kKPI]);
                             if (kpiFilter !== 'all' && kpiCode !== kpiFilter) continue;
-                            const type = typeMap[kpiCode];
+                            let type = typeMap[kpiCode] || classifyKpiType(kpiCode, '', '');
+                            if (!type) type = 'rev';
                             if (!type) continue;
 
                             let val = Number(row[kVal]) || 0;
@@ -1197,13 +1249,22 @@
             if (url && url.length > 10) {
                 // [QUAN TRỌNG]: Gọi hàm chuyển đổi link ở đây
                 const directLink = this._convertDriveLink(url);
+                const safeOpenUrl = this.sanitizeExternalUrl(url, true);
+                if (!safeOpenUrl) {
+                    return `
+                        <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300">
+                            <i data-lucide="image-off" class="w-5 h-5"></i>
+                        </div>
+                    `;
+                }
+                const encodedUrl = encodeURIComponent(safeOpenUrl);
 
                 return `
-                    <div class="relative group cursor-pointer w-10 h-10" onclick="app.viewImage('${url}')">
+                    <div class="relative group cursor-pointer w-10 h-10" onclick="app.viewImage(decodeURIComponent('${encodedUrl}'))">
                         <img src="${directLink}" alt="${altText}" 
                             class="w-full h-full rounded-lg object-cover border border-slate-200 shadow-sm group-hover:scale-150 group-hover:z-50 transition-all duration-200 origin-center bg-white"
                             loading="lazy"
-                            onerror="this.onerror=null; this.src='https://placehold.co/40x40?text=Error';">
+                            onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2220%22 y=%2224%22 font-size=%229%22 text-anchor=%22middle%22 fill=%22%2364758b%22%3EImage%3C/text%3E%3C/svg%3E';">
                     </div>
                 `;
             } else {
@@ -1253,19 +1314,22 @@
             // 2. Helper render ảnh thumbnail
             const renderThumb = (url, label) => {
                 if (!url || url.length < 5) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300" title="Không có ảnh ${label}"><i data-lucide="image-off" class="w-4 h-4"></i></div>`;
+                const safeOriginalUrl = this.sanitizeExternalUrl(url, true);
+                if (!safeOriginalUrl) return `<div class="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300" title="Link ảnh không hợp lệ"><i data-lucide="shield-alert" class="w-4 h-4"></i></div>`;
                 
                 // Xử lý link Google Drive thumbnail nếu cần
-                let displayUrl = url;
-                if (url.includes('drive.google.com')) {
-                    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                let displayUrl = safeOriginalUrl;
+                if (safeOriginalUrl.includes('drive.google.com')) {
+                    const match = safeOriginalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || safeOriginalUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                     if (match && match[1]) displayUrl = `https://lh3.googleusercontent.com/d/${match[1]}=s100`;
                 }
+                const encodedUrl = encodeURIComponent(safeOriginalUrl);
 
                 return `
                     <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
                         title="${label}"
-                        onclick="event.stopPropagation(); window.open('${url}', '_blank')">
-                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                        onclick="event.stopPropagation(); app.viewImage(decodeURIComponent('${encodedUrl}'))">
+                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2254%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%2364758b%22%3ENo%20Image%3C/text%3E%3C/svg%3E';">
                     </div>
                 `;
             };
@@ -1326,8 +1390,9 @@
                 }
 
                 // Link bản đồ
-                const linkMap = (s.lat && s.lng) 
-                    ? `<a href="https://www.google.com/maps?q=${s.lat},${s.lng}" target="_blank" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Bản đồ</a>` 
+                const mapUrl = this.getMapLink(s.lat, s.lng);
+                const linkMap = mapUrl
+                    ? `<a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Bản đồ</a>` 
                     : '';
 
                 // --- RENDER HTML ---
@@ -1468,7 +1533,7 @@
         },
 
         closeSidebarOnMobile() {
-            if (window.innerWidth < 768 && this.isSidebarOpen) {
+            if (window.innerWidth < this.mobileBreakpoint && this.isSidebarOpen) {
                 this.toggleSidebar();
             }
         },
@@ -1835,7 +1900,47 @@
             const lo = Number(String(lng ?? '').replace(',', '.'));
             if (!isFinite(la) || !isFinite(lo)) return '';
             // [FIXED] Correct Google Maps URL
-            return `https://maps.google.com/?q=${la},${lo}`;
+            return this.sanitizeExternalUrl(`https://maps.google.com/?q=${la},${lo}`) || '';
+        },
+
+        sanitizeExternalUrl(url, allowDataImage = false) {
+            const raw = String(url || '').trim();
+            if (!raw) return '';
+            if (allowDataImage && /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/i.test(raw)) {
+                return raw;
+            }
+            try {
+                const parsed = new URL(raw, window.location.origin);
+                if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                    return parsed.href;
+                }
+            } catch (e) {
+                return '';
+            }
+            return '';
+        },
+
+        openExternalUrl(url, allowDataImage = false) {
+            const safe = this.sanitizeExternalUrl(url, allowDataImage);
+            if (!safe) {
+                console.warn("Blocked unsafe URL:", url);
+                return false;
+            }
+            window.open(safe, '_blank', 'noopener,noreferrer');
+            return true;
+        },
+
+        prefetchAuxiliaryData() {
+            if (!window.DataService || typeof DataService.warmup !== 'function') return;
+            const task = () => {
+                DataService.warmup(['kpicanhan', 'lich_tuan', 'market', 'report', 'products'])
+                    .catch((e) => console.warn("Warmup fail:", e));
+            };
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(task, { timeout: 1200 });
+            } else {
+                setTimeout(task, 250);
+            }
         },
 
         // Chuẩn hoá dữ liệu BTS để hỗ trợ hiển thị toạ độ Google Maps (lat/lng)
@@ -1900,20 +2005,28 @@
 
         parseDateKey(dateStr) {
             if (!dateStr) return { full: '', month: '' };
+            if (dateStr instanceof Date && !isNaN(dateStr.getTime())) {
+                const y = dateStr.getFullYear();
+                const m = String(dateStr.getMonth() + 1).padStart(2, '0');
+                const d = String(dateStr.getDate()).padStart(2, '0');
+                return { full: `${y}-${m}-${d}`, month: `${y}-${m}` };
+            }
+            const raw = String(dateStr).trim();
+            if (!raw) return { full: '', month: '' };
             let y, m, d;
-            if (dateStr.includes('/')) {
-                const parts = dateStr.split('/');
+            if (raw.includes('/')) {
+                const parts = raw.split('/');
                 if (parts.length >= 2) {
                     d = parts[0].padStart(2, '0');
                     m = parts[1].padStart(2, '0');
                     y = parts[2];
                     if (y.length === 2) y = '20' + y;
                 }
-            } else if (dateStr.includes('-')) {
-                return { full: dateStr.substring(0, 10), month: dateStr.substring(0, 7) };
+            } else if (raw.includes('-')) {
+                return { full: raw.substring(0, 10), month: raw.substring(0, 7) };
             }
             if (y && m) return { full: `${y}-${m}-${d || '01'}`, month: `${y}-${m}` };
-            return { full: dateStr, month: dateStr };
+            return { full: raw, month: raw };
         },
 
        buildDictionary() {
@@ -2142,7 +2255,8 @@
         // ============================================================
         // 1. Thêm hàm xem ảnh (cho tiện)
         viewImage(url) {
-            if (url) window.open(url, '_blank');
+            if (!url) return;
+            this.openExternalUrl(url, true);
         },
 
         // 1. Biến tạm lưu ảnh
@@ -2259,9 +2373,9 @@
                 imgEl.onclick = null; 
                 
                 // Gán sự kiện mới
-                imgEl.onclick = function() {
-                    // Mở ảnh trong tab mới
-                    window.open(safeUrl, '_blank');
+                imgEl.onclick = () => {
+                    // Mở ảnh trong tab mới (kèm kiểm soát URL an toàn)
+                    this.openExternalUrl(safeUrl, true);
                 };
             } else {
                 // Không có ảnh -> Hiện placeholder
@@ -2380,7 +2494,7 @@
             // (Giả sử DataService.updateStore đã được định nghĩa đúng bên file service)
             const response = await DataService.updateStore(payload);
 
-            if (response && response.success) {
+            if (response && (response.success || response.status === 'success' || response.result === 'success')) {
                 // 5. CẬP NHẬT CACHE & GIAO DIỆN NGAY LẬP TỨC
                 if (this.cachedData && this.cachedData.stores) {
                     const storeIndex = this.cachedData.stores.findIndex(s => String(s.id) === String(storeId) || String(s.maCH) === String(storeId));
@@ -2405,13 +2519,8 @@
                     }
                 }
 
-                // Render lại bảng danh sách nếu đang ở tab Cửa hàng
-                // (Gọi hàm render của UIRenderer để bảng cập nhật dòng vừa sửa)
-                if (window.UIRenderer && typeof UIRenderer.renderStoresTable === 'function') {
-                    // Tìm đúng thẻ tbody để render lại (hoặc render lại cả bảng tuỳ logic cũ)
-                    const tbody = document.getElementById('store-list-body');
-                    if(tbody) UIRenderer.renderStoresTable(this.cachedData.stores);
-                }
+                // Render lại bảng danh sách ngay lập tức
+                this.renderStoreList();
 
                 alert("✅ Đã cập nhật thông tin cửa hàng thành công!");
                 this.closeModal('modal-edit-store');
@@ -2605,7 +2714,9 @@
                     const dataToShow = this.filterDataByScope(this.cachedData.indirect);
                     
                     // Nếu đang có từ khóa tìm kiếm thì lọc lại luôn
-                    const searchInput = document.querySelector('input[placeholder*="Tìm kiếm"]'); // Tìm ô search
+                    const searchInput =
+                        document.querySelector('#view-indirect_channel input[onkeyup*="handleSearchIndirect"]') ||
+                        document.querySelector('input[placeholder*="Tìm Mã"], input[placeholder*="Tìm kiếm"]');
                     if (searchInput && searchInput.value) {
                         this.handleSearchIndirect(searchInput.value);
                     } else {
