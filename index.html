@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <link rel="stylesheet" href="style.css">
 
@@ -428,12 +430,12 @@
             </div>
         </aside>
 
-        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-70 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
+        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-50 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
     
         <main class="flex-1 flex flex-col h-screen relative min-w-0 bg-[#f8fafc]">
             <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 z-10 shrink-0 border-b border-slate-200">
                 <div class="flex items-center gap-3">
-                    <button id="mobile-menu-btn" class="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    <button id="mobile-menu-btn" onclick="app.toggleSidebar()" class="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
                     <h2 id="page-title" class="text-lg md:text-xl font-bold text-slate-800 truncate max-w-[200px] md:max-w-none">Tổng quan</h2>
@@ -884,7 +886,28 @@
                             <div id="tab-stores" class="tab-content block">
                                 <div class="flex justify-between items-center mb-4">
                                     <input type="text" placeholder="Tìm tên Cửa hàng, CHT..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchStore(this.value)">
+                                </div>
+                                <div class="rounded-xl border border-slate-200 overflow-hidden mb-4">
+                                    <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-end justify-between gap-3">
+                                        <div>
+                                            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                                <i data-lucide="map" class="w-4 h-4 text-blue-600"></i>
+                                                Bản đồ cửa hàng trực quan
+                                            </h4>
+                                            <p class="text-xs text-slate-500 mt-0.5">Hiển thị toàn bộ cửa hàng theo cụm, xem nhanh phân bố địa bàn.</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <select id="direct-store-map-filter" onchange="app.handleStoreMapFilterChange(this.value)" class="border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white focus:border-blue-500">
+                                                <option value="all">Tất cả cụm</option>
+                                            </select>
+                                            <span class="text-xs text-slate-500">Có tọa độ: <b id="direct-store-map-count" class="text-slate-700">0</b></span>
+                                        </div>
                                     </div>
+                                    <div class="relative">
+                                        <div id="direct-store-map" class="h-[300px] w-full"></div>
+                                        <div id="direct-store-map-empty" class="hidden absolute inset-0 bg-slate-50/90 flex items-center justify-center text-sm text-slate-500 font-medium px-4 text-center"></div>
+                                    </div>
+                                </div>
                                 <div class="overflow-x-auto border rounded-lg">
                                     <table class="modern-table w-full text-left border-collapse">
                                         <thead class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
@@ -983,6 +1006,173 @@
                             </div>
                         </div>
 
+                        <div class="p-4 border-b border-slate-200 bg-white space-y-4">
+                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                                <div class="xl:col-span-2 rounded-xl border border-slate-200 overflow-hidden">
+                                    <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-end justify-between gap-3">
+                                        <div>
+                                            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                                <i data-lucide="map" class="w-4 h-4 text-blue-600"></i>
+                                                Bản đồ tuyến trực quan
+                                            </h4>
+                                            <p class="text-xs text-slate-500 mt-0.5">Hiển thị điểm bán theo tuyến và đường nối trực quan.</p>
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <select id="indirect-route-filter" onchange="app.handleIndirectRouteFilterChange(this.value)" class="border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white focus:border-blue-500">
+                                                <option value="all">Tất cả tuyến</option>
+                                            </select>
+                                            <select id="indirect-kpi-period" onchange="app.handleIndirectPeriodChange(this.value)" class="border border-slate-300 rounded-md px-2 py-1.5 text-xs bg-white focus:border-blue-500">
+                                                <option value="month">30 ngày gần nhất</option>
+                                                <option value="week">7 ngày gần nhất</option>
+                                                <option value="quarter">90 ngày gần nhất</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="relative">
+                                        <div id="indirect-route-map" class="h-[340px] w-full"></div>
+                                        <div id="indirect-map-empty" class="hidden absolute inset-0 bg-slate-50/90 flex items-center justify-center text-sm text-slate-500 font-medium px-4 text-center"></div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                        <div class="text-[11px] font-bold uppercase text-slate-500">Check-in GPS</div>
+                                        <div id="indirect-checkin-status" class="text-xs text-slate-600 mt-1">Sẵn sàng check-in tại danh sách điểm bán.</div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                                            <div class="text-[10px] text-emerald-700 font-semibold uppercase">Thuê bao</div>
+                                            <div id="indirect-kpi-subs" class="text-lg font-bold text-emerald-800 mt-1">0</div>
+                                        </div>
+                                        <div class="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                                            <div class="text-[10px] text-blue-700 font-semibold uppercase">Độ phủ</div>
+                                            <div id="indirect-kpi-coverage" class="text-lg font-bold text-blue-800 mt-1">0%</div>
+                                        </div>
+                                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                            <div class="text-[10px] text-amber-700 font-semibold uppercase">Tần suất</div>
+                                            <div id="indirect-kpi-frequency" class="text-lg font-bold text-amber-800 mt-1">0 lần/điểm</div>
+                                        </div>
+                                        <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                                            <div class="text-[10px] text-indigo-700 font-semibold uppercase">Check-in</div>
+                                            <div id="indirect-kpi-checkins" class="text-lg font-bold text-indigo-800 mt-1">0</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="rounded-xl border border-slate-200 overflow-hidden">
+                                        <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">KPI theo tuyến</div>
+                                        <div class="max-h-[170px] overflow-auto">
+                                            <table class="w-full text-xs">
+                                                <thead class="bg-white text-slate-500 sticky top-0">
+                                                    <tr>
+                                                        <th class="px-2 py-2 text-left">#</th>
+                                                        <th class="px-2 py-2 text-left">Tuyến</th>
+                                                        <th class="px-2 py-2 text-right">Thuê bao</th>
+                                                        <th class="px-2 py-2 text-right">Độ phủ</th>
+                                                        <th class="px-2 py-2 text-right">Tần suất</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="indirect-route-kpi-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <div id="indirect-kpi-assign-panel" class="rounded-xl border border-slate-200 overflow-hidden">
+                                        <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">Giao KPI tuyến cho NV bán hàng</div>
+                                        <div class="p-3 space-y-2 bg-white">
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <select id="indirect-kpi-assign-period" onchange="app.handleIndirectAssignPeriodChange(this.value)" class="border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                    <option value="week">Theo tuần</option>
+                                                    <option value="month">Theo tháng</option>
+                                                </select>
+                                                <input type="date" id="indirect-kpi-assign-week" class="border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                <input type="month" id="indirect-kpi-assign-month" class="border border-slate-300 rounded px-2 py-1.5 text-xs hidden">
+                                                <select id="indirect-kpi-assign-staff" class="col-span-2 border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                    <option value="">Chọn nhân viên bán hàng</option>
+                                                </select>
+                                                <input type="number" id="indirect-kpi-target-subs" class="border border-slate-300 rounded px-2 py-1.5 text-xs" min="0" placeholder="Thuê bao mục tiêu">
+                                                <input type="number" id="indirect-kpi-target-coverage" class="border border-slate-300 rounded px-2 py-1.5 text-xs" min="0" max="100" step="0.1" placeholder="Độ phủ (%)">
+                                                <input type="number" id="indirect-kpi-target-frequency" class="col-span-2 border border-slate-300 rounded px-2 py-1.5 text-xs" min="0" step="0.01" placeholder="Tần suất (lần/điểm)">
+                                            </div>
+                                            <button class="btn-primary w-full h-[34px]" onclick="app.saveIndirectKpiAssignment()">
+                                                <i data-lucide="target" class="w-4 h-4 mr-1"></i>Giao KPI
+                                            </button>
+                                            <div class="max-h-[170px] overflow-auto border border-slate-100 rounded">
+                                                <table class="w-full text-[11px]">
+                                                    <thead class="bg-slate-50 text-slate-500 sticky top-0">
+                                                        <tr>
+                                                            <th class="px-2 py-1 text-left">Kỳ</th>
+                                                            <th class="px-2 py-1 text-left">NVBH</th>
+                                                            <th class="px-2 py-1 text-right">TB</th>
+                                                            <th class="px-2 py-1 text-right">Độ phủ</th>
+                                                            <th class="px-2 py-1 text-right">Tần suất</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="indirect-kpi-assign-body"></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="indirect-kpi-my-panel" class="rounded-xl border border-slate-200 overflow-hidden hidden">
+                                        <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">KPI của tôi (Thuê bao & Check-in)</div>
+                                        <div class="p-3 space-y-2 bg-white">
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <select id="indirect-kpi-my-period" onchange="app.handleIndirectMyPeriodChange(this.value)" class="border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                    <option value="week">Theo tuần</option>
+                                                    <option value="month">Theo tháng</option>
+                                                </select>
+                                                <input type="date" id="indirect-kpi-my-week" class="border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                <input type="month" id="indirect-kpi-my-month" class="border border-slate-300 rounded px-2 py-1.5 text-xs hidden">
+                                                <div class="col-span-2 rounded border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
+                                                    <div class="flex justify-between"><span>Thuê bao mục tiêu:</span><b id="indirect-kpi-my-target-subs">0</b></div>
+                                                    <div class="flex justify-between"><span>Độ phủ mục tiêu:</span><b id="indirect-kpi-my-target-coverage">0%</b></div>
+                                                    <div class="flex justify-between"><span>Tần suất mục tiêu:</span><b id="indirect-kpi-my-target-frequency">0</b></div>
+                                                    <div class="flex justify-between"><span>Check-in kỳ này:</span><b id="indirect-kpi-my-checkins">0</b></div>
+                                                </div>
+                                                <input type="number" id="indirect-kpi-my-actual-subs" class="col-span-2 border border-slate-300 rounded px-2 py-1.5 text-xs" min="0" placeholder="Nhập kết quả thuê bao thực hiện">
+                                                <input type="text" id="indirect-kpi-my-note" class="col-span-2 border border-slate-300 rounded px-2 py-1.5 text-xs" placeholder="Ghi chú báo cáo (nếu có)">
+                                            </div>
+                                            <button class="btn-primary w-full h-[34px]" onclick="app.saveMyIndirectKpiReport()">
+                                                <i data-lucide="save" class="w-4 h-4 mr-1"></i>Lưu báo cáo KPI của tôi
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div id="indirect-kpi-history-panel" class="rounded-xl border border-slate-200 overflow-hidden">
+                                        <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">Lịch sử báo cáo KPI (Nhân viên/Cụm)</div>
+                                        <div class="p-3 bg-white space-y-2">
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <select id="indirect-kpi-history-period" onchange="app.filterIndirectKpiHistory()" class="border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                    <option value="all">Tất cả kỳ</option>
+                                                    <option value="week">Theo tuần</option>
+                                                    <option value="month">Theo tháng</option>
+                                                </select>
+                                                <select id="indirect-kpi-history-staff" onchange="app.filterIndirectKpiHistory()" class="border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                    <option value="all">Tất cả NVBH</option>
+                                                </select>
+                                                <select id="indirect-kpi-history-cum" onchange="app.filterIndirectKpiHistory()" class="col-span-2 border border-slate-300 rounded px-2 py-1.5 text-xs">
+                                                    <option value="all">Tất cả cụm</option>
+                                                </select>
+                                            </div>
+                                            <button class="btn-secondary w-full h-[34px]" onclick="app.exportIndirectKpiHistory()">
+                                                <i data-lucide="file-down" class="w-4 h-4 mr-1"></i>Xuất lịch sử báo cáo KPI
+                                            </button>
+                                            <div class="rounded border border-slate-100 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600">
+                                                Dữ liệu lịch sử dùng để xuất Excel. Tổng bản ghi hiện tại:
+                                                <b id="indirect-kpi-history-count">0</b>
+                                            </div>
+                                            <div class="hidden max-h-[200px] overflow-auto border border-slate-100 rounded">
+                                                <table class="w-full text-[11px]">
+                                                    <tbody id="indirect-kpi-history-body"></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="overflow-x-auto p-0 flex-1">
                             <table class="modern-table">
                                 <thead class="bg-slate-50 text-slate-700 sticky top-0 z-10 shadow-sm">
@@ -994,7 +1184,7 @@
                                         <th class="p-3 text-left text-xs font-bold border-b">Địa chỉ & Tọa độ</th>
                                         <th class="p-3 text-center text-xs font-bold border-b w-24">Cụm</th>
                                         <th class="p-3 text-center text-xs font-bold border-b w-24">Hình ảnh</th>
-                                        <th class="p-3 text-center text-xs font-bold border-b w-16">Tác vụ</th>
+                                        <th class="p-3 text-center text-xs font-bold border-b w-24">Tác vụ</th>
                                     </tr>
                                 </thead>
                                 <tbody id="indirect-list-body" class="bg-white">
@@ -1293,8 +1483,8 @@
                             </div>
                         </div>
 
-                        <div class="market-grid p-4 grid grid-cols-1 xl:grid-cols-4 gap-4 border-b border-slate-100">
-                            <div id="market-entry-panel" class="xl:col-span-3 border border-slate-200 rounded-lg p-4">
+                        <div class="market-grid p-4 grid grid-cols-1 xl:grid-cols-12 gap-4 border-b border-slate-100 items-start">
+                            <div id="market-entry-panel" class="xl:col-span-8 border border-slate-200 rounded-lg p-4 bg-white shadow-sm">
                                 <h4 class="font-bold text-slate-700 mb-3">Nhập thông tin thị trường</h4>
                                 <input type="hidden" id="market-id">
                                 <div class="market-form-grid grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1333,9 +1523,9 @@
                                     </button>
                                 </div>
                             </div>
-                            <div id="market-stats-panel" class="xl:col-span-1 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                            <div id="market-stats-panel" class="xl:col-span-4 border border-slate-200 rounded-lg p-3 bg-slate-50/50 xl:sticky xl:top-20">
                                 <h4 class="font-bold text-slate-700 mb-2 text-sm">Thống kê nhanh theo cụm</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div class="grid grid-cols-1 gap-2">
                                     <div class="rounded border border-emerald-200 bg-emerald-50 p-2">
                                         <div class="flex items-center justify-between">
                                             <div class="text-[11px] text-emerald-700">Cụm đã có thông tin</div>
@@ -1356,25 +1546,30 @@
                             </div>
                         </div>
 
-                        <div id="market-admin-feed" class="hidden p-4 border-t border-slate-100"></div>
+                        <div id="market-admin-feed" class="hidden p-4 border-t border-slate-100 bg-slate-50/40"></div>
 
                         <div id="market-table-wrap" class="p-4 flex-1 min-h-0 overflow-auto border-t border-slate-100">
-                            <table class="modern-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tuần</th>
-                                        <th>Nhân sự</th>
-                                        <th>Cụm</th>
-                                        <th>Nhà mạng</th>
-                                        <th>Nội dung</th>
-                                        <th>Đối tượng</th>
-                                        <th>Thời gian</th>
-                                        <th>Địa bàn</th>
-                                        <th>Hình ảnh</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="market-table-body"></tbody>
-                            </table>
+                            <div class="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                                <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">Danh sách báo cáo thị trường</div>
+                                <div class="desktop-table-wrap overflow-auto">
+                                    <table class="modern-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Tuần</th>
+                                                <th>Nhân sự</th>
+                                                <th>Cụm</th>
+                                                <th>Nhà mạng</th>
+                                                <th>Nội dung</th>
+                                                <th>Đối tượng</th>
+                                                <th>Thời gian</th>
+                                                <th>Địa bàn</th>
+                                                <th>Hình ảnh</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="market-table-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1391,6 +1586,9 @@
                                     <label class="text-[10px] font-bold uppercase text-slate-500">Tuần bắt đầu</label>
                                     <input type="date" id="focus-week-start" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white">
                                 </div>
+                                <button id="focus-toggle-entry-btn" class="btn-secondary h-[38px]" onclick="app.toggleFocusEntryPanel()">
+                                    <i data-lucide="plus-circle" class="w-4 h-4 mr-1"></i>Nhập báo cáo
+                                </button>
                                 <button class="btn-primary h-[38px]" onclick="app.loadFocusReportView()">
                                     <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Tải dữ liệu
                                 </button>
@@ -1404,7 +1602,7 @@
                             <input type="hidden" id="focus-id">
                             <div class="focus-form-grid grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div class="md:col-span-3">
-                                    <label class="text-xs font-semibold text-slate-600">Chương trình hành động</label>
+                                    <label class="text-xs font-semibold text-slate-600">Chương trình</label>
                                     <input id="focus-chuong-trinh-hanh-dong" class="w-full border border-slate-300 rounded p-2 text-sm">
                                 </div>
                                 <div class="md:col-span-3">
@@ -1424,15 +1622,15 @@
                                     <input id="focus-trien-khai" class="w-full border border-slate-300 rounded p-2 text-sm">
                                 </div>
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Mục tiêu định lượng</label>
+                                    <label class="text-xs font-semibold text-slate-600">KQ định lượng</label>
                                     <input id="focus-muc-tieu-dinh-luong" class="w-full border border-slate-300 rounded p-2 text-sm">
                                 </div>
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Mục tiêu định tính</label>
+                                    <label class="text-xs font-semibold text-slate-600">KQ định tính</label>
                                     <input id="focus-muc-tieu-dinh-tinh" class="w-full border border-slate-300 rounded p-2 text-sm">
                                 </div>
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Chi phí</label>
+                                    <label class="text-xs font-semibold text-slate-600">Ghi chú</label>
                                     <input id="focus-chi-phi" class="w-full border border-slate-300 rounded p-2 text-sm">
                                 </div>
                             </div>
@@ -1450,14 +1648,14 @@
                                         <tr>
                                             <th>Tuần</th>
                                             <th>Nhân sự</th>
-                                            <th>Chương trình hành động</th>
+                                            <th>Chương trình</th>
                                             <th>Nội dung</th>
                                             <th>Khách hàng mục tiêu</th>
                                             <th>Kênh/LL</th>
                                             <th>Triển khai tại</th>
-                                            <th>Mục tiêu định lượng</th>
-                                            <th>Mục tiêu định tính</th>
-                                            <th>Chi phí</th>
+                                            <th>KQ định lượng</th>
+                                            <th>KQ định tính</th>
+                                            <th>Ghi chú</th>
                                         </tr>
                                     </thead>
                                     <tbody id="focus-report-table-body"></tbody>
@@ -1886,6 +2084,21 @@
                         <div>
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Tuyến</label>
                             <input type="text" id="edit-indirect-route" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-50">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Tháng thuê bao</label>
+                            <input type="month" id="edit-indirect-subs-month" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Thuê bao tháng</label>
+                            <input type="number" min="0" id="edit-indirect-subs-value" class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" placeholder="VD: 120">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Lịch sử thuê bao (tháng:giá trị)</label>
+                            <input type="text" id="edit-indirect-subs-history" class="w-full border border-slate-300 rounded px-3 py-2 text-xs bg-slate-50 text-slate-500" readonly>
                         </div>
                     </div>
 
