@@ -675,6 +675,7 @@ const UIRenderer = {
                 ? `<div class="text-sm text-slate-600 line-clamp-2" title="${diaChi}">${diaChi || '---'}</div>
                    <a href="${linkMapUrl}" target="_blank" class="text-[11px] text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Xem bản đồ</a>`
                 : `<div class="text-sm text-slate-600 line-clamp-2" title="${diaChi}">${diaChi || '---'}</div>`;
+            const encodedMa = encodeURIComponent(String(ma || ''));
 
             return `
             <tr class="bg-white border-b hover:bg-blue-50/30 transition group">
@@ -729,10 +730,18 @@ const UIRenderer = {
                 </td>
 
                 <td class="p-3 text-center align-middle">
-                    <button onclick="app.openEditIndirectModal('${ma}')"
-                        class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-300 transition shadow-sm">
-                        <i data-lucide="file-pen-line" class="w-4 h-4"></i>
-                    </button>
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button onclick="app.checkInIndirectPoint('${encodedMa}')"
+                            title="Check-in GPS"
+                            class="p-2 bg-white border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 transition shadow-sm">
+                            <i data-lucide="crosshair" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="app.openEditIndirectModal('${ma}')"
+                            title="Cập nhật thông tin"
+                            class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-300 transition shadow-sm">
+                            <i data-lucide="file-pen-line" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
             `;
