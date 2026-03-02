@@ -789,6 +789,8 @@ const UIRenderer = {
             const lat = pick(item, 'lat', 'Lat');
             const lng = pick(item, 'lng', 'Lng');
 
+            const encodedMaTram = encodeURIComponent(String(maTram || ''));
+
             return `
                 <tr class="bg-white border-b hover:bg-slate-50 transition">
                     <td class="p-3 text-center text-slate-500">${idx + 1}</td>
@@ -813,7 +815,7 @@ const UIRenderer = {
                     <td class="p-3 text-right">${safe(pick(item, 'LINEGPON_EMTY'))}</td>
                     <td class="p-3 text-sm italic text-slate-500">${safe(pick(item, 'ghiChu', 'Ghi chú'))}</td>
                     <td class="p-3 text-center">
-                        <button onclick="app.openEditModal()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only">
+                        <button onclick="app.openEditBTSModal(decodeURIComponent('${encodedMaTram}'))" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full admin-only" title="Chỉnh sửa trạm BTS">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
                     </td>
