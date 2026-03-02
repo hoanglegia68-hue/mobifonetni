@@ -56,6 +56,7 @@
             _weeklyChucNangFilter: 'all',
             _userFunctionByEmail: {},
             _marketRows: [],
+            _marketEntryExpanded: false,
             _marketClusterLists: { has: [], missing: [] },
             _focusRows: [],
             _focusEntryExpanded: false,
@@ -1050,12 +1051,41 @@
                 const entry = document.getElementById('market-entry-panel');
                 const tableWrap = document.getElementById('market-table-wrap');
                 const feed = document.getElementById('market-admin-feed');
-                if (entry) entry.style.display = isAdmin ? 'none' : '';
+                const toggleBtn = document.getElementById('market-toggle-entry-btn');
+                if (entry) {
+                    entry.classList.toggle('hidden', !!isAdmin);
+                    entry.style.display = '';
+                }
                 if (tableWrap) tableWrap.style.display = isAdmin ? 'none' : '';
                 if (feed) {
                     feed.style.display = isAdmin ? '' : 'none';
                     feed.classList.toggle('hidden', !isAdmin);
                 }
+                if (isAdmin) {
+                    this._marketEntryExpanded = false;
+                    if (toggleBtn) toggleBtn.style.display = 'none';
+                    return;
+                }
+                if (toggleBtn) toggleBtn.style.display = '';
+                this.setMarketEntryExpanded_(!!this._marketEntryExpanded);
+            },
+
+            setMarketEntryExpanded_(expanded) {
+                if (this.isAdminUser_()) return;
+                const entry = document.getElementById('market-entry-panel');
+                const toggleBtn = document.getElementById('market-toggle-entry-btn');
+                if (!entry || !toggleBtn) return;
+                this._marketEntryExpanded = !!expanded;
+                entry.classList.toggle('hidden', !this._marketEntryExpanded);
+                entry.style.display = '';
+                toggleBtn.innerHTML = this._marketEntryExpanded
+                    ? '<i data-lucide="chevron-up" class="w-4 h-4 mr-1"></i>Thu gọn nhập thông tin'
+                    : '<i data-lucide="plus-circle" class="w-4 h-4 mr-1"></i>Nhập thông tin';
+                if (window.lucide) lucide.createIcons();
+            },
+
+            toggleMarketEntryPanel() {
+                this.setMarketEntryExpanded_(!this._marketEntryExpanded);
             },
 
             renderMarketAdminFeed_() {
@@ -1275,6 +1305,7 @@
                     if (resp?.error) throw new Error(resp.error);
                     this.toast_('Đã ghi nhận nhịp đập thị trường.', 'success');
                     await this.loadMarketBeatView(true);
+                    this.setMarketEntryExpanded_(false);
                 } catch (e) {
                     console.error('[Market] save failed:', e);
                     this.toast_(`Không lưu được dữ liệu thị trường: ${e.message}`, 'error');
