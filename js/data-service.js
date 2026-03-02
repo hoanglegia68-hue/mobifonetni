@@ -3,13 +3,16 @@
  * Update: Tích hợp xác thực Token, Caching thông minh & Xử lý lỗi
  * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzNNN5bdZINb3UzQTAh3QirGMBG_5wuCftteyUs4eqAWnAAU0pKYDsSoJQrojJASHCZ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx--5PLPp1SZrslLARQzutISxpcu8GQZN-ZViLD_6jso55VxefXPBGang30Zp-GHBkidg/exec";
 
 const DataService = {
     _cache: null,          // Core data (Users, Stores, BTS...)
     _loadingPromise: null, // Promise để tránh gọi API nhiều lần cùng lúc
     _kpiCache: new Map(),  // Cache riêng cho dữ liệu KPI (nặng)
+    _kpiInFlight: new Map(),
+    _lazyInFlight: new Map(),
     _lastMeta: null,
+    _fetchTimeoutMs: 15000,
     
     // --- BẢO MẬT: Lấy Token từ LocalStorage ---
     _token: localStorage.getItem("MIS_TOKEN") || null,
@@ -21,15 +24,17 @@ const DataService = {
     async login(username, password) {
         try {
             console.log("🔐 Đang đăng nhập...");
+            const safeUser = this._sanitizeString_(username).slice(0, 120);
+            const safePass = String(password ?? '').slice(0, 200);
             
             // Gửi request POST
-            const res = await fetch(API_URL, {
+            const res = await fetch(this._ensureHttpsUrl_(API_URL), {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ 
                     action: 'login', 
-                    username: username, 
-                    password: password 
+                    username: safeUser, 
+                    password: safePass 
                 })
             });
 
@@ -71,6 +76,54 @@ const DataService = {
     // 2. FETCHING ENGINE (CORE)
     // ============================================================
 
+    _ensureHttpsUrl_(url) {
+        try {
+            const u = new URL(String(url || ''), window.location.origin);
+            if (u.protocol !== 'https:') throw new Error('Yêu cầu HTTPS');
+            return u.toString();
+        } catch (e) {
+            throw new Error(`URL API không hợp lệ: ${e.message}`);
+        }
+    },
+
+    _sanitizeString_(value) {
+        const raw = String(value ?? '');
+        if (!raw) return '';
+        // Giữ nguyên data image base64 (phục vụ upload ảnh), chỉ cắt ngưỡng bảo vệ.
+        if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(raw)) {
+            return raw.slice(0, 3 * 1024 * 1024);
+        }
+        // Trường hợp backend cần chuỗi base64 thuần (không prefix data:image)
+        const compact = raw.replace(/\s+/g, '');
+        if (/^[A-Za-z0-9+/=]+$/.test(compact) && compact.length > 1000) {
+            return compact.slice(0, 3 * 1024 * 1024);
+        }
+
+        return raw
+            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+            .replace(/<\s*script/gi, '')
+            .replace(/javascript:/gi, '')
+            .trim()
+            .slice(0, 100000);
+    },
+
+    _sanitizePayload_(input, depth = 0) {
+        if (depth > 8) return null;
+        if (input === null || input === undefined) return input;
+        if (typeof input === 'string') return this._sanitizeString_(input);
+        if (typeof input === 'number' || typeof input === 'boolean') return input;
+        if (Array.isArray(input)) return input.map((v) => this._sanitizePayload_(v, depth + 1));
+        if (typeof input === 'object') {
+            const out = {};
+            Object.keys(input).forEach((k) => {
+                const safeKey = this._sanitizeString_(k).slice(0, 120);
+                out[safeKey] = this._sanitizePayload_(input[k], depth + 1);
+            });
+            return out;
+        }
+        return null;
+    },
+
     async _fetchJson(url, options = {}) {
         // 1. Kiểm tra Token
         if (!this._token) {
@@ -81,9 +134,16 @@ const DataService = {
 
         // 2. Đính kèm Token vào URL
         const separator = url.includes('?') ? '&' : '?';
-        const authUrl = `${url}${separator}token=${this._token}`;
+        const authUrl = this._ensureHttpsUrl_(`${url}${separator}token=${encodeURIComponent(this._token)}`);
 
-        const res = await fetch(authUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this._fetchTimeoutMs);
+        let res;
+        try {
+            res = await fetch(authUrl, { signal: controller.signal });
+        } finally {
+            clearTimeout(timeoutId);
+        }
         
         // 3. Xử lý lỗi HTTP
         if (!res.ok) {
@@ -198,12 +258,23 @@ const DataService = {
     getKPIPlanning() { return this._getData("kpi_planning"); },
     getKPIEmpPlans() { return this._getData("kpi_emp"); },
 
+    async warmup(keys = []) {
+        const targets = Array.from(new Set((keys || []).map((k) => String(k || '').trim()).filter(Boolean)));
+        if (!targets.length) return;
+        await this.ensureData();
+        await Promise.all(targets.map((k) => this._getLazy(k).catch((e) => {
+            console.warn(`Warmup ${k} failed`, e);
+            return [];
+        })));
+    },
+
     // Lazy Load (Tải khi cần)
     async _getLazy(key) {
         await this.ensureData();
         if (this._cache?.[key]?.length) return this._cache[key];
+        if (this._lazyInFlight.has(key)) return this._lazyInFlight.get(key);
         
-        try {
+        const task = (async () => {
             console.log(`🌐 Lazy fetching: ${key}`);
             const res = await this._fetchJson(`${API_URL}?type=${key}`);
             const data = Array.isArray(res) ? res : (res?.[key] || []);
@@ -213,12 +284,36 @@ const DataService = {
                 localStorage.setItem("MIS_LOCAL_DATA", JSON.stringify(this._cache));
                 return data;
             }
-        } catch (e) { console.warn(`Lazy fetch ${key} failed`, e); }
-        return [];
+            return [];
+        })();
+        this._lazyInFlight.set(key, task);
+        try {
+            return await task;
+        } catch (e) {
+            console.warn(`Lazy fetch ${key} failed`, e);
+            return [];
+        } finally {
+            this._lazyInFlight.delete(key);
+        }
     },
 
     getVlrPsc() { return this._getLazy("vlr_psc"); },
     getDoanhThu() { return this._getLazy("doanhthu"); },
+    getPersonalKPI() { return this._getLazy("kpicanhan"); },
+    getWeeklyPlans() { return this._getLazy("lich_tuan"); },
+    getMarketBeat() { return this._getLazy("market"); },
+    getFocusReports() { return this._getLazy("report"); },
+    getProducts() { return this._getLazy("products"); },
+
+    invalidateLocalCache_(keys = []) {
+        if (!this._cache) return;
+        (keys || []).forEach((k) => { delete this._cache[k]; });
+        try {
+            localStorage.setItem("MIS_LOCAL_DATA", JSON.stringify(this._cache));
+        } catch (e) {
+            console.warn("Không cập nhật được LocalStorage cache:", e);
+        }
+    },
 
     // ============================================================
     // 5. LOGIC NGHIỆP VỤ (KPI & CLUSTERS)
@@ -235,39 +330,52 @@ const DataService = {
             return cached.data;
         }
 
-        let allData = [];
-        let offset = 0;
-        const BATCH_SIZE = 2000;
+        if (this._kpiInFlight.has(cacheKey)) return this._kpiInFlight.get(cacheKey);
 
-        // Loop tải phân trang từ server
-        while (true) {
-            const qs = new URLSearchParams({
-                type: 'kpi_data',
-                from: from,
-                to: to,
-                offset: offset,
-                limit: BATCH_SIZE,
-                keyword: kw
-            });
+        const task = (async () => {
+            let allData = [];
+            let offset = 0;
+            const BATCH_SIZE = 5000;
 
-            const resp = await this._fetchJson(`${API_URL}?${qs}`, { raw: true });
+            // Loop tải phân trang từ server
+            while (true) {
+                const qs = new URLSearchParams({
+                    type: 'kpi_data',
+                    from: from,
+                    to: to,
+                    offset: offset,
+                    limit: BATCH_SIZE,
+                    keyword: kw
+                });
 
-            if (Array.isArray(resp)) {
-                allData = this._filterLegacy(resp, from, to, kw);
-                break;
+                const resp = await this._fetchJson(`${API_URL}?${qs}`, { raw: true });
+
+                if (Array.isArray(resp)) {
+                    allData = this._filterLegacy(resp, from, to, kw);
+                    break;
+                }
+
+                const rows = resp?.data || [];
+                allData = allData.concat(rows);
+
+                const total = resp?.totalMatched;
+                offset += rows.length;
+
+                const hasMore = resp?.hasMore === true;
+                if (rows.length === 0 || rows.length < BATCH_SIZE || offset > 500000) break;
+                if (typeof total === 'number' && total >= 0 && offset >= total && !hasMore) break;
             }
 
-            const rows = resp?.data || [];
-            allData = allData.concat(rows);
+            this._kpiCache.set(cacheKey, { ts: Date.now(), data: allData });
+            return allData;
+        })();
 
-            const total = resp?.totalMatched ?? resp?.totalInRange ?? 0;
-            offset += rows.length;
-
-            if (rows.length === 0 || offset >= total || offset > 500000) break;
+        this._kpiInFlight.set(cacheKey, task);
+        try {
+            return await task;
+        } finally {
+            this._kpiInFlight.delete(cacheKey);
         }
-
-        this._kpiCache.set(cacheKey, { ts: Date.now(), data: allData });
-        return allData;
     },
 
     async getKPIActualPaginated(from, to, offset, limit) {
@@ -375,6 +483,49 @@ const DataService = {
         });
     },
 
+    async upsertWeeklyPlan(data) {
+        return this.postData({
+            action: 'upsert_weekly_plan',
+            data: data
+        });
+    },
+
+    async approveWeeklyPlan(id, ghiChu = "") {
+        return this.postData({
+            action: 'approve_weekly_plan',
+            id: id,
+            ghi_chu: ghiChu
+        });
+    },
+
+    async upsertMarketBeat(data) {
+        return this.postData({
+            action: 'upsert_market',
+            data: data
+        });
+    },
+
+    async upsertFocusReport(data) {
+        return this.postData({
+            action: 'upsert_report',
+            data: data
+        });
+    },
+
+    async upsertProduct(data) {
+        return this.postData({
+            action: 'upsert_product',
+            data: data
+        });
+    },
+
+    async deleteProduct(id) {
+        return this.postData({
+            action: 'delete_product',
+            id: id
+        });
+    },
+
     // Hàm POST chung cho mọi thao tác ghi
     async postData(payload) {
         if (!this._token) {
@@ -382,26 +533,41 @@ const DataService = {
             return { error: "Vui lòng đăng nhập lại." };
         }
 
+        const safePayload = this._sanitizePayload_(payload || {});
         // Tự động đính kèm token
-        payload.token = this._token;
+        safePayload.token = this._token;
 
-        console.log("📤 Sending POST:", payload);
+        console.log("📤 Sending POST:", safePayload);
 
         try {
-            const res = await fetch(API_URL, {
+            const res = await fetch(this._ensureHttpsUrl_(API_URL), {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(safePayload)
             });
 
             const json = await res.json();
             
             // Nếu ghi thành công, xóa cache để lần sau tải lại dữ liệu mới
             if (json.status === 'success' || json.result === 'success') {
-                if (payload.action === 'update_indirect' && this._cache) {
+                if (safePayload.action === 'update_indirect' && this._cache) {
                     console.log("♻️ Clearing indirect cache...");
-                    delete this._cache.indirect; 
-                    localStorage.removeItem("MIS_LOCAL_DATA");
+                    this.invalidateLocalCache_(['indirect']);
+                }
+                if (safePayload.action === 'update_store' && this._cache) {
+                    this.invalidateLocalCache_(['stores']);
+                }
+                if (safePayload.action === 'upsert_weekly_plan' || safePayload.action === 'approve_weekly_plan') {
+                    this.invalidateLocalCache_(['lich_tuan']);
+                }
+                if (safePayload.action === 'upsert_market') {
+                    this.invalidateLocalCache_(['market']);
+                }
+                if (safePayload.action === 'upsert_report') {
+                    this.invalidateLocalCache_(['report']);
+                }
+                if (safePayload.action === 'upsert_product' || safePayload.action === 'delete_product') {
+                    this.invalidateLocalCache_(['products']);
                 }
             }
             
