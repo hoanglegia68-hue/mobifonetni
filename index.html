@@ -217,6 +217,13 @@
        ========================================= */
     .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .blink-new {
+        animation: blinkNew 1s ease-in-out infinite;
+    }
+    @keyframes blinkNew {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.25; transform: scale(0.92); }
+    }
 
     .admin-only, .system-menu-only { display: none !important; }
     body.is-admin .admin-only, body.is-admin .system-menu-only { display: inline-flex !important; }
@@ -233,6 +240,85 @@
     /* Sidebar Active State Fix */
     .nav-item.active { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border-left: 3px solid #60a5fa; }
     .nav-item { border-left: 3px solid transparent; }
+    #view-weekly_plan .weekly-approve-btn {
+        background: #fff7ed;
+        color: #9a3412;
+        border-color: #fb923c;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .desktop-table-wrap { display: block; }
+    .mobile-card-list { display: none; }
+
+    @media (max-width: 768px) {
+        .desktop-table-wrap { display: none !important; }
+        .mobile-card-list { display: block; }
+        #view-weekly_plan .weekly-toolbar,
+        #view-market_beat .market-toolbar,
+        #view-focus_report .focus-toolbar,
+        #view-products .products-toolbar {
+            gap: 10px;
+        }
+        #view-weekly_plan .weekly-stats {
+            grid-template-columns: 1fr 1fr;
+        }
+        #view-weekly_plan .weekly-grid,
+        #view-market_beat .market-grid {
+            grid-template-columns: 1fr;
+        }
+        #view-weekly_plan .weekly-day-grid,
+        #view-market_beat .market-form-grid,
+        #view-focus_report .focus-form-grid,
+        #view-products .products-filter {
+            grid-template-columns: 1fr;
+        }
+        #view-weekly_plan .weekly-form h4,
+        #view-market_beat h4,
+        #view-focus_report h4,
+        #view-products h4 {
+            font-size: 15px;
+        }
+        #view-weekly_plan .btn-primary,
+        #view-market_beat .btn-primary,
+        #view-focus_report .btn-primary,
+        #view-products .btn-primary,
+        #view-products .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+        #view-weekly_plan .weekly-actions {
+            position: sticky;
+            bottom: 0;
+            background: #fff;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+            z-index: 5;
+        }
+        #view-weekly_plan .weekly-approve-btn {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #f59e0b;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        #view-weekly_plan .weekly-status-chip {
+            width: 100%;
+            margin-left: 0 !important;
+            text-align: center;
+        }
+        #view-focus_report #focus-table-wrap,
+        #view-products .products-table-wrap,
+        #view-weekly_plan .weekly-people-panel {
+            padding: 10px;
+        }
+        #view-products .products-filter {
+            display: grid;
+            gap: 8px;
+        }
+    }
 </style>
 </head>
 
@@ -274,13 +360,13 @@
     <div id="toast-container"></div>
 
     <div class="flex h-screen">
-        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out -translate-x-full md:relative md:translate-x-0 z-60 shrink-0">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out -translate-x-full lg:relative lg:translate-x-0 z-60 shrink-0">
             <div class="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-blue-500/50">M</div>
                     <span class="font-bold text-lg tracking-wide text-slate-100">MBF-TNI</span>
                 </div>
-                <button onclick="app.toggleSidebar()" class="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                <button onclick="app.toggleSidebar()" class="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -305,6 +391,21 @@
                 </a>
                 
                 <div class="px-3 mt-6 mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Kinh Doanh & Admin</div>
+                <a href="#" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('kpi_personal')">
+                    <i data-lucide="target" class="w-5 h-5"></i><span>KPI Cá nhân</span>
+                </a>
+                <a href="#" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('weekly_plan')">
+                    <i data-lucide="calendar-check-2" class="w-5 h-5"></i><span>Lịch tuần</span>
+                </a>
+                <a href="#" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('market_beat')">
+                    <i data-lucide="radio-tower" class="w-5 h-5"></i><span>Nhịp đập thị trường</span>
+                </a>
+                <a href="#" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('focus_report')">
+                    <i data-lucide="clipboard-list" class="w-5 h-5"></i><span>Báo cáo trọng tâm</span>
+                </a>
+                <a href="#" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('products')">
+                    <i data-lucide="package-search" class="w-5 h-5"></i><span>Sản phẩm</span>
+                </a>
             
                 <a href="#" class="nav-item system-menu-only flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition" onclick="event.preventDefault(); app.navigate('system')">
                     <i data-lucide="settings" class="w-5 h-5"></i><span>Hệ thống User</span>
@@ -327,12 +428,12 @@
             </div>
         </aside>
 
-        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-70 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-70 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
     
         <main class="flex-1 flex flex-col h-screen relative min-w-0 bg-[#f8fafc]">
             <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 z-10 shrink-0 border-b border-slate-200">
                 <div class="flex items-center gap-3">
-                    <button id="mobile-menu-btn" class="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    <button id="mobile-menu-btn" class="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
                     <h2 id="page-title" class="text-lg md:text-xl font-bold text-slate-800 truncate max-w-[200px] md:max-w-none">Tổng quan</h2>
@@ -949,6 +1050,482 @@
                     </div>
                 </section>
 
+                <section id="view-kpi_personal" class="view-section hidden animate-fade-in">
+                    <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
+                        <div class="kpi-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between gap-3 items-end sticky top-0 z-30">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">KPI Cá nhân</h3>
+                                <p class="text-xs text-slate-500">Theo dõi điểm KPI tổng và từng nhóm KPI theo tháng.</p>
+                            </div>
+                            <div class="flex flex-wrap items-end gap-2">
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Tháng</label>
+                                    <input type="month" id="kpi-personal-month" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Tìm nhân sự</label>
+                                    <input type="text" id="kpi-personal-keyword" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white" placeholder="Mã NV / Tên / Email">
+                                </div>
+                                <button class="btn-primary h-[38px]" onclick="app.loadPersonalKPIView()">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Tải dữ liệu
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-slate-100 bg-white">
+                            <div class="rounded-lg border border-slate-200 p-4">
+                                <div class="text-xs text-slate-500">Điểm KPI trung bình</div>
+                                <div class="text-2xl font-bold text-blue-700" id="kpi-avg-score">0</div>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 p-4">
+                                <div class="text-xs text-slate-500">Số nhân sự</div>
+                                <div class="text-2xl font-bold text-slate-800" id="kpi-total-users">0</div>
+                            </div>
+                            <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                                <div class="text-xs text-emerald-700 font-semibold">Top 5 cao nhất</div>
+                                <div id="kpi-top5-high" class="text-xs mt-2 space-y-1 text-emerald-900"></div>
+                            </div>
+                            <div class="rounded-lg border border-rose-200 bg-rose-50 p-4">
+                                <div class="text-xs text-rose-700 font-semibold">Top 5 thấp nhất</div>
+                                <div id="kpi-top5-low" class="text-xs mt-2 space-y-1 text-rose-900"></div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 grid grid-cols-1 xl:grid-cols-3 gap-4 flex-1 min-h-0">
+                            <div class="xl:col-span-2 border border-slate-200 rounded-lg overflow-hidden">
+                                <div class="desktop-table-wrap overflow-auto">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="w-12 text-center">#</th>
+                                            <th>Tháng</th>
+                                            <th>Nhân sự</th>
+                                            <th class="text-right">Tổng điểm</th>
+                                            <th class="text-center">Chi tiết</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="kpi-personal-table-body"></tbody>
+                                </table>
+                                </div>
+                                <div id="kpi-personal-mobile-list" class="mobile-card-list p-2 space-y-2"></div>
+                            </div>
+                            <div class="border border-slate-200 rounded-lg p-4 overflow-auto bg-slate-50/50">
+                                <h4 class="font-bold text-slate-700 mb-3">Chi tiết nhóm KPI</h4>
+                                <div id="kpi-personal-group-list" class="space-y-2 text-sm text-slate-500">
+                                    Chọn một nhân sự để xem chi tiết.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-weekly_plan" class="view-section hidden animate-fade-in">
+                    <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
+                        <div class="weekly-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">Đăng ký lịch tuần & Báo cáo kết quả</h3>
+                                <p class="text-xs text-slate-500">Sau khi admin phê duyệt, kế hoạch tuần không chỉnh sửa; kết quả hằng ngày vẫn cập nhật.</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 items-end">
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Tuần bắt đầu</label>
+                                    <input type="date" id="weekly-week-start" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white">
+                                </div>
+                                <div class="admin-only">
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Nhân sự</label>
+                                    <select id="weekly-user-select" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white min-w-[220px]" onchange="app.selectWeeklyUser(this.value)"></select>
+                                </div>
+                                <div class="admin-only">
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Chức năng</label>
+                                    <select id="weekly-chucnang-filter" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white min-w-[180px]" onchange="app.handleWeeklyChucNangFilter(this.value)">
+                                        <option value="all">Tất cả chức năng</option>
+                                    </select>
+                                </div>
+                                <button class="btn-primary h-[38px]" onclick="app.loadWeeklyPlanView()">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Tải tuần
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="weekly-stats p-4 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-slate-100 bg-white">
+                            <div class="rounded-lg border border-slate-200 p-3">
+                                <div class="text-xs text-slate-500">Tổng nhân sự</div>
+                                <div class="text-xl font-bold text-slate-800" id="weekly-stat-total-staff">0</div>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 p-3">
+                                <div class="text-xs text-slate-500">Đã nộp báo cáo</div>
+                                <div class="text-xl font-bold text-emerald-700" id="weekly-stat-submitted">0</div>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 p-3">
+                                <div class="text-xs text-slate-500">Đã đăng ký lịch</div>
+                                <div class="text-xl font-bold text-blue-700" id="weekly-stat-registered">0</div>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 p-3">
+                                <div class="text-xs text-slate-500">Chưa đăng ký lịch</div>
+                                <div class="text-xl font-bold text-rose-700" id="weekly-stat-missing">0</div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-b border-slate-100">
+                            <div class="flex flex-wrap gap-2">
+                                <button class="btn-secondary text-xs" id="btn-copy-submitted" onclick="app.copyWeeklyList('submitted')">
+                                    <i data-lucide="copy" class="w-3 h-3 mr-1"></i>Copy DS đã nộp báo cáo
+                                </button>
+                                <button class="btn-secondary text-xs" id="btn-copy-registered" onclick="app.copyWeeklyList('registered')">
+                                    <i data-lucide="copy" class="w-3 h-3 mr-1"></i>Copy DS đã đăng ký lịch
+                                </button>
+                                <button class="btn-secondary text-xs" id="btn-copy-missing" onclick="app.copyWeeklyList('missing')">
+                                    <i data-lucide="copy" class="w-3 h-3 mr-1"></i>Copy DS chưa đăng ký
+                                </button>
+                                <span id="weekly-status" class="weekly-status-chip ml-auto text-xs px-2 py-1 rounded bg-slate-100 text-slate-600 font-semibold">Trạng thái: Chưa có dữ liệu</span>
+                            </div>
+                        </div>
+
+                        <div class="weekly-grid p-4 grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0">
+                            <div class="weekly-form border border-slate-200 rounded-lg p-4 overflow-auto">
+                                <h4 class="font-bold text-slate-700 mb-3">Kế hoạch và báo cáo kết quả tuần</h4>
+                                <input type="hidden" id="weekly-plan-id">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Mục tiêu tuần</label>
+                                        <textarea id="weekly-muc-tieu" rows="2" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Mục tiêu chính trong tuần"></textarea>
+                                    </div>
+
+                                    <div class="weekly-day-grid grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">Thứ 2 <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="2">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-thu-2" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Thứ 2 - Kết quả</label>
+                                            <textarea id="weekly-kq-thu-2" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">Thứ 3 <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="3">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-thu-3" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Thứ 3 - Kết quả</label>
+                                            <textarea id="weekly-kq-thu-3" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">Thứ 4 <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="4">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-thu-4" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Thứ 4 - Kết quả</label>
+                                            <textarea id="weekly-kq-thu-4" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">Thứ 5 <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="5">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-thu-5" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Thứ 5 - Kết quả</label>
+                                            <textarea id="weekly-kq-thu-5" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">Thứ 6 <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="6">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-thu-6" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Thứ 6 - Kết quả</label>
+                                            <textarea id="weekly-kq-thu-6" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">Thứ 7 <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="7">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-thu-7" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Thứ 7 - Kết quả</label>
+                                            <textarea id="weekly-kq-thu-7" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-semibold text-blue-700">CN <span class="weekly-day-date ml-1 text-[10px] text-slate-500" data-day="8">--</span> - Kế hoạch</label>
+                                            <textarea id="weekly-cn" rows="2" class="w-full border border-blue-200 bg-blue-50 rounded p-2 text-sm"></textarea>
+                                            <label class="text-xs font-semibold text-emerald-700 mt-2 block">Chủ nhật - Kết quả</label>
+                                            <textarea id="weekly-kq-cn" rows="2" class="w-full border border-emerald-200 bg-emerald-50 rounded p-2 text-sm"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Ghi chú</label>
+                                        <textarea id="weekly-ghi-chu" rows="2" class="w-full border border-slate-300 rounded p-2 text-sm"></textarea>
+                                    </div>
+
+                                    <div class="weekly-actions flex flex-wrap gap-2">
+                                        <button class="btn-primary" onclick="app.saveWeeklyPlan()">
+                                            <i data-lucide="save" class="w-4 h-4 mr-1"></i>Lưu lịch tuần
+                                        </button>
+                                        <button class="btn-secondary admin-only weekly-approve-btn" id="btn-approve-weekly-plan" onclick="app.approveWeeklyPlan()">
+                                            <i data-lucide="shield-check" class="w-4 h-4 mr-1"></i>Duyệt
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="weekly-people-panel overflow-auto border border-slate-200 rounded-lg">
+                                <div class="desktop-table-wrap overflow-auto">
+                                    <table class="modern-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Tên nhân sự</th>
+                                                <th>Email</th>
+                                                <th class="text-center">Trạng thái</th>
+                                                <th class="text-center">Đã nộp KQ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="weekly-report-table-body"></tbody>
+                                    </table>
+                                </div>
+                                <div id="weekly-report-mobile-list" class="mobile-card-list space-y-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-market_beat" class="view-section hidden animate-fade-in">
+                    <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
+                        <div class="market-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">Nhịp đập thị trường</h3>
+                                <p class="text-xs text-slate-500">Cập nhật thông tin chương trình thị trường theo tuần và theo cụm.</p>
+                            </div>
+                            <div class="flex gap-2 items-end">
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Tuần bắt đầu</label>
+                                    <input type="date" id="market-week-start" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white">
+                                </div>
+                                <button class="btn-primary h-[38px]" onclick="app.loadMarketBeatView()">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Tải dữ liệu
+                                </button>
+                                <button class="btn-secondary h-[38px] admin-only" onclick="app.exportMarketExcel()">
+                                    <i data-lucide="file-down" class="w-4 h-4 mr-1"></i>Xuất Excel
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="market-grid p-4 grid grid-cols-1 xl:grid-cols-4 gap-4 border-b border-slate-100">
+                            <div id="market-entry-panel" class="xl:col-span-3 border border-slate-200 rounded-lg p-4">
+                                <h4 class="font-bold text-slate-700 mb-3">Nhập thông tin thị trường</h4>
+                                <input type="hidden" id="market-id">
+                                <div class="market-form-grid grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Nhà mạng</label>
+                                        <input id="market-nha-mang" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Mobifone / Viettel / Vinaphone...">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Đối tượng</label>
+                                        <input id="market-doi-tuong" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Sinh viên / Hộ gia đình...">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-xs font-semibold text-slate-600">Nội dung chương trình</label>
+                                        <textarea id="market-noi-dung" rows="2" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Mô tả ngắn chương trình"></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Hình ảnh chương trình (URL/base64)</label>
+                                        <input id="market-hinh-anh" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Thời gian áp dụng</label>
+                                        <input id="market-thoi-gian" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="01/03 - 31/03/2026">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Địa bàn</label>
+                                        <input id="market-dia-ban" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Tân Châu / Hồng Ngự...">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600">Mã cụm</label>
+                                        <select id="market-ma-cum" class="w-full border border-slate-300 rounded p-2 text-sm bg-white"></select>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn-primary" onclick="app.saveMarketBeat()">
+                                        <i data-lucide="send" class="w-4 h-4 mr-1"></i>Ghi nhận thông tin thị trường
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="market-stats-panel" class="xl:col-span-1 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                                <h4 class="font-bold text-slate-700 mb-2 text-sm">Thống kê nhanh theo cụm</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div class="rounded border border-emerald-200 bg-emerald-50 p-2">
+                                        <div class="flex items-center justify-between">
+                                            <div class="text-[11px] text-emerald-700">Cụm đã có thông tin</div>
+                                            <div class="text-lg font-bold text-emerald-800" id="market-stat-has">0</div>
+                                        </div>
+                                        <div id="market-list-has" class="mt-1 max-h-16 overflow-auto text-[11px] text-emerald-900 pr-1"></div>
+                                        <button class="btn-secondary text-[11px] mt-2 py-1 px-2" onclick="app.copyMarketClusterList('has')">Copy tên + email đã nhập</button>
+                                    </div>
+                                    <div class="rounded border border-rose-200 bg-rose-50 p-2">
+                                        <div class="flex items-center justify-between">
+                                            <div class="text-[11px] text-rose-700">Cụm chưa có thông tin</div>
+                                            <div class="text-lg font-bold text-rose-800" id="market-stat-missing">0</div>
+                                        </div>
+                                        <div id="market-list-missing" class="mt-1 max-h-16 overflow-auto text-[11px] text-rose-900 pr-1"></div>
+                                        <button class="btn-secondary text-[11px] mt-2 py-1 px-2" onclick="app.copyMarketClusterList('missing')">Copy danh sách cụm thiếu</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="market-admin-feed" class="hidden p-4 border-t border-slate-100"></div>
+
+                        <div id="market-table-wrap" class="p-4 flex-1 min-h-0 overflow-auto border-t border-slate-100">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tuần</th>
+                                        <th>Nhân sự</th>
+                                        <th>Cụm</th>
+                                        <th>Nhà mạng</th>
+                                        <th>Nội dung</th>
+                                        <th>Đối tượng</th>
+                                        <th>Thời gian</th>
+                                        <th>Địa bàn</th>
+                                        <th>Hình ảnh</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="market-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-focus_report" class="view-section hidden animate-fade-in">
+                    <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
+                        <div class="focus-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">Báo cáo công việc trọng tâm</h3>
+                                <p class="text-xs text-slate-500">Tổng hợp các chương trình hành động trọng điểm theo tuần.</p>
+                            </div>
+                            <div class="flex gap-2 items-end">
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-slate-500">Tuần bắt đầu</label>
+                                    <input type="date" id="focus-week-start" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white">
+                                </div>
+                                <button class="btn-primary h-[38px]" onclick="app.loadFocusReportView()">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Tải dữ liệu
+                                </button>
+                                <button class="btn-secondary h-[38px] admin-only" onclick="app.exportFocusExcel()">
+                                    <i data-lucide="file-down" class="w-4 h-4 mr-1"></i>Xuất Excel
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="focus-entry-panel" class="p-4 border-b border-slate-100">
+                            <input type="hidden" id="focus-id">
+                            <div class="focus-form-grid grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div class="md:col-span-3">
+                                    <label class="text-xs font-semibold text-slate-600">Chương trình hành động</label>
+                                    <input id="focus-chuong-trinh-hanh-dong" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                                <div class="md:col-span-3">
+                                    <label class="text-xs font-semibold text-slate-600">Nội dung chương trình</label>
+                                    <textarea id="focus-noi-dung" rows="2" class="w-full border border-slate-300 rounded p-2 text-sm"></textarea>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Khách hàng mục tiêu</label>
+                                    <input id="focus-khach-hang" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Kênh/LL triển khai</label>
+                                    <input id="focus-kenh" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Triển khai tại</label>
+                                    <input id="focus-trien-khai" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Mục tiêu định lượng</label>
+                                    <input id="focus-muc-tieu-dinh-luong" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Mục tiêu định tính</label>
+                                    <input id="focus-muc-tieu-dinh-tinh" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Chi phí</label>
+                                    <input id="focus-chi-phi" class="w-full border border-slate-300 rounded p-2 text-sm">
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn-primary" onclick="app.saveFocusReport()">
+                                    <i data-lucide="save" class="w-4 h-4 mr-1"></i>Lưu báo cáo trọng tâm
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="focus-table-wrap" class="p-4 flex-1 min-h-0 overflow-auto">
+                            <div class="desktop-table-wrap overflow-auto">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tuần</th>
+                                            <th>Nhân sự</th>
+                                            <th>Chương trình hành động</th>
+                                            <th>Nội dung</th>
+                                            <th>Khách hàng mục tiêu</th>
+                                            <th>Kênh/LL</th>
+                                            <th>Triển khai tại</th>
+                                            <th>Mục tiêu định lượng</th>
+                                            <th>Mục tiêu định tính</th>
+                                            <th>Chi phí</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="focus-report-table-body"></tbody>
+                                </table>
+                            </div>
+                            <div id="focus-report-mobile-list" class="mobile-card-list space-y-2"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="view-products" class="view-section hidden animate-fade-in">
+                    <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
+                        <div class="products-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                            <div>
+                                <h3 class="font-bold text-lg text-slate-800">Danh mục sản phẩm</h3>
+                                <p class="text-xs text-slate-500">Mở xem cho toàn bộ tài khoản, có bộ lọc tra cứu nhanh.</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="btn-primary h-[38px] admin-only" onclick="app.openProductModal()">
+                                    <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Thêm sản phẩm
+                                </button>
+                                <button class="btn-primary h-[38px]" onclick="app.loadProductsView(true)">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Làm mới
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-3 border-b border-slate-100 bg-white">
+                            <div class="products-filter flex flex-wrap items-center gap-2">
+                                <input id="product-filter-name" class="h-9 w-full sm:w-56 border border-slate-300 rounded px-3 text-sm" placeholder="Tên sản phẩm">
+                                <input id="product-filter-type" class="h-9 w-full sm:w-44 border border-slate-300 rounded px-3 text-sm" placeholder="Loại">
+                                <input id="product-filter-target" class="h-9 w-full sm:w-44 border border-slate-300 rounded px-3 text-sm" placeholder="Đối tượng">
+                                <button class="btn-secondary h-9 px-3" onclick="app.applyProductFilters()">
+                                    <i data-lucide="filter" class="w-4 h-4 mr-1"></i>Lọc
+                                </button>
+                                <button class="btn-secondary h-9 px-3" onclick="app.clearProductFilters()">
+                                    <i data-lucide="x" class="w-4 h-4 mr-1"></i>Xóa
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="product-inline-form" class="hidden"></div>
+
+                        <div class="products-table-wrap p-4 flex-1 min-h-0 overflow-auto">
+                            <div class="desktop-table-wrap overflow-auto">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="w-12 text-center">#</th>
+                                            <th>Tên sản phẩm</th>
+                                            <th>Loại sản phẩm</th>
+                                            <th>Ưu đãi</th>
+                                            <th>Giá bán</th>
+                                            <th>Đối tượng</th>
+                                            <th>Thời gian</th>
+                                            <th>Cách đăng ký</th>
+                                            <th>Hủy dịch vụ</th>
+                                            <th class="text-center admin-only">Tác vụ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="product-table-body"></tbody>
+                                </table>
+                            </div>
+                            <div id="product-mobile-list" class="mobile-card-list space-y-2"></div>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="view-business_data" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
                         <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap gap-4 justify-between items-center">
@@ -1274,6 +1851,7 @@
                         <label class="block text-xs font-semibold text-slate-700 mb-1">Cụm</label>
                         <input type="text" id="edit-indirect-cum" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-slate-100 text-blue-700 font-bold outline-none" readonly>
                     </div>
+                    </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div class="md:col-span-2">
@@ -1500,9 +2078,63 @@
         </div>
     </div>
 </div>
+    <div id="modal-product" class="modal-overlay">
+        <div class="modal-content max-w-3xl overflow-hidden">
+            <div class="bg-white px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-800">Cập nhật sản phẩm</h3>
+                <button onclick="app.closeProductModal()" class="text-slate-400 hover:text-red-500">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="product-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Tên sản phẩm</label>
+                        <input id="product-name" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Tên sản phẩm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Loại sản phẩm</label>
+                        <input id="product-type" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Loại sản phẩm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Ưu đãi</label>
+                        <input id="product-offer" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Ưu đãi">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Giá bán</label>
+                        <input id="product-price" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Ví dụ: 99,000đ">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Đối tượng</label>
+                        <input id="product-target" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Đối tượng">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Thời gian</label>
+                        <input id="product-time" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Thời gian">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Cách đăng ký</label>
+                        <input id="product-register" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Cách đăng ký">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Hủy dịch vụ</label>
+                        <input id="product-cancel" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="Hủy dịch vụ">
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+                <button class="btn-secondary" onclick="app.closeProductModal()">Hủy</button>
+                <button class="btn-primary" onclick="app.saveProduct()">
+                    <i data-lucide="save" class="w-4 h-4 mr-1"></i>Lưu sản phẩm
+                </button>
+            </div>
+        </div>
+    </div>
     <script src="js/data-service.js"></script>
     <script src="js/ui-renderer.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/feature-upgrade.js"></script>
     
     <script>
         document.addEventListener("DOMContentLoaded", function() {
