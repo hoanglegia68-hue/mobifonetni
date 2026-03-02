@@ -31,9 +31,9 @@
        1. VARIABLES & RESET
        ========================================= */
     :root {
-        --primary-color: #1e40af; /* blue-800 */
-        --primary-hover: #1e3a8a;
-        --accent-color: #3b82f6;
+        --primary-color: #2563eb; /* blue-600 */
+        --primary-hover: #1d4ed8;
+        --accent-color: #f97316;
         --bg-body: #f8fafc;
         --text-main: #1e293b;
         --border-color: #e2e8f0;
@@ -50,7 +50,11 @@
 
     body { 
         font-family: 'Inter', system-ui, sans-serif; 
-        background-color: var(--bg-body); 
+        background:
+            radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.12), transparent 26%),
+            radial-gradient(circle at 86% 8%, rgba(251, 146, 60, 0.12), transparent 30%),
+            radial-gradient(circle at 88% 82%, rgba(45, 212, 191, 0.1), transparent 34%),
+            var(--bg-body);
         color: var(--text-main);
     }
 
@@ -85,12 +89,13 @@
 
     /* Buttons Override */
     .btn-primary {
-        background-color: var(--primary-color); color: white; 
+        background-image: linear-gradient(135deg, var(--primary-color), #7c3aed);
+        color: white; 
         padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; 
         display: inline-flex; align-items: center; justify-content: center;
         transition: all 0.2s; border: 1px solid transparent;
     }
-    .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+    .btn-primary:hover { background-image: linear-gradient(135deg, var(--primary-hover), #6d28d9); transform: translateY(-1px); }
 
     .btn-secondary {
         background-color: white; color: #475569; 
@@ -104,6 +109,131 @@
     .input-search:focus, select:focus, input:focus, textarea:focus {
         border-color: var(--accent-color);
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); outline: none;
+    }
+
+    /* Compact + sticky filter/toolbar */
+    .compact-toolbar {
+        padding: 10px 12px !important;
+        gap: 10px !important;
+        background: linear-gradient(90deg, #f8fbff 0%, #fff9f0 52%, #f2fffb 100%) !important;
+    }
+    .compact-toolbar h3 { font-size: 1rem; line-height: 1.25rem; }
+    .compact-toolbar p { font-size: 11px; }
+    .compact-toolbar .btn-primary,
+    .compact-toolbar .btn-secondary { height: 34px; font-size: 12px; padding: 0 10px; }
+    .compact-toolbar input,
+    .compact-toolbar select {
+        min-height: 34px;
+        font-size: 12px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+    .filter-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: linear-gradient(90deg, #ffffff 0%, #f8fffb 100%);
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .compact-stat-card { padding: 8px 10px; }
+    .compact-stat-card .stat-title { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .compact-stat-card .stat-value { font-size: 18px; line-height: 1.1; font-weight: 700; margin-top: 4px; }
+
+    /* Store search bar: keep visible while scrolling */
+    #view-direct_channel #tab-stores .store-search-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 45;
+        background: linear-gradient(90deg, #ffffff 0%, #f8fffb 100%);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    /* Market beat: cleaner desktop information hierarchy */
+    #view-market_beat .market-toolbar {
+        border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(90deg, #f8fbff 0%, #fff7ed 55%, #f0fdfa 100%);
+    }
+    #view-market_beat .market-grid.market-grid-enhanced {
+        align-items: start;
+    }
+    #view-market_beat .market-entry-card,
+    #view-market_beat .market-stats-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+        overflow: hidden;
+    }
+    #view-market_beat .market-entry-card {
+        padding: 14px;
+    }
+    #view-market_beat .market-entry-card h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #334155;
+        margin-bottom: 12px;
+    }
+    #view-market_beat .market-entry-card h4::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+    }
+    #view-market_beat .market-stats-card {
+        padding: 8px;
+    }
+    #view-market_beat .market-stats-card h4 {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 8px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    #view-market_beat .market-stat-item {
+        border-radius: 10px;
+        padding: 10px;
+    }
+    #view-market_beat .market-stat-item details > div {
+        max-height: 120px;
+        overflow: auto;
+    }
+
+    /* BTS toolbar responsive controls */
+    #view-bts .bts-toolbar-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+    }
+    #view-bts .bts-toolbar-controls .input-search {
+        flex: 1 1 260px;
+        min-width: 180px;
+    }
+
+    @media (min-width: 1280px) {
+        #view-market_beat .market-grid.market-grid-enhanced {
+            grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
+        }
+        #view-market_beat #market-entry-panel {
+            grid-column: 1;
+        }
+        #view-market_beat #market-stats-panel {
+            grid-column: 2;
+            position: sticky;
+            top: 84px;
+        }
+        #view-market_beat #market-entry-panel.hidden + #market-stats-panel {
+            grid-column: 1 / -1;
+            position: static;
+        }
     }
 
     /* Tabs */
@@ -229,6 +359,10 @@
 
     .admin-only, .system-menu-only { display: none !important; }
     body.is-admin .admin-only, body.is-admin .system-menu-only { display: inline-flex !important; }
+    .privileged-only { display: none !important; }
+    body.is-admin .privileged-only,
+    body.is-bgd .privileged-only,
+    body.is-manager .privileged-only { display: inline-flex !important; }
     
     /* Skeleton Loading Animation */
     .skeleton {
@@ -320,6 +454,15 @@
             display: grid;
             gap: 8px;
         }
+        #view-bts .bts-toolbar-controls {
+            display: grid;
+            grid-template-columns: 1fr;
+            width: 100%;
+        }
+        #view-bts .bts-toolbar-controls .input-search,
+        #view-bts .bts-toolbar-controls .btn-primary {
+            width: 100%;
+        }
     }
 </style>
 </head>
@@ -362,13 +505,13 @@
     <div id="toast-container"></div>
 
     <div class="flex h-screen">
-        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out -translate-x-full lg:relative lg:translate-x-0 z-60 shrink-0">
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out -translate-x-full xl:relative xl:translate-x-0 z-[70] shrink-0">
             <div class="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-blue-500/50">M</div>
                     <span class="font-bold text-lg tracking-wide text-slate-100">MBF-TNI</span>
                 </div>
-                <button onclick="app.toggleSidebar()" class="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                <button onclick="app.toggleSidebar()" class="xl:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -430,18 +573,21 @@
             </div>
         </aside>
 
-        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-50 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
+        <div id="mobile-overlay" onclick="app.toggleSidebar()" class="fixed inset-0 bg-black/50 z-50 hidden xl:hidden backdrop-blur-sm transition-opacity"></div>
     
         <main class="flex-1 flex flex-col h-screen relative min-w-0 bg-[#f8fafc]">
             <header class="bg-white shadow-sm h-16 flex items-center justify-between px-4 md:px-6 z-10 shrink-0 border-b border-slate-200">
                 <div class="flex items-center gap-3">
-                    <button id="mobile-menu-btn" onclick="app.toggleSidebar()" class="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    <button id="mobile-menu-btn" onclick="app.toggleSidebar()" class="xl:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
                     <h2 id="page-title" class="text-lg md:text-xl font-bold text-slate-800 truncate max-w-[200px] md:max-w-none">Tổng quan</h2>
                 </div>
                 <div class="flex items-center gap-2 md:gap-4">
-                     </div>
+                    <button onclick="app.openUserGuide()" class="btn-secondary h-9 text-xs px-3">
+                        <i data-lucide="book-open" class="w-4 h-4 mr-1"></i>Hướng dẫn
+                    </button>
+                </div>
             </header>
 
             <div class="flex-1 overflow-y-auto p-6 scroll-smooth" id="main-container">
@@ -841,7 +987,7 @@
                 
                 <section id="view-clusters" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col h-full">
-                        <div class="p-5 border-b border-slate-200 flex flex-wrap justify-between items-center gap-4 bg-white rounded-t-lg">
+                        <div class="p-5 border-b border-slate-200 flex flex-wrap justify-between items-center gap-4 bg-white rounded-t-lg sticky top-0 z-30 compact-toolbar">
                             <div>
                                 <h3 class="font-bold text-xl text-slate-800">Quản lý Phân cấp Hạ tầng</h3>
                                 <p class="text-xs text-slate-500 mt-1">Quản lý Liên cụm / Cụm / Phường xã & Lãnh đạo</p>
@@ -884,8 +1030,11 @@
 
                         <div class="p-6 flex-1 overflow-auto bg-white">
                             <div id="tab-stores" class="tab-content block">
-                                <div class="flex justify-between items-center mb-4">
-                                    <input type="text" placeholder="Tìm tên Cửa hàng, CHT..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchStore(this.value)">
+                                <div class="filter-bar store-search-sticky flex flex-wrap justify-between items-center gap-2 px-2 py-2 rounded-md">
+                                    <input type="text" placeholder="Tìm tên Cửa hàng, CHT..." class="input-search w-full md:w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchStore(this.value)">
+                                    <button class="btn-primary h-9 text-xs px-3 w-full sm:w-auto privileged-only" onclick="app.openCreateStoreModal()">
+                                        <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Thêm cửa hàng
+                                    </button>
                                 </div>
                                 <div class="rounded-xl border border-slate-200 overflow-hidden mb-4">
                                     <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-end justify-between gap-3">
@@ -927,7 +1076,7 @@
                             </div>
 
                             <div id="tab-gdv" class="tab-content hidden">
-                                <div class="flex justify-between items-center mb-4">
+                                <div class="filter-bar flex justify-between items-center">
                                     <input type="text" placeholder="Tìm GDV, Mã CH..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchGDV(this.value)">
         
                                 </div>
@@ -948,7 +1097,7 @@
                             </div>
 
                             <div id="tab-sales" class="tab-content hidden">
-                                <div class="flex justify-between items-center mb-4">
+                                <div class="filter-bar flex justify-between items-center">
                                     <input type="text" placeholder="Tìm NVBH..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchSales(this.value)">
                 
                                 </div>
@@ -969,7 +1118,7 @@
                             </div>
 
                             <div id="tab-b2b" class="tab-content hidden">
-                                <div class="flex justify-between items-center mb-4">
+                                <div class="filter-bar flex justify-between items-center">
                                     <input type="text" placeholder="Tìm NV KHDN..." class="input-search w-64 border px-3 py-2 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchB2B(this.value)">
                                     
                                 </div>
@@ -993,7 +1142,7 @@
                 
                 <section id="view-indirect_channel" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-center gap-4">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-center gap-4 sticky top-0 z-30 compact-toolbar">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Quản lý Kênh Gián tiếp</h3>
                                 <p class="text-xs text-slate-500">Đại lý ủy quyền, Điểm bán, C2C...</p>
@@ -1003,12 +1152,15 @@
                                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
                                     <input type="text" placeholder="Tìm Mã, Tên, SĐT, Cụm..." class="input-search pl-9 pr-4 py-1.5 border border-slate-300 rounded text-sm focus:border-blue-500 outline-none w-64" onkeyup="app.handleSearchIndirect(this.value)">
                                 </div>
+                                <button class="btn-primary h-9 text-xs px-3 privileged-only" onclick="app.openCreateIndirectModal()">
+                                    <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Thêm đại lý
+                                </button>
                             </div>
                         </div>
 
                         <div class="p-4 border-b border-slate-200 bg-white space-y-4">
-                            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                                <div class="xl:col-span-2 rounded-xl border border-slate-200 overflow-hidden">
+                            <div class="grid grid-cols-1 xl:grid-cols-12 gap-3">
+                                <div class="xl:col-span-8 rounded-xl border border-slate-200 overflow-hidden">
                                     <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-end justify-between gap-3">
                                         <div>
                                             <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -1034,28 +1186,24 @@
                                     </div>
                                 </div>
 
-                                <div class="space-y-3">
+                                <div class="xl:col-span-4 space-y-2">
                                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                         <div class="text-[11px] font-bold uppercase text-slate-500">Check-in GPS</div>
-                                        <div id="indirect-checkin-status" class="text-xs text-slate-600 mt-1">Sẵn sàng check-in tại danh sách điểm bán.</div>
+                                        <div id="indirect-checkin-status" class="text-xs text-slate-700 mt-1 font-semibold">Sẵn sàng check-in tại danh sách điểm bán.</div>
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                                            <div class="text-[10px] text-emerald-700 font-semibold uppercase">Thuê bao</div>
-                                            <div id="indirect-kpi-subs" class="text-lg font-bold text-emerald-800 mt-1">0</div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div class="rounded-lg border border-blue-200 bg-blue-50 compact-stat-card">
+                                            <div class="stat-title text-blue-700">Độ phủ</div>
+                                            <div id="indirect-kpi-coverage" class="stat-value text-blue-800">0%</div>
                                         </div>
-                                        <div class="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                                            <div class="text-[10px] text-blue-700 font-semibold uppercase">Độ phủ</div>
-                                            <div id="indirect-kpi-coverage" class="text-lg font-bold text-blue-800 mt-1">0%</div>
+                                        <div class="rounded-lg border border-amber-200 bg-amber-50 compact-stat-card">
+                                            <div class="stat-title text-amber-700">Tần suất</div>
+                                            <div id="indirect-kpi-frequency" class="stat-value text-amber-800">0 lần/điểm</div>
                                         </div>
-                                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                                            <div class="text-[10px] text-amber-700 font-semibold uppercase">Tần suất</div>
-                                            <div id="indirect-kpi-frequency" class="text-lg font-bold text-amber-800 mt-1">0 lần/điểm</div>
-                                        </div>
-                                        <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                                            <div class="text-[10px] text-indigo-700 font-semibold uppercase">Check-in</div>
-                                            <div id="indirect-kpi-checkins" class="text-lg font-bold text-indigo-800 mt-1">0</div>
+                                        <div class="rounded-lg border border-indigo-200 bg-indigo-50 compact-stat-card">
+                                            <div class="stat-title text-indigo-700">Check-in</div>
+                                            <div id="indirect-kpi-checkins" class="stat-value text-indigo-800">0</div>
                                         </div>
                                     </div>
 
@@ -1077,7 +1225,18 @@
                                         </div>
                                     </div>
 
-                                    <div id="indirect-kpi-assign-panel" class="rounded-xl border border-slate-200 overflow-hidden">
+                                    <div class="rounded-xl border border-slate-200 bg-white p-2">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button id="indirect-toggle-assign-btn" class="btn-secondary h-[34px] text-[11px] px-2" onclick="app.toggleIndirectActionPanel('assign')">
+                                                <i data-lucide="target" class="w-4 h-4 mr-1"></i>Giao KPI
+                                            </button>
+                                            <button id="indirect-toggle-history-btn" class="btn-secondary h-[34px] text-[11px] px-2" onclick="app.toggleIndirectActionPanel('history')">
+                                                <i data-lucide="file-down" class="w-4 h-4 mr-1"></i>Xuất Báo cáo
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div id="indirect-kpi-assign-panel" class="rounded-xl border border-slate-200 overflow-hidden hidden">
                                         <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">Giao KPI tuyến cho NV bán hàng</div>
                                         <div class="p-3 space-y-2 bg-white">
                                             <div class="grid grid-cols-2 gap-2">
@@ -1139,7 +1298,7 @@
                                         </div>
                                     </div>
 
-                                    <div id="indirect-kpi-history-panel" class="rounded-xl border border-slate-200 overflow-hidden">
+                                    <div id="indirect-kpi-history-panel" class="rounded-xl border border-slate-200 overflow-hidden hidden">
                                         <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600">Lịch sử báo cáo KPI (Nhân viên/Cụm)</div>
                                         <div class="p-3 bg-white space-y-2">
                                             <div class="grid grid-cols-2 gap-2">
@@ -1196,14 +1355,16 @@
 
                 <section id="view-bts" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200">
-                        <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-center gap-4">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-center gap-4 sticky top-0 z-30 compact-toolbar">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Danh sách Trạm BTS</h3>
                                 <p class="text-xs text-slate-500">Quản lý hạ tầng mạng lưới</p>
                             </div>
-                            <div class="flex gap-2 items-center">
-                                <input type="text" placeholder="Tìm Mã trạm, Tên trạm, Cụm..." class="input-search w-60 border px-3 py-1.5 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchBTS(this.value)">
-                                
+                            <div class="bts-toolbar-controls">
+                                <input type="text" placeholder="Tìm Mã trạm, Tên trạm, Cụm..." class="input-search border px-3 py-1.5 rounded text-sm focus:border-blue-500 outline-none" onkeyup="app.handleSearchBTS(this.value)">
+                                <button class="btn-primary h-9 text-xs px-3 w-full sm:w-auto privileged-only" onclick="app.openCreateBTSModal()">
+                                    <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Thêm trạm
+                                </button>
                             </div>
                         </div>
                         <div class="overflow-x-auto p-0">
@@ -1242,7 +1403,7 @@
 
                 <section id="view-kpi_personal" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="kpi-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between gap-3 items-end sticky top-0 z-30">
+                        <div class="kpi-toolbar compact-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between gap-3 items-end sticky top-0 z-30">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">KPI Cá nhân</h3>
                                 <p class="text-xs text-slate-500">Theo dõi điểm KPI tổng và từng nhóm KPI theo tháng.</p>
@@ -1311,7 +1472,7 @@
 
                 <section id="view-weekly_plan" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="weekly-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                        <div class="weekly-toolbar compact-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Đăng ký lịch tuần & Báo cáo kết quả</h3>
                                 <p class="text-xs text-slate-500">Sau khi admin phê duyệt, kế hoạch tuần không chỉnh sửa; kết quả hằng ngày vẫn cập nhật.</p>
@@ -1464,16 +1625,19 @@
 
                 <section id="view-market_beat" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="market-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                        <div class="market-toolbar compact-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Nhịp đập thị trường</h3>
                                 <p class="text-xs text-slate-500">Cập nhật thông tin chương trình thị trường theo tuần và theo cụm.</p>
                             </div>
-                            <div class="flex gap-2 items-end">
+                            <div class="market-toolbar-actions flex flex-wrap gap-2 items-end">
                                 <div>
                                     <label class="text-[10px] font-bold uppercase text-slate-500">Tuần bắt đầu</label>
                                     <input type="date" id="market-week-start" class="border border-slate-300 px-3 py-2 rounded text-sm bg-white">
                                 </div>
+                                <button id="market-toggle-entry-btn" class="btn-secondary h-[38px]" onclick="app.toggleMarketEntryPanel()">
+                                    <i data-lucide="plus-circle" class="w-4 h-4 mr-1"></i>Nhập thông tin
+                                </button>
                                 <button class="btn-primary h-[38px]" onclick="app.loadMarketBeatView()">
                                     <i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i>Tải dữ liệu
                                 </button>
@@ -1483,8 +1647,8 @@
                             </div>
                         </div>
 
-                        <div class="market-grid p-4 grid grid-cols-1 xl:grid-cols-12 gap-4 border-b border-slate-100 items-start">
-                            <div id="market-entry-panel" class="xl:col-span-8 border border-slate-200 rounded-lg p-4 bg-white shadow-sm">
+                        <div class="market-grid market-grid-enhanced p-4 grid grid-cols-1 xl:grid-cols-12 gap-4 border-b border-slate-100 items-start">
+                            <div id="market-entry-panel" class="market-entry-card xl:col-span-8 hidden">
                                 <h4 class="font-bold text-slate-700 mb-3">Nhập thông tin thị trường</h4>
                                 <input type="hidden" id="market-id">
                                 <div class="market-form-grid grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1523,24 +1687,30 @@
                                     </button>
                                 </div>
                             </div>
-                            <div id="market-stats-panel" class="xl:col-span-4 border border-slate-200 rounded-lg p-3 bg-slate-50/50 xl:sticky xl:top-20">
-                                <h4 class="font-bold text-slate-700 mb-2 text-sm">Thống kê nhanh theo cụm</h4>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <div class="rounded border border-emerald-200 bg-emerald-50 p-2">
+                            <div id="market-stats-panel" class="market-stats-card xl:col-span-4 bg-slate-50/50">
+                                <h4 class="font-bold text-slate-700 mb-1 text-xs">Thống kê nhanh theo cụm</h4>
+                                <div class="grid grid-cols-1 gap-1.5">
+                                    <div class="market-stat-item rounded border border-emerald-200 bg-emerald-50 p-2 compact-stat-card">
                                         <div class="flex items-center justify-between">
-                                            <div class="text-[11px] text-emerald-700">Cụm đã có thông tin</div>
-                                            <div class="text-lg font-bold text-emerald-800" id="market-stat-has">0</div>
+                                            <div class="stat-title text-emerald-700">Cụm đã có thông tin</div>
+                                            <div class="stat-value text-emerald-800 !text-base" id="market-stat-has">0</div>
                                         </div>
-                                        <div id="market-list-has" class="mt-1 max-h-16 overflow-auto text-[11px] text-emerald-900 pr-1"></div>
-                                        <button class="btn-secondary text-[11px] mt-2 py-1 px-2" onclick="app.copyMarketClusterList('has')">Copy tên + email đã nhập</button>
+                                        <details class="mt-1">
+                                            <summary class="cursor-pointer text-[10px] text-emerald-700 font-semibold">Danh sách</summary>
+                                            <div id="market-list-has" class="mt-1 text-[10px] text-emerald-900 pr-1"></div>
+                                        </details>
+                                        <button class="btn-secondary text-[10px] mt-1 py-1 px-2" onclick="app.copyMarketClusterList('has')">Copy đã nhập</button>
                                     </div>
-                                    <div class="rounded border border-rose-200 bg-rose-50 p-2">
+                                    <div class="market-stat-item rounded border border-rose-200 bg-rose-50 p-2 compact-stat-card">
                                         <div class="flex items-center justify-between">
-                                            <div class="text-[11px] text-rose-700">Cụm chưa có thông tin</div>
-                                            <div class="text-lg font-bold text-rose-800" id="market-stat-missing">0</div>
+                                            <div class="stat-title text-rose-700">Cụm chưa có thông tin</div>
+                                            <div class="stat-value text-rose-800 !text-base" id="market-stat-missing">0</div>
                                         </div>
-                                        <div id="market-list-missing" class="mt-1 max-h-16 overflow-auto text-[11px] text-rose-900 pr-1"></div>
-                                        <button class="btn-secondary text-[11px] mt-2 py-1 px-2" onclick="app.copyMarketClusterList('missing')">Copy danh sách cụm thiếu</button>
+                                        <details class="mt-1">
+                                            <summary class="cursor-pointer text-[10px] text-rose-700 font-semibold">Danh sách</summary>
+                                            <div id="market-list-missing" class="mt-1 text-[10px] text-rose-900 pr-1"></div>
+                                        </details>
+                                        <button class="btn-secondary text-[10px] mt-1 py-1 px-2" onclick="app.copyMarketClusterList('missing')">Copy cụm thiếu</button>
                                     </div>
                                 </div>
                             </div>
@@ -1576,7 +1746,7 @@
 
                 <section id="view-focus_report" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="focus-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                        <div class="focus-toolbar compact-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Báo cáo công việc trọng tâm</h3>
                                 <p class="text-xs text-slate-500">Tổng hợp các chương trình hành động trọng điểm theo tuần.</p>
@@ -1668,7 +1838,7 @@
 
                 <section id="view-products" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="products-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
+                        <div class="products-toolbar compact-toolbar p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap justify-between items-end gap-3 sticky top-0 z-30">
                             <div>
                                 <h3 class="font-bold text-lg text-slate-800">Danh mục sản phẩm</h3>
                                 <p class="text-xs text-slate-500">Mở xem cho toàn bộ tài khoản, có bộ lọc tra cứu nhanh.</p>
@@ -1683,7 +1853,7 @@
                             </div>
                         </div>
 
-                        <div class="p-3 border-b border-slate-100 bg-white">
+                        <div class="p-3 border-b border-slate-100 bg-white sticky top-[52px] z-20">
                             <div class="products-filter flex flex-wrap items-center gap-2">
                                 <input id="product-filter-name" class="h-9 w-full sm:w-56 border border-slate-300 rounded px-3 text-sm" placeholder="Tên sản phẩm">
                                 <input id="product-filter-type" class="h-9 w-full sm:w-44 border border-slate-300 rounded px-3 text-sm" placeholder="Loại">
@@ -1726,7 +1896,7 @@
 
                 <section id="view-business_data" class="view-section hidden animate-fade-in">
                     <div class="bg-white rounded-lg shadow-sm border border-slate-200 min-h-[600px] flex flex-col">
-                        <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap gap-4 justify-between items-center">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50 rounded-t-lg flex flex-wrap gap-4 justify-between items-center sticky top-0 z-30 compact-toolbar">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <div class="flex items-center gap-2 bg-white px-3 py-1.5 border border-slate-300 rounded-md shadow-sm">
                                     <span class="text-xs font-semibold text-slate-500">Từ:</span>
@@ -2022,7 +2192,7 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden animate-fade-in">
                 
                 <div class="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex justify-between items-center">
-                    <h3 class="text-white font-bold text-lg flex items-center gap-2">
+                    <h3 id="indirect-modal-title" class="text-white font-bold text-lg flex items-center gap-2">
                         <i data-lucide="edit-3" class="w-5 h-5"></i> Cập Nhật Điểm Bán
                     </h3>
                     <button onclick="app.closeModal('modal-edit-indirect')" class="text-white/80 hover:text-white transition">
@@ -2159,8 +2329,8 @@
                     <button onclick="app.closeModal('modal-edit-indirect')" class="px-4 py-2 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-50 text-sm font-medium transition">
                         Hủy bỏ
                     </button>
-                    <button onclick="app.saveIndirectChannel()" class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm font-medium shadow-sm flex items-center gap-1 transition">
-                        <i data-lucide="save" class="w-4 h-4"></i> Lưu Thay Đổi
+                    <button id="btn-save-indirect" onclick="app.saveIndirectChannel()" class="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm font-medium shadow-sm flex items-center gap-1 transition">
+                        <i data-lucide="save" class="w-4 h-4"></i> <span id="btn-save-indirect-text">Lưu Thay Đổi</span>
                     </button>
                 </div>
             </div>
@@ -2171,7 +2341,7 @@
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         <div class="bg-blue-800 text-white px-6 py-4 flex justify-between items-center shrink-0">
-            <h3 class="text-lg font-bold flex items-center gap-2">
+            <h3 id="store-modal-title" class="text-lg font-bold flex items-center gap-2">
                 <i data-lucide="store" class="w-5 h-5"></i> Cập Nhật Thông Tin Cửa Hàng
             </h3>
             <button onclick="app.closeModal('modal-edit-store')" class="hover:bg-blue-700 p-1 rounded transition">
@@ -2182,6 +2352,21 @@
         <div class="p-6 overflow-y-auto grow">
             <form id="form-edit-store" class="space-y-4">
                 <input type="hidden" name="id" id="store-id">
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mã Cửa Hàng</label>
+                        <input type="text" id="store-maCH" class="w-full px-3 py-2 border rounded text-sm bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mã Liên Cụm</label>
+                        <input type="text" id="store-maLienCum" class="w-full px-3 py-2 border rounded text-sm bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mã Cụm</label>
+                        <input type="text" id="store-maCum" class="w-full px-3 py-2 border rounded text-sm bg-slate-50">
+                    </div>
+                </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="col-span-2">
@@ -2216,6 +2401,21 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
                         <input type="text" name="email" id="store-email" class="w-full px-3 py-2 border rounded text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Giờ mở cửa</label>
+                        <input type="text" id="store-gioMo" class="w-full px-3 py-2 border rounded text-sm" placeholder="VD: 07:30 - 21:00">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Trạng thái</label>
+                        <input type="text" id="store-trangThai" class="w-full px-3 py-2 border rounded text-sm" placeholder="Đang hoạt động / Tạm dừng">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Ghi chú</label>
+                        <input type="text" id="store-ghiChu" class="w-full px-3 py-2 border rounded text-sm">
                     </div>
                 </div>
 
@@ -2344,6 +2544,106 @@
             </div>
         </div>
     </div>
+
+    <div id="modal-edit-bts" class="fixed inset-0 z-[90] hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="app.closeModal('modal-edit-bts')"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div class="bg-indigo-700 text-white px-6 py-4 flex justify-between items-center shrink-0">
+                <h3 id="bts-modal-title" class="text-lg font-bold flex items-center gap-2">
+                    <i data-lucide="radio-tower" class="w-5 h-5"></i> Cập Nhật Trạm BTS
+                </h3>
+                <button onclick="app.closeModal('modal-edit-bts')" class="hover:bg-indigo-600 p-1 rounded transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto grow space-y-4">
+                <input type="hidden" id="bts-old-maTram">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Mã trạm</label>
+                        <input id="bts-maTram" class="w-full border border-slate-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Loại trạm</label>
+                        <input id="bts-loaiTram" class="w-full border border-slate-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Mã Liên Cụm</label>
+                        <input id="bts-maLienCum" class="w-full border border-slate-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Mã Cụm</label>
+                        <input id="bts-maCum" class="w-full border border-slate-300 rounded p-2 text-sm">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Địa chỉ</label>
+                        <input id="bts-diaChi" class="w-full border border-slate-300 rounded p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Vĩ độ (Lat)</label>
+                        <input id="bts-lat" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="10.7769">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-600 mb-1 block">Kinh độ (Lng)</label>
+                        <input id="bts-lng" class="w-full border border-slate-300 rounded p-2 text-sm" placeholder="106.7009">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">VLR 3G</label><input id="bts-vlr3g" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">VLR 4G</label><input id="bts-vlr4g" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">ASIM</label><input id="bts-asim" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">GTEL</label><input id="bts-gtel" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">VNSKY</label><input id="bts-vnsky" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">SAYMEE</label><input id="bts-saymee" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">M2M - Tổng</label><input id="bts-m2m" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">Data (GB/BQN)</label><input id="bts-data" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">CSG</label><input id="bts-csg" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">TBAON_ACTIVE</label><input id="bts-tbaon" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">PORTAON_EMTY</label><input id="bts-portaon" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">OLT</label><input id="bts-olt" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">TBGPON_ACTIVE</label><input id="bts-tbgpon" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div><label class="text-xs font-semibold text-slate-600 mb-1 block">LINEGPON_EMTY</label><input id="bts-linegpon" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                    <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600 mb-1 block">Ghi chú</label><input id="bts-ghiChu" class="w-full border border-slate-300 rounded p-2 text-sm"></div>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button class="btn-secondary" onclick="app.closeModal('modal-edit-bts')">Hủy</button>
+                <button id="btn-save-bts" class="btn-primary" onclick="app.saveBTSChanges()">
+                    <i data-lucide="save" class="w-4 h-4 mr-1"></i><span id="btn-save-bts-text">Lưu trạm BTS</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-user-guide" class="modal-overlay">
+        <div class="modal-content max-w-3xl overflow-hidden">
+            <div class="bg-white px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-800">Hướng dẫn sử dụng nhanh</h3>
+                <button onclick="app.closeModal('modal-user-guide')" class="text-slate-400 hover:text-red-500">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 text-sm text-slate-700 space-y-3 max-h-[70vh] overflow-auto">
+                <p><b>1) Dashboard:</b> Chọn phạm vi tại bộ lọc đầu trang để xem số liệu đúng địa bàn; bấm từng ô thống kê để mở danh sách chi tiết theo Liên cụm/Cụm/Nhân sự.</p>
+                <p><b>2) Danh sách Liên cụm:</b> Dùng ô tìm kiếm để lọc nhanh theo tên/mã/trưởng đơn vị; nút bút dùng chỉnh sửa thông tin phường xã (VLR, dân số, lãnh đạo).</p>
+                <p><b>3) Kênh Trực tiếp - Cửa hàng:</b> Bộ lọc tìm kiếm được cố định khi cuộn; bấm tên cửa hàng hoặc nút bút để sửa; nút <b>Thêm cửa hàng</b> để tạo mới (theo phân quyền).</p>
+                <p><b>4) Kênh Trực tiếp - GDV/NVBH/KHDN:</b> Tìm nhân sự theo tên, mã NV, cụm; trạng thái hiển thị trực quan theo đang làm việc/đã nghỉ.</p>
+                <p><b>5) Kênh Gián tiếp:</b> Check-in GPS tại từng điểm bán; hệ thống chỉ lưu <b>1 lần/ngày/điểm bán/người dùng</b> (check-in mới ghi đè check-in cũ cùng ngày).</p>
+                <p><b>6) KPI tuyến (Kênh Gián tiếp):</b> Dùng nút <b>Giao KPI</b> để mở form giao chỉ tiêu; dùng nút <b>Xuất Báo cáo</b> để mở khu vực lọc và xuất Excel lịch sử báo cáo.</p>
+                <p><b>7) KPI của tôi:</b> Chọn kỳ tuần/tháng, nhập kết quả thuê bao; hệ thống lưu theo nguyên tắc <b>mỗi kỳ chỉ 1 dòng báo cáo/người</b>.</p>
+                <p><b>8) Trạm BTS:</b> Lọc theo Liên cụm/Cụm/từ khóa; bấm nút bút để sửa trạm; dùng nút <b>Thêm trạm</b> để tạo trạm mới (theo phân quyền).</p>
+                <p><b>9) KPI cá nhân:</b> Chọn tháng và tải dữ liệu để xem điểm tổng, top cao/thấp và chi tiết nhóm KPI từng nhân sự.</p>
+                <p><b>10) Lịch tuần:</b> Nhân sự lập kế hoạch + cập nhật kết quả từng ngày; Admin duyệt lịch, sau duyệt chỉ cập nhật phần kết quả.</p>
+                <p><b>11) Nhịp đập thị trường & Báo cáo trọng tâm:</b> Bấm <b>Nhập thông tin</b>/<b>Nhập báo cáo</b> để mở form, lưu dữ liệu theo tuần và theo cụm.</p>
+                <p><b>12) Sản phẩm:</b> Dùng bộ lọc tên/loại/đối tượng để tra cứu nhanh; tài khoản có quyền quản trị được thêm/sửa/xóa.</p>
+                <p class="text-xs text-slate-500">Mẹo: Sau khi thêm/sửa dữ liệu, bấm “Làm mới/Tải dữ liệu” tại menu tương ứng để cập nhật giao diện ngay.</p>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
+                <button class="btn-primary" onclick="app.closeModal('modal-user-guide')">Đã hiểu</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/data-service.js"></script>
     <script src="js/ui-renderer.js"></script>
     <script src="js/main.js"></script>
