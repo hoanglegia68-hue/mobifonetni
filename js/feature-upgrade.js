@@ -58,6 +58,7 @@
             _marketRows: [],
             _marketClusterLists: { has: [], missing: [] },
             _focusRows: [],
+            _focusEntryExpanded: false,
             _productsRows: [],
             _filteredProductsRows: [],
             _weeklyViewCache: null,
@@ -1315,7 +1316,32 @@
             applyFocusAdminMode_() {
                 const isAdmin = this.isAdminUser_();
                 const entry = document.getElementById('focus-entry-panel');
-                if (entry) entry.style.display = isAdmin ? 'none' : '';
+                const toggleBtn = document.getElementById('focus-toggle-entry-btn');
+                if (isAdmin) {
+                    this._focusEntryExpanded = false;
+                    if (entry) entry.style.display = 'none';
+                    if (toggleBtn) toggleBtn.style.display = 'none';
+                    return;
+                }
+                if (toggleBtn) toggleBtn.style.display = '';
+                this.setFocusEntryExpanded_(!!this._focusEntryExpanded);
+            },
+
+            setFocusEntryExpanded_(expanded) {
+                if (this.isAdminUser_()) return;
+                const entry = document.getElementById('focus-entry-panel');
+                const toggleBtn = document.getElementById('focus-toggle-entry-btn');
+                if (!entry || !toggleBtn) return;
+                this._focusEntryExpanded = !!expanded;
+                entry.style.display = this._focusEntryExpanded ? '' : 'none';
+                toggleBtn.innerHTML = this._focusEntryExpanded
+                    ? '<i data-lucide="chevron-up" class="w-4 h-4 mr-1"></i>Thu gọn nhập báo cáo'
+                    : '<i data-lucide="plus-circle" class="w-4 h-4 mr-1"></i>Nhập báo cáo';
+                if (window.lucide) lucide.createIcons();
+            },
+
+            toggleFocusEntryPanel() {
+                this.setFocusEntryExpanded_(!this._focusEntryExpanded);
             },
 
             exportFocusExcel() {
@@ -1323,14 +1349,14 @@
                     { label: 'Tuần', value: (r) => r.week_start },
                     { label: 'Nhân sự', value: (r) => r.ten_nv || r.email },
                     { label: 'Email', value: (r) => r.email },
-                    { label: 'Chương trình hành động', value: (r) => r.chuong_trinh_hanh_dong },
+                    { label: 'Chương trình', value: (r) => r.chuong_trinh_hanh_dong },
                     { label: 'Nội dung chương trình', value: (r) => r.noi_dung_chuong_trinh },
                     { label: 'Khách hàng mục tiêu', value: (r) => r.khach_hang_muc_tieu },
                     { label: 'Kênh/LL triển khai', value: (r) => r.kenh_ll_trien_khai },
                     { label: 'Triển khai tại', value: (r) => r.trien_khai_tai },
-                    { label: 'Mục tiêu định lượng', value: (r) => r.muc_tieu_dinh_luong },
-                    { label: 'Mục tiêu định tính', value: (r) => r.muc_tieu_dinh_tinh },
-                    { label: 'Chi phí', value: (r) => r.chi_phi }
+                    { label: 'KQ định lượng', value: (r) => r.muc_tieu_dinh_luong },
+                    { label: 'KQ định tính', value: (r) => r.muc_tieu_dinh_tinh },
+                    { label: 'Ghi chú', value: (r) => r.chi_phi }
                 ]);
                 this.toast_('Đã xuất Excel báo cáo trọng tâm.', 'success');
             },
@@ -1370,7 +1396,7 @@
                                 <div><b>KH mục tiêu:</b> ${this.safeText_(r.khach_hang_muc_tieu || '-')}</div>
                                 <div><b>Kênh:</b> ${this.safeText_(r.kenh_ll_trien_khai || '-')}</div>
                                 <div><b>Triển khai:</b> ${this.safeText_(r.trien_khai_tai || '-')}</div>
-                                <div><b>Chi phí:</b> ${this.safeText_(r.chi_phi || '-')}</div>
+                                <div><b>Ghi chú:</b> ${this.safeText_(r.chi_phi || '-')}</div>
                             </div>
                         </div>
                     `).join('');
@@ -1419,6 +1445,7 @@
                     this._focusRows = rows;
                     this.renderFocusRows_();
                     this.fillFocusForm_(rows[0] || null);
+                    this.applyFocusAdminMode_();
                 } catch (e) {
                     console.error('[Focus] load failed:', e);
                     this.toast_(`Không tải được báo cáo trọng tâm: ${e.message}`, 'error');
@@ -1429,6 +1456,7 @@
                 const row = (this._focusRows || []).find((r) => r.id === id);
                 if (!row) return;
                 this.fillFocusForm_(row);
+                if (!this.isAdminUser_()) this.setFocusEntryExpanded_(true);
             },
 
             async saveFocusReport() {
@@ -1463,6 +1491,7 @@
                     if (resp?.error) throw new Error(resp.error);
                     this.toast_('Đã lưu báo cáo trọng tâm.', 'success');
                     await this.loadFocusReportView(true);
+                    if (!this.isAdminUser_()) this.setFocusEntryExpanded_(false);
                 } catch (e) {
                     console.error('[Focus] save failed:', e);
                     this.toast_(`Không lưu được báo cáo: ${e.message}`, 'error');
