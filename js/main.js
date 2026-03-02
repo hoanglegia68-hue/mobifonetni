@@ -29,7 +29,7 @@
         currentKPIReportData: null,
         currentStaffDataGroups: null,
         isSidebarOpen: false,
-        mobileBreakpoint: 1024,
+        mobileBreakpoint: 1280,
         indirectRouteState: {
             route: 'all',
             period: 'month',
@@ -39,6 +39,7 @@
             checkinsSynced: false,
             syncingCheckins: false
         },
+        indirectActionPanelMode: 'none',
         storeMapState: { cum: 'all', map: null, layer: null, sourceData: null },
         indirectCheckinDistanceThresholdM: 300,
         indirectKpiHistoryRows: [],
@@ -2430,8 +2431,9 @@
             const isPrivileged = this._isPrivilegedRoleForIndirect_();
             const assignPanel = document.getElementById('indirect-kpi-assign-panel');
             const myPanel = document.getElementById('indirect-kpi-my-panel');
-            if (assignPanel) assignPanel.classList.toggle('hidden', !isPrivileged);
             if (myPanel) myPanel.classList.toggle('hidden', isPrivileged);
+
+            this._applyIndirectActionPanelVisibility_('none');
 
             if (periodEl) {
                 this._buildIndirectSalesStaffOptions_();
@@ -2447,6 +2449,47 @@
 
             await this.loadIndirectKpiHistory_();
             this.renderIndirectRouteMapAndKPI();
+        },
+
+        _applyIndirectActionPanelVisibility_(mode = 'none') {
+            const isPrivileged = this._isPrivilegedRoleForIndirect_();
+            const assignPanel = document.getElementById('indirect-kpi-assign-panel');
+            const historyPanel = document.getElementById('indirect-kpi-history-panel');
+            const assignBtn = document.getElementById('indirect-toggle-assign-btn');
+            const historyBtn = document.getElementById('indirect-toggle-history-btn');
+
+            const canShowAssign = isPrivileged;
+            const showAssign = canShowAssign && mode === 'assign';
+            const showHistory = mode === 'history';
+
+            if (assignPanel) assignPanel.classList.toggle('hidden', !showAssign);
+            if (historyPanel) historyPanel.classList.toggle('hidden', !showHistory);
+
+            if (assignBtn) {
+                assignBtn.classList.toggle('hidden', !canShowAssign);
+                assignBtn.classList.toggle('bg-blue-100', showAssign);
+                assignBtn.classList.toggle('border-blue-300', showAssign);
+                assignBtn.classList.toggle('text-blue-700', showAssign);
+            }
+            if (historyBtn) {
+                historyBtn.classList.toggle('bg-emerald-100', showHistory);
+                historyBtn.classList.toggle('border-emerald-300', showHistory);
+                historyBtn.classList.toggle('text-emerald-700', showHistory);
+            }
+
+            this.indirectActionPanelMode = mode;
+        },
+
+        toggleIndirectActionPanel(mode) {
+            const target = String(mode || '').trim().toLowerCase();
+            const current = String(this.indirectActionPanelMode || 'none');
+            const nextMode = current === target ? 'none' : target;
+            this._applyIndirectActionPanelVisibility_(nextMode);
+            if (nextMode === 'assign') {
+                this._loadIndirectKpiAssignments_();
+            } else if (nextMode === 'history') {
+                this.loadIndirectKpiHistory_();
+            }
         },
 
         _isPrivilegedRoleForIndirect_() {
@@ -2534,25 +2577,29 @@
                 const rows = await DataService.getIndirectKpiPlans();
                 const meMail = String(this.currentUser?.email || '').trim().toLowerCase();
                 const meCode = String(this.currentUser?.maNV || this.currentUser?.username || '').trim().toLowerCase();
-                const target = (rows || []).find((r) => {
+                const targetMatches = (rows || []).filter((r) => {
                     const rType = String(r.period_type || '').trim().toLowerCase();
                     const rKey = String(r.period_key || r.period_start || '').trim();
                     const rMail = String(r.email || '').trim().toLowerCase();
                     const rCode = String(r.ma_nv || r.maNV || '').trim().toLowerCase();
                     return rType === periodType && rKey === periodKey
                         && ((meMail && rMail === meMail) || (meCode && rCode === meCode));
-                }) || null;
+                });
+                targetMatches.sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
+                const target = targetMatches[0] || null;
                 let report = null;
                 if (typeof DataService.getIndirectKpiReports === 'function') {
                     const reports = await DataService.getIndirectKpiReports();
-                    report = (reports || []).find((r) => {
+                    const reportMatches = (reports || []).filter((r) => {
                         const rType = String(r.period_type || '').trim().toLowerCase();
                         const rKey = String(r.period_key || r.period_start || '').trim();
                         const rMail = String(r.email || '').trim().toLowerCase();
                         const rCode = String(r.ma_nv || r.maNV || '').trim().toLowerCase();
                         return rType === periodType && rKey === periodKey
                             && ((meMail && rMail === meMail) || (meCode && rCode === meCode));
-                    }) || null;
+                    });
+                    reportMatches.sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')));
+                    report = reportMatches[0] || null;
                 }
 
                 const targetSubs = Number(target?.thue_bao_target || 0) || 0;
@@ -2767,7 +2814,25 @@
             }
             try {
                 const rows = await DataService.getIndirectKpiReports();
-                const list = (Array.isArray(rows) ? rows : []).map((r, i) => this._normalizeIndirectKpiHistoryRow_(r, i));
+                const normalized = (Array.isArray(rows) ? rows : []).map((r, i) => this._normalizeIndirectKpiHistoryRow_(r, i));
+                const merged = new Map();
+                normalized.forEach((r) => {
+                    const key = [
+                        String(r.periodType || '').toLowerCase(),
+                        String(r.periodKey || ''),
+                        String(r.maNV || r.email || '').toLowerCase()
+                    ].join('|');
+                    if (!key) return;
+                    const prev = merged.get(key);
+                    if (!prev) {
+                        merged.set(key, r);
+                        return;
+                    }
+                    if (String(r.updatedAt || '').localeCompare(String(prev.updatedAt || '')) >= 0) {
+                        merged.set(key, r);
+                    }
+                });
+                const list = Array.from(merged.values());
                 list.sort((a, b) => {
                     if (a.periodKey !== b.periodKey) return String(b.periodKey).localeCompare(String(a.periodKey));
                     return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
@@ -3006,7 +3071,21 @@
             }
 
             const statusEl = document.getElementById('indirect-checkin-status');
-            if (statusEl) statusEl.textContent = `Đang check-in GPS cho: ${point.ten}...`;
+            const setCheckinStatus = (message, tone = 'idle') => {
+                if (!statusEl) return;
+                statusEl.textContent = message;
+                statusEl.classList.remove('text-slate-700', 'text-slate-600', 'text-amber-700', 'text-emerald-700', 'text-rose-700', 'font-semibold', 'font-bold');
+                if (tone === 'loading') {
+                    statusEl.classList.add('text-amber-700', 'font-bold');
+                } else if (tone === 'success') {
+                    statusEl.classList.add('text-emerald-700', 'font-semibold');
+                } else if (tone === 'error') {
+                    statusEl.classList.add('text-rose-700', 'font-semibold');
+                } else {
+                    statusEl.classList.add('text-slate-700', 'font-semibold');
+                }
+            };
+            setCheckinStatus(`ĐANG CHECK-IN GPS: ${point.ten}...`, 'loading');
 
             const getPosition = () => new Promise((resolve, reject) => {
                 navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -3025,13 +3104,27 @@
                 const thresholdM = Number(this.indirectCheckinDistanceThresholdM) || 300;
                 const near = hasPointCoord ? distanceM <= thresholdM : null;
 
+                const nowIso = new Date().toISOString();
+                const dayKey = this._dateKey(new Date(nowIso));
+                const emailKey = String(this.currentUser?.email || '').trim().toLowerCase();
+                const userKey = String(emailKey || this.currentUser?.username || 'user').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const pointKey = String(point.maDL || '').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const deterministicId = `CI_${dayKey}_${userKey}_${pointKey}`;
+
                 const logs = this._loadIndirectCheckins();
-                logs.push({
-                    id: `CI_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                const sameDay = (itemTs) => this._dateKey(new Date(itemTs || 0)) === dayKey;
+                const existedIdx = logs.findIndex((c) => {
+                    const owner = String(c.email || c.username || '').trim().toLowerCase();
+                    return String(c.maDL || '').trim() === String(point.maDL || '').trim()
+                        && owner === (emailKey || String(this.currentUser?.username || '').trim().toLowerCase())
+                        && sameDay(c.ts || c.time);
+                });
+                const checkinRow = {
+                    id: deterministicId,
                     maDL: point.maDL,
                     ten: point.ten,
                     tuyen: point.tuyen,
-                    ts: new Date().toISOString(),
+                    ts: nowIso,
                     gpsLat,
                     gpsLng,
                     pointLat: point.lat,
@@ -3040,20 +3133,22 @@
                     near,
                     user: this.currentUser?.name || this.currentUser?.username || '',
                     username: String(this.currentUser?.username || '').trim(),
-                    email: String(this.currentUser?.email || '').trim().toLowerCase(),
+                    email: emailKey,
                     scope: String(this.currentUser?.scope || '').trim()
-                });
+                };
+                if (existedIdx >= 0) logs[existedIdx] = checkinRow;
+                else logs.push(checkinRow);
                 this._saveIndirectCheckins(logs);
 
                 if (window.DataService && typeof DataService.saveIndirectCheckin === 'function') {
                     try {
                         await DataService.saveIndirectCheckin({
-                            id: logs[logs.length - 1].id,
+                            id: deterministicId,
                             maDL: point.maDL,
                             ten: point.ten,
                             tuyen: point.tuyen,
                             ma_cum: point.maCum,
-                            ts: logs[logs.length - 1].ts,
+                            ts: nowIso,
                             gpsLat,
                             gpsLng,
                             pointLat: point.lat,
@@ -3067,12 +3162,10 @@
                     }
                 }
 
-                if (statusEl) {
-                    if (distanceM === null) {
-                        statusEl.textContent = `Đã check-in ${point.ten} (chưa có tọa độ điểm để đo khoảng cách).`;
-                    } else {
-                        statusEl.textContent = `Đã check-in ${point.ten}: cách điểm ${distanceM}m ${near ? '(ĐẠT)' : '(CHƯA ĐẠT)'} (ngưỡng ${thresholdM}m).`;
-                    }
+                if (distanceM === null) {
+                    setCheckinStatus(`Đã check-in ${point.ten} (mỗi ngày 1 lần, bản ghi hôm nay đã được cập nhật).`, 'success');
+                } else {
+                    setCheckinStatus(`Đã check-in ${point.ten}: cách điểm ${distanceM}m ${near ? '(ĐẠT)' : '(CHƯA ĐẠT)'} - đã ghi đè bản ghi hôm nay nếu có.`, near ? 'success' : 'error');
                 }
                 this._notify('Check-in GPS thành công.', 'success');
                 this.renderIndirectRouteMapAndKPI();
@@ -3081,7 +3174,7 @@
                 if (e && e.code === 1) msg = 'Bạn đã từ chối quyền truy cập vị trí.';
                 if (e && e.code === 2) msg = 'Không xác định được vị trí hiện tại.';
                 if (e && e.code === 3) msg = 'Hết thời gian lấy vị trí GPS.';
-                if (statusEl) statusEl.textContent = msg;
+                setCheckinStatus(msg, 'error');
                 this._notify(msg, 'error');
             }
         },
@@ -3231,7 +3324,9 @@
             const user = this.currentUser;
             document.getElementById('sidebar-user-name').textContent = user.name;
             document.getElementById('sidebar-user-role').textContent = user.role === 'admin' ? 'Administrator' : `User: ${user.scope}`;
-            document.body.classList.remove('is-admin', 'is-view', 'is-manager');
+            Array.from(document.body.classList)
+                .filter((cls) => cls.startsWith('is-'))
+                .forEach((cls) => document.body.classList.remove(cls));
             document.body.classList.add(`is-${user.role}`);
             const sysMenu = document.querySelector('.system-menu-only');
             if (sysMenu) sysMenu.style.display = user.role === 'admin' ? 'flex' : 'none';
@@ -3518,106 +3613,174 @@
         // ============================================================
 
         currentEditingIndirectId: null,
+        indirectEditMode: 'edit',
+        currentEditingStoreId: null,
+        storeEditMode: 'edit',
+        currentEditingBTSId: null,
+        btsEditMode: 'edit',
 
-        openEditIndirectModal(id) {
-        // 1. Tìm item trong cache
-        const list = this.cachedData.indirect || [];
-        // Tìm kiếm linh hoạt (String/Number)
-        const item = list.find(i => String(i.id) == String(id) || String(i.maDL) == String(id));
-
-        if (!item) {
-            console.error("❌ Không tìm thấy item với ID:", id);
-            return alert("Không tìm thấy dữ liệu điểm bán này!");
-        }
-
-        // Lưu ID đang sửa vào biến toàn cục
-        this.currentEditingIndirectId = item.id || item.maDL; 
-
-        // 2. Helper tìm key (giữ nguyên - rất tốt)
-        const pick = (row, ...aliases) => {
+        _pickRowValue_(row, ...aliases) {
             if (!row) return '';
-            const lmap = {};
-            Object.keys(row).forEach(k => { lmap[k.toLowerCase()] = k; });
+            const norm = (s) => String(s || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '');
+            const keys = Object.keys(row || {});
+            const keyMap = {};
+            keys.forEach((k) => { keyMap[norm(k)] = k; });
             for (const a of aliases) {
-                const lk = lmap[String(a).toLowerCase()];
-                if (lk && row[lk] !== undefined && row[lk] !== null) return row[lk];
+                const alias = norm(a);
+                if (!alias) continue;
+                if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
+                const exact = keyMap[alias];
+                if (exact && row[exact] !== undefined && row[exact] !== null && String(row[exact]).trim() !== '') return row[exact];
+                const partial = keys.find((k) => norm(k).includes(alias));
+                if (partial && row[partial] !== undefined && row[partial] !== null && String(row[partial]).trim() !== '') return row[partial];
             }
             return '';
-        };
+        },
 
-        const setVal = (domId, val) => { 
-            const el = document.getElementById(domId); 
-            if(el) el.value = val || ''; 
-        };
+        _applyIndirectModalMode_(mode = 'edit') {
+            const isCreate = mode === 'create';
+            const titleEl = document.getElementById('indirect-modal-title');
+            const saveTextEl = document.getElementById('btn-save-indirect-text');
+            const codeEl = document.getElementById('edit-indirect-code');
+            const lcEl = document.getElementById('edit-indirect-liencum');
+            const cEl = document.getElementById('edit-indirect-cum');
 
-        // --- 3. ĐIỀN DỮ LIỆU ---
-        setVal('edit-indirect-code', pick(item, 'maDL', 'maCode', 'code', 'id'));
+            if (titleEl) {
+                titleEl.innerHTML = `<i data-lucide="${isCreate ? 'plus-circle' : 'edit-3'}" class="w-5 h-5"></i> ${isCreate ? 'Thêm Mới Điểm Bán' : 'Cập Nhật Điểm Bán'}`;
+            }
+            if (saveTextEl) saveTextEl.textContent = isCreate ? 'Lưu Điểm Bán Mới' : 'Lưu Thay Đổi';
 
-        // === [BỔ SUNG QUAN TRỌNG] Đổ dữ liệu vào 2 ô Cụm mới thêm ở HTML ===
-        setVal('edit-indirect-liencum', pick(item, 'maLienCum', 'lienCum', 'LienCum', 'maliencum'));
-        setVal('edit-indirect-cum', pick(item, 'maCum', 'cum', 'Cum', 'macum'));
-        // ===================================================================
-
-        setVal('edit-indirect-name', pick(item, 'ten', 'Ten', 'tenDl'));
-        setVal('edit-indirect-phone', pick(item, 'sdt', 'SDT', 'phone')); 
-        setVal('edit-indirect-address', pick(item, 'diaChi', 'DiaChi', 'address'));
-        
-        // Tách tọa độ
-        const lat = pick(item, 'lat', 'Lat', 'vido');
-        const lng = pick(item, 'lng', 'Lng', 'kinhdo');
-        setVal('indirect-lat', lat);
-        setVal('indirect-lng', lng);
-
-        // Map đúng tên trường
-        setVal('edit-indirect-route', pick(item, 'tuyen', 'Tuyen')); 
-        setVal('edit-indirect-class', pick(item, 'phanloai', 'Phanloai', 'PhanLoai')); 
-        setVal('edit-indirect-type', pick(item, 'loai', 'Loai')); 
-        setVal('edit-indirect-owner', pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu')); 
-
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const monthInput = document.getElementById('edit-indirect-subs-month');
-        const subsInput = document.getElementById('edit-indirect-subs-value');
-        const historyInput = document.getElementById('edit-indirect-subs-history');
-        if (monthInput && !monthInput.value) monthInput.value = currentMonth;
-        const subsMonthly = this._parseIndirectSubsMonthly_(
-            pick(item, 'thuebaothang', 'thueBaoThang', 'thue_bao_thang', 'tbThang')
-        );
-        if (historyInput) historyInput.value = this._formatIndirectSubsHistoryText_(subsMonthly);
-        if (subsInput) {
-            const monthKey = monthInput?.value || currentMonth;
-            const currentVal = (subsMonthly[monthKey] !== undefined)
-                ? subsMonthly[monthKey]
-                : (pick(item, 'thuebao', 'thueBao', 'thue_bao', 'tb') || '');
-            subsInput.value = currentVal || '';
-        }
-
-        if (monthInput && !monthInput.dataset.bound) {
-            monthInput.addEventListener('change', () => {
-                const all = this._parseIndirectSubsMonthly_(historyInput?.dataset.raw || '{}');
-                if (subsInput) subsInput.value = all[monthInput.value] || '';
+            [codeEl, lcEl, cEl].forEach((el) => {
+                if (!el) return;
+                el.readOnly = !isCreate;
+                el.classList.toggle('bg-slate-100', !isCreate);
+                el.classList.toggle('text-slate-500', !isCreate);
             });
-            monthInput.dataset.bound = '1';
-        }
-        if (historyInput) historyInput.dataset.raw = JSON.stringify(subsMonthly);
+            if (window.refreshLucide) window.refreshLucide();
+        },
 
-        // 4. Xử lý ảnh (Reset trước khi show)
-        if(document.getElementById('file-outside')) document.getElementById('file-outside').value = '';
-        if(document.getElementById('file-inside')) document.getElementById('file-inside').value = '';
+        openCreateIndirectModal() {
+            this.indirectEditMode = 'create';
+            this.currentEditingIndirectId = null;
+            this._applyIndirectModalMode_('create');
 
-        // Kiểm tra hàm showPreviewImage có tồn tại không trước khi gọi
-        if (typeof this.showPreviewImage === 'function') {
-            this.showPreviewImage('outside', pick(item, 'anhNgoai', 'AnhNgoai', 'imgOutside'));
-            this.showPreviewImage('inside', pick(item, 'anhTrong', 'AnhTrong', 'imgInside'));
-        }
-        
-        // 5. Mở Modal
-        const modal = document.getElementById('modal-edit-indirect');
-        if(modal) {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex', 'open', 'animate-fade-in');
-        }
-    },
+            const setVal = (id, val = '') => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+
+            setVal('edit-indirect-code', '');
+            setVal('edit-indirect-name', '');
+            setVal('edit-indirect-owner', '');
+            setVal('edit-indirect-phone', '');
+            setVal('edit-indirect-address', '');
+            setVal('edit-indirect-loai', '');
+            setVal('edit-indirect-phanloai', '');
+            setVal('edit-indirect-route', '');
+            setVal('indirect-lat', '');
+            setVal('indirect-lng', '');
+            setVal('edit-indirect-subs-value', '');
+            setVal('edit-indirect-subs-history', '');
+            const historyInput = document.getElementById('edit-indirect-subs-history');
+            if (historyInput) historyInput.dataset.raw = '{}';
+
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            setVal('edit-indirect-subs-month', currentMonth);
+
+            const uScope = (this.currentUser?.scope || 'all').toString().trim();
+            let lc = '';
+            let cum = '';
+            if (this.mapLienCum && this.mapLienCum.hasOwnProperty(uScope)) {
+                lc = uScope;
+            } else if (this.mapCum && this.mapCum.hasOwnProperty(uScope)) {
+                cum = uScope;
+                lc = this.getParentLienCum(uScope) || '';
+            }
+            setVal('edit-indirect-liencum', lc);
+            setVal('edit-indirect-cum', cum);
+
+            if (document.getElementById('file-outside')) document.getElementById('file-outside').value = '';
+            if (document.getElementById('file-inside')) document.getElementById('file-inside').value = '';
+            this.showPreviewImage('outside', '');
+            this.showPreviewImage('inside', '');
+
+            const modal = document.getElementById('modal-edit-indirect');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex', 'open', 'animate-fade-in');
+            }
+        },
+
+        openEditIndirectModal(id) {
+            const list = this.cachedData.indirect || [];
+            const item = list.find((i) => String(i.id) === String(id) || String(i.maDL) === String(id));
+            if (!item) return alert('Không tìm thấy dữ liệu điểm bán này!');
+
+            this.indirectEditMode = 'edit';
+            this.currentEditingIndirectId = this._pickRowValue_(item, 'id', 'maDL', 'maCode', 'code');
+            this._applyIndirectModalMode_('edit');
+
+            const setVal = (domId, val) => {
+                const el = document.getElementById(domId);
+                if (el) el.value = val || '';
+            };
+
+            setVal('edit-indirect-code', this._pickRowValue_(item, 'maDL', 'maCode', 'code', 'id'));
+            setVal('edit-indirect-liencum', this._pickRowValue_(item, 'maLienCum', 'lienCum', 'maliencum'));
+            setVal('edit-indirect-cum', this._pickRowValue_(item, 'maCum', 'cum', 'macum'));
+            setVal('edit-indirect-name', this._pickRowValue_(item, 'ten', 'Ten', 'tenDl'));
+            setVal('edit-indirect-phone', this._pickRowValue_(item, 'sdt', 'SDT', 'phone'));
+            setVal('edit-indirect-address', this._pickRowValue_(item, 'diaChi', 'DiaChi', 'address', 'diachi'));
+            setVal('indirect-lat', this._pickRowValue_(item, 'lat', 'Lat', 'vido'));
+            setVal('indirect-lng', this._pickRowValue_(item, 'lng', 'Lng', 'kinhdo'));
+            setVal('edit-indirect-route', this._pickRowValue_(item, 'tuyen', 'Tuyen'));
+            setVal('edit-indirect-phanloai', this._pickRowValue_(item, 'phanloai', 'Phanloai', 'PhanLoai'));
+            setVal('edit-indirect-loai', this._pickRowValue_(item, 'loai', 'Loai'));
+            setVal('edit-indirect-owner', this._pickRowValue_(item, 'chuSoHuu', 'ChuSoHuu', 'chu', 'chusohuu'));
+
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const monthInput = document.getElementById('edit-indirect-subs-month');
+            const subsInput = document.getElementById('edit-indirect-subs-value');
+            const historyInput = document.getElementById('edit-indirect-subs-history');
+            if (monthInput && !monthInput.value) monthInput.value = currentMonth;
+            const subsMonthly = this._parseIndirectSubsMonthly_(
+                this._pickRowValue_(item, 'thuebaothang', 'thueBaoThang', 'thue_bao_thang', 'tbThang')
+            );
+            if (historyInput) historyInput.value = this._formatIndirectSubsHistoryText_(subsMonthly);
+            if (subsInput) {
+                const monthKey = monthInput?.value || currentMonth;
+                const currentVal = (subsMonthly[monthKey] !== undefined)
+                    ? subsMonthly[monthKey]
+                    : (this._pickRowValue_(item, 'thuebao', 'thueBao', 'thue_bao', 'tb') || '');
+                subsInput.value = currentVal || '';
+            }
+
+            if (monthInput && !monthInput.dataset.bound) {
+                monthInput.addEventListener('change', () => {
+                    const all = this._parseIndirectSubsMonthly_(historyInput?.dataset.raw || '{}');
+                    if (subsInput) subsInput.value = all[monthInput.value] || '';
+                });
+                monthInput.dataset.bound = '1';
+            }
+            if (historyInput) historyInput.dataset.raw = JSON.stringify(subsMonthly);
+
+            if (document.getElementById('file-outside')) document.getElementById('file-outside').value = '';
+            if (document.getElementById('file-inside')) document.getElementById('file-inside').value = '';
+            this.showPreviewImage('outside', this._pickRowValue_(item, 'anhNgoai', 'AnhNgoai', 'imgOutside'));
+            this.showPreviewImage('inside', this._pickRowValue_(item, 'anhTrong', 'AnhTrong', 'imgInside'));
+
+            const modal = document.getElementById('modal-edit-indirect');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex', 'open', 'animate-fade-in');
+            }
+        },
 
         showPreviewImage(type, src) {
             const imgEl = document.getElementById(`img-preview-${type}`);
@@ -3654,86 +3817,132 @@
         // 1. Biến tạm lưu ảnh
         tempStoreImages: { trong: null, ngoai: null },
 
+        _applyStoreModalMode_(mode = 'edit') {
+            const isCreate = mode === 'create';
+            const titleEl = document.getElementById('store-modal-title');
+            const codeEl = document.getElementById('store-maCH');
+            const btnText = document.getElementById('btn-save-text');
+            if (titleEl) {
+                titleEl.innerHTML = `<i data-lucide="${isCreate ? 'plus-circle' : 'store'}" class="w-5 h-5"></i> ${isCreate ? 'Thêm Mới Cửa Hàng' : 'Cập Nhật Thông Tin Cửa Hàng'}`;
+            }
+            if (btnText) btnText.textContent = isCreate ? 'Lưu Cửa Hàng Mới' : 'Lưu Cập Nhật';
+            if (codeEl) {
+                codeEl.readOnly = !isCreate;
+                codeEl.classList.toggle('bg-slate-50', !isCreate);
+            }
+            if (window.refreshLucide) window.refreshLucide();
+        },
+
+        openCreateStoreModal() {
+            this.storeEditMode = 'create';
+            this.currentEditingStoreId = null;
+            this._applyStoreModalMode_('create');
+
+            const modal = document.getElementById('modal-edit-store');
+            if (!modal) return;
+
+            const setVal = (id, val = '') => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+
+            setVal('store-id', '');
+            setVal('store-maCH', '');
+            setVal('store-ten', '');
+            setVal('store-diaChi', '');
+            setVal('store-loaiCh', 'Cap1');
+            setVal('store-cht', '');
+            setVal('store-sdt', '');
+            setVal('store-email', '');
+            setVal('store-gioMo', '');
+            setVal('store-trangThai', '');
+            setVal('store-ghiChu', '');
+            setVal('store-lat', '');
+            setVal('store-lng', '');
+            setVal('store-ngayThue', '');
+            setVal('store-ngayHetHan', '');
+
+            const uScope = (this.currentUser?.scope || 'all').toString().trim();
+            let lc = '';
+            let cum = '';
+            if (this.mapLienCum && this.mapLienCum.hasOwnProperty(uScope)) {
+                lc = uScope;
+            } else if (this.mapCum && this.mapCum.hasOwnProperty(uScope)) {
+                cum = uScope;
+                lc = this.getParentLienCum(uScope) || '';
+            }
+            setVal('store-maLienCum', lc);
+            setVal('store-maCum', cum);
+
+            this.tempStoreImages = { trong: null, ngoai: null };
+            modal.querySelectorAll('input[type="file"]').forEach((i) => { i.value = ''; });
+            this._setupStoreImagePreview('trong', '');
+            this._setupStoreImagePreview('ngoai', '');
+
+            modal.classList.remove('hidden');
+            modal.style.display = 'block';
+            modal.style.zIndex = '9999';
+        },
+
         // --- 1. Hàm Mở Modal ---
         openEditStoreModal(storeId) {
-            console.log("🚀 [OpenEditStore] Đang mở cho ID:", storeId);
-
-            // A. TÌM MODAL & FIX VỊ TRÍ
             const modal = document.getElementById('modal-edit-store');
             if (!modal) return alert("❌ Lỗi: Không tìm thấy HTML Modal id='modal-edit-store'!");
+            if (modal.parentElement !== document.body) document.body.appendChild(modal);
 
-            if (modal.parentElement !== document.body) {
-                document.body.appendChild(modal);
-            }
-
-            // B. TÌM DỮ LIỆU STORE
             if (!this.cachedData || !this.cachedData.stores) {
-                return alert("Dữ liệu đang tải, vui lòng thử lại sau!");
+                return alert('Dữ liệu đang tải, vui lòng thử lại sau!');
             }
-            
-            const store = this.cachedData.stores.find(s => 
+
+            const store = this.cachedData.stores.find((s) =>
                 String(s.id) === String(storeId) || String(s.maCH) === String(storeId)
             );
+            if (!store) return alert('Không tìm thấy dữ liệu cửa hàng này!');
 
-            if (!store) return alert("Không tìm thấy dữ liệu cửa hàng này!");
+            this.storeEditMode = 'edit';
+            this.currentEditingStoreId = this._pickRowValue_(store, 'id', 'maCH', 'mach');
+            this._applyStoreModalMode_('edit');
 
-            // C. ĐIỀN DỮ LIỆU VÀO FORM
             const setVal = (domId, val) => {
                 const el = document.getElementById(domId);
                 if (el) el.value = val || '';
             };
 
-            setVal('store-id', store.id || store.maCH);
-            setVal('store-ten', store.ten);
-            setVal('store-diaChi', store.diaChi); // <--- Đã có input để điền vào
-            
+            const storeIdVal = this._pickRowValue_(store, 'id', 'maCH', 'mach');
+            setVal('store-id', storeIdVal);
+            setVal('store-maCH', storeIdVal);
+            setVal('store-ten', this._pickRowValue_(store, 'ten', 'Ten'));
+            setVal('store-diaChi', this._pickRowValue_(store, 'diaChi', 'DiaChi', 'diachi'));
+            setVal('store-maLienCum', this._pickRowValue_(store, 'maLienCum', 'maliencum', 'lienCum'));
+            setVal('store-maCum', this._pickRowValue_(store, 'maCum', 'macum', 'cum'));
+
             const elLoai = document.getElementById('store-loaiCh');
-            if (elLoai) elLoai.value = store.loaiCh || 'CHTT'; // Mặc định CHTT nếu thiếu
+            if (elLoai) elLoai.value = this._pickRowValue_(store, 'loaiCh', 'loaich') || 'Cap1';
 
-            setVal('store-cht', store.cht);
-            setVal('store-sdt', store.sdt);
-            setVal('store-email', store.email);
+            setVal('store-cht', this._pickRowValue_(store, 'cht', 'CHT'));
+            setVal('store-sdt', this._pickRowValue_(store, 'sdt', 'SDT', 'phone'));
+            setVal('store-email', this._pickRowValue_(store, 'email', 'Email'));
+            setVal('store-gioMo', this._pickRowValue_(store, 'gioMo', 'GioMo', 'giomo'));
+            setVal('store-trangThai', this._pickRowValue_(store, 'trangThai', 'TrangThai', 'trangthai'));
+            setVal('store-ghiChu', this._pickRowValue_(store, 'ghiChu', 'GhiChu', 'ghichu'));
+            setVal('store-lat', this._pickRowValue_(store, 'lat', 'Lat'));
+            setVal('store-lng', this._pickRowValue_(store, 'lng', 'Lng'));
+            setVal('store-ngayThue', formatDateForInput(this._pickRowValue_(store, 'ngayThue', 'NgayThue', 'ngaythue')));
+            setVal('store-ngayHetHan', formatDateForInput(this._pickRowValue_(store, 'ngayHetHan', 'NgayHetHan', 'ngayhethan')));
 
-            setVal('store-lat', store.lat);
-            setVal('store-lng', store.lng);
-            setVal('store-ngayThue', formatDateForInput(store.ngayThue));
-            setVal('store-ngayHetHan', formatDateForInput(store.ngayHetHan));
+            this.tempStoreImages = { trong: null, ngoai: null };
+            modal.querySelectorAll('input[type="file"]').forEach((i) => { i.value = ''; });
+            this._setupStoreImagePreview('trong', this._pickRowValue_(store, 'AnhTrong', 'anhTrong', 'anhtrong'));
+            this._setupStoreImagePreview('ngoai', this._pickRowValue_(store, 'AnhNgoai', 'anhNgoai', 'anhngoai'));
 
-            // D. XỬ LÝ ẢNH
-            this.tempStoreImages = { trong: null, ngoai: null }; 
-            
-            // Reset input file
-            modal.querySelectorAll('input[type="file"]').forEach(i => i.value = '');
-
-            // Setup hiển thị ảnh (Dùng hàm helper có sẵn trong class của bạn)
-            if (typeof this._setupStoreImagePreview === 'function') {
-                this._setupStoreImagePreview('trong', store.AnhTrong || store.anhtrong);
-                this._setupStoreImagePreview('ngoai', store.AnhNgoai || store.anhngoai);
-            } else {
-                // Fallback nếu hàm helper chưa define (phòng hờ)
-                const imgT = document.getElementById('preview-store-trong');
-                const holderT = document.getElementById('placeholder-store-trong');
-                if(store.AnhTrong) { imgT.src = store.AnhTrong; imgT.classList.remove('hidden'); holderT.classList.add('hidden'); }
-                else { imgT.classList.add('hidden'); holderT.classList.remove('hidden'); }
-                
-                const imgN = document.getElementById('preview-store-ngoai');
-                const holderN = document.getElementById('placeholder-store-ngoai');
-                if(store.AnhNgoai) { imgN.src = store.AnhNgoai; imgN.classList.remove('hidden'); holderN.classList.add('hidden'); }
-                else { imgN.classList.add('hidden'); holderN.classList.remove('hidden'); }
-            }
-
-            // E. HIỂN THỊ MODAL
             modal.classList.remove('hidden');
             modal.style.display = 'block';
-            modal.style.zIndex = '9999'; 
-            
-            // Reset nút Save
+            modal.style.zIndex = '9999';
+
             const btnLoad = document.getElementById('btn-save-loading');
             const btnSave = document.getElementById('btn-save-store');
-            if(btnLoad) btnLoad.classList.add('hidden');
-            if(btnSave) btnSave.disabled = false;
-
-            console.log("✅ Đã mở Modal. Store:", store.ten);
+            if (btnLoad) btnLoad.classList.add('hidden');
+            if (btnSave) btnSave.disabled = false;
         },
 
         /**
@@ -3821,81 +4030,63 @@
         },
 
         /**
-         * 4. Hàm đóng Modal (Helper tiện ích)
-         * Được gọi từ HTML: onclick="app.closeModal('modal-edit-store')"
-         */
-        closeModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('hidden');
-            }
-        },
-
-        /**
-         * 5. Hàm Lưu thay đổi (Đã Fix: Gọi API thực tế)
+         * 4. Hàm Lưu thay đổi (Đã Fix: Gọi API thực tế)
          */
         async saveStoreChanges() {
-        // 1. UI FEEDBACK: HIỆN TRẠNG THÁI "ĐANG LƯU"
-        const btnSave = document.getElementById('btn-save-store');
-        const btnText = document.getElementById('btn-save-text');
-        const btnLoad = document.getElementById('btn-save-loading');
+            const btnSave = document.getElementById('btn-save-store');
+            const btnText = document.getElementById('btn-save-text');
+            const btnLoad = document.getElementById('btn-save-loading');
+            const isCreate = this.storeEditMode === 'create';
 
-        if (btnSave) {
-            btnSave.disabled = true; // Chặn click liên tục
-            if (btnText) btnText.innerText = "Đang lưu dữ liệu...";
-            if (btnLoad) btnLoad.classList.remove('hidden'); // Hiện vòng xoay
-        }
+            if (btnSave) {
+                btnSave.disabled = true;
+                if (btnText) btnText.innerText = 'Đang lưu dữ liệu...';
+                if (btnLoad) btnLoad.classList.remove('hidden');
+            }
 
-        try {
-            const storeId = document.getElementById('store-id').value;
-            // Helper lấy giá trị an toàn từ input
-            const newVal = (id) => { 
-                const el = document.getElementById(id); 
-                return el ? el.value.trim() : ""; 
-            };
+            try {
+                const oldStoreId = (document.getElementById('store-id')?.value || '').trim();
+                const newVal = (id) => {
+                    const el = document.getElementById(id);
+                    return el ? String(el.value || '').trim() : '';
+                };
 
-            // 2. THU THẬP DỮ LIỆU (Đã bổ sung DiaChi)
-            const payload = {
-                id: storeId,
-                // --- Thông tin cơ bản ---
-                ten: newVal('store-ten'),
-                loaiCh: newVal('store-loaiCh'),
-                diaChi: newVal('store-diaChi'), // <=== ĐÃ BỔ SUNG TRƯỜNG ĐỊA CHỈ
-                
-                // --- Liên hệ ---
-                cht: newVal('store-cht'),
-                sdt: newVal('store-sdt'),
-                email: newVal('store-email'),
-                
-                // --- Vị trí & Hạn thuê ---
-                lat: newVal('store-lat'),
-                lng: newVal('store-lng'),
-                ngayThue: newVal('store-ngayThue'),   // YYYY-MM-DD
-                ngayHetHan: newVal('store-ngayHetHan'), // YYYY-MM-DD
-            };
+                const storeCode = newVal('store-maCH') || oldStoreId;
+                if (!storeCode) throw new Error('Vui lòng nhập Mã Cửa Hàng.');
 
-            // 3. XỬ LÝ ẢNH & KIỂM TRA BASE64 (Logic cũ của bạn)
-            if (!this.tempStoreImages) this.tempStoreImages = {};
-            // Nếu có ảnh mới (Base64) thì đưa vào payload gửi lên server
-            if (this.tempStoreImages.ngoai) payload.imgOutside = this.tempStoreImages.ngoai;
-            if (this.tempStoreImages.trong) payload.imgInside = this.tempStoreImages.trong;
+                const payload = {
+                    id: storeCode,
+                    oldId: oldStoreId || storeCode,
+                    ten: newVal('store-ten'),
+                    loaiCh: newVal('store-loaiCh'),
+                    maLienCum: newVal('store-maLienCum'),
+                    maCum: newVal('store-maCum'),
+                    diaChi: newVal('store-diaChi'),
+                    cht: newVal('store-cht'),
+                    sdt: newVal('store-sdt'),
+                    email: newVal('store-email'),
+                    gioMo: newVal('store-gioMo'),
+                    trangThai: newVal('store-trangThai'),
+                    ghiChu: newVal('store-ghiChu'),
+                    lat: newVal('store-lat'),
+                    lng: newVal('store-lng'),
+                    ngayThue: newVal('store-ngayThue'),
+                    ngayHetHan: newVal('store-ngayHetHan'),
+                };
 
-            console.log("📤 Đang gửi cập nhật:", payload);
+                if (!this.tempStoreImages) this.tempStoreImages = {};
+                if (this.tempStoreImages.ngoai) payload.imgOutside = this.tempStoreImages.ngoai;
+                if (this.tempStoreImages.trong) payload.imgInside = this.tempStoreImages.trong;
 
-            // 4. GỌI API
-            // (Giả sử DataService.updateStore đã được định nghĩa đúng bên file service)
-            const response = await DataService.updateStore(payload);
+                const response = await DataService.updateStore(payload);
+                if (!(response && (response.success || response.status === 'success' || response.result === 'success'))) {
+                    throw new Error(response?.error || 'Lỗi server không xác định');
+                }
 
-            if (response && (response.success || response.status === 'success' || response.result === 'success')) {
-                // Ưu tiên reload từ server để lấy đúng link ảnh Drive mới nhất
                 let refreshedOk = false;
                 try {
-                    if (DataService.invalidateLocalCache_) {
-                        DataService.invalidateLocalCache_(['stores']);
-                    }
-                    if (typeof DataService.ensureData === 'function') {
-                        await DataService.ensureData(true);
-                    }
+                    if (DataService.invalidateLocalCache_) DataService.invalidateLocalCache_(['stores']);
+                    if (typeof DataService.ensureData === 'function') await DataService.ensureData(true);
                     const latestStores = await DataService.getStores();
                     if (Array.isArray(latestStores)) {
                         this.cachedData.stores = this.filterDataByScope(this.normalizeDataSet(latestStores));
@@ -3905,45 +4096,40 @@
                     console.warn('[Store] reload after save failed:', eReload);
                 }
 
-                // Fallback optimistic nếu reload không thành công
                 if (!refreshedOk && this.cachedData && this.cachedData.stores) {
-                    const storeIndex = this.cachedData.stores.findIndex(s => String(s.id) === String(storeId) || String(s.maCH) === String(storeId));
-                    if (storeIndex !== -1) {
-                        const currentStore = this.cachedData.stores[storeIndex];
-                        this.cachedData.stores[storeIndex] = { ...currentStore, ...payload };
-                    }
+                    const storeIndex = this.cachedData.stores.findIndex((s) =>
+                        String(s.id) === String(oldStoreId || storeCode) || String(s.maCH) === String(oldStoreId || storeCode)
+                    );
+                    const merged = { ...(this.cachedData.stores[storeIndex] || {}), ...payload };
+                    if (storeIndex !== -1) this.cachedData.stores[storeIndex] = merged;
+                    else this.cachedData.stores.unshift(merged);
                 }
 
                 this.renderStoreList();
                 this.tempStoreImages = { trong: null, ngoai: null };
-
-                alert("✅ Đã cập nhật thông tin cửa hàng thành công!");
                 this.closeModal('modal-edit-store');
-
-            } else {
-                throw new Error(response.error || "Lỗi server không xác định");
+                alert(isCreate ? '✅ Đã thêm mới cửa hàng thành công!' : '✅ Đã cập nhật thông tin cửa hàng thành công!');
+            } catch (e) {
+                console.error('Lỗi Save Store:', e);
+                alert('⚠️ Không thể lưu: ' + e.message);
+            } finally {
+                if (btnSave) {
+                    btnSave.disabled = false;
+                    if (btnText) btnText.innerText = isCreate ? 'Lưu Cửa Hàng Mới' : 'Lưu Cập Nhật';
+                    if (btnLoad) btnLoad.classList.add('hidden');
+                }
             }
-
-        } catch (e) {
-            console.error("Lỗi Save Store:", e);
-            alert("⚠️ Không thể lưu: " + e.message);
-        } finally {
-            // 6. TẮT HIỆU ỨNG LOADING (Dù thành công hay thất bại)
-            if (btnSave) {
-                btnSave.disabled = false;
-                if (btnText) btnText.innerText = "Lưu Cập Nhật"; // Trả lại text gốc
-                if (btnLoad) btnLoad.classList.add('hidden');
-            }
-        }
         },
         // ============================================================
         // HÀM LƯU DỮ LIỆU (ĐÃ FIX: BỔ SUNG GỬI CỤM/LIÊN CỤM)
         // ============================================================
 
         async saveIndirectChannel() {
-            // --- 1. LẤY ID BẢN GHI GỐC ---
-            const oldId = this.currentEditingIndirectId; 
-            if (!oldId) return alert("❌ Lỗi: Không xác định được ID bản ghi gốc.");
+            const isCreate = this.indirectEditMode === 'create';
+            const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
+            const oldId = this.currentEditingIndirectId || codeInput;
+            if (!oldId && !isCreate) return alert("❌ Lỗi: Không xác định được ID bản ghi gốc.");
+            if (!codeInput) return alert("⚠️ Vui lòng nhập Mã Đại Lý / Điểm Bán.");
 
             // Tìm Item gốc để backup dữ liệu nếu form nhập thiếu
             const originalItem = (this.cachedData.indirect || []).find(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
@@ -3958,7 +4144,6 @@
             };
 
             // --- 2. LẤY DỮ LIỆU TỪ FORM (ĐÃ CHUẨN HÓA ID) ---
-            const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
             const newId = codeInput || oldId; 
 
             const name = document.getElementById('edit-indirect-name')?.value.trim();
@@ -4000,11 +4185,10 @@
             }
 
             // --- 3. UI LOADING ---
-            const saveBtn = document.querySelector('#modal-edit-indirect .btn-save') || 
+            const saveBtn = document.getElementById('btn-save-indirect') ||
                             document.querySelector('#modal-edit-indirect button[onclick*="save"]');
-            let oldBtnContent = 'Lưu thay đổi';
+            let oldBtnContent = saveBtn ? saveBtn.innerHTML : 'Lưu thay đổi';
             if (saveBtn) {
-                oldBtnContent = saveBtn.innerHTML;
                 saveBtn.disabled = true;
                 saveBtn.innerHTML = `<i class="animate-spin mr-2">⏳</i> Đang xử lý & Gửi...`;
             }
@@ -4037,7 +4221,7 @@
                 const payload = {
                     action: 'update_indirect',
                     data: {
-                        oldMaDL: oldId, // Key tìm dòng
+                        oldMaDL: oldId || newId, // Key tìm dòng
                         maDL: newId,    // Key cập nhật
                         
                         // Các trường thông tin (dùng key chữ thường cho lành)
@@ -4070,7 +4254,7 @@
                 if (response && (response.status === 'success' || response.result === 'success' || response.id)) {
                     
                     // 1. Thông báo & Đóng Modal
-                    alert("✅ Cập nhật thành công!");
+                    alert(isCreate ? "✅ Đã thêm mới điểm bán thành công!" : "✅ Cập nhật thành công!");
                     this.closeModal('modal-edit-indirect');
 
                     // 2. Reload từ server để đảm bảo lấy đúng link ảnh trong/ngoài mới nhất
@@ -4117,7 +4301,7 @@
                             anhTrong: imgInBase64 ? `data:image/jpeg;base64,${imgInBase64}` : (originalItem ? (originalItem.anhTrong || originalItem.imgInside) : '')
                         };
                         if (!this.cachedData.indirect) this.cachedData.indirect = [];
-                        const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
+                        const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId || newId) || String(i.maDL) == String(oldId || newId));
                         if (index !== -1) this.cachedData.indirect[index] = updatedItem;
                         else this.cachedData.indirect.unshift(updatedItem);
                     }
@@ -4422,7 +4606,159 @@
                 // 2. Chờ hiệu ứng transition (nếu có) rồi ẩn hẳn đi, hoặc ẩn ngay lập tức
                 // Để an toàn và nhanh gọn, ta ẩn luôn và xóa flex
                 modal.classList.remove('flex');
-                modal.classList.add('hidden');
+                if (!modal.classList.contains('modal-overlay')) {
+                    modal.classList.add('hidden');
+                }
+            }
+        },
+        openModal(id) {
+            const modal = document.getElementById(id);
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            if (modal.classList.contains('modal-overlay')) {
+                modal.classList.add('open');
+            } else {
+                modal.classList.add('flex');
+            }
+            if (window.refreshLucide) window.refreshLucide();
+        },
+        openUserGuide() {
+            this.openModal('modal-user-guide');
+        },
+        _applyBTSModalMode_(mode = 'edit') {
+            const isCreate = mode === 'create';
+            const titleEl = document.getElementById('bts-modal-title');
+            const btnTextEl = document.getElementById('btn-save-bts-text');
+            const codeEl = document.getElementById('bts-maTram');
+            if (titleEl) {
+                titleEl.innerHTML = `<i data-lucide="${isCreate ? 'plus-circle' : 'radio-tower'}" class="w-5 h-5"></i> ${isCreate ? 'Thêm Mới Trạm BTS' : 'Cập Nhật Trạm BTS'}`;
+            }
+            if (btnTextEl) btnTextEl.textContent = isCreate ? 'Lưu Trạm Mới' : 'Lưu trạm BTS';
+            if (codeEl) {
+                codeEl.readOnly = !isCreate;
+                codeEl.classList.toggle('bg-slate-100', !isCreate);
+            }
+            if (window.refreshLucide) window.refreshLucide();
+        },
+        _setBTSModalValue_(id, val = '') {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+        },
+        openCreateBTSModal() {
+            this.btsEditMode = 'create';
+            this.currentEditingBTSId = null;
+            this._applyBTSModalMode_('create');
+
+            [
+                'bts-old-maTram', 'bts-maTram', 'bts-loaiTram', 'bts-maLienCum', 'bts-maCum',
+                'bts-diaChi', 'bts-lat', 'bts-lng', 'bts-vlr3g', 'bts-vlr4g', 'bts-asim',
+                'bts-gtel', 'bts-vnsky', 'bts-saymee', 'bts-m2m', 'bts-data', 'bts-csg',
+                'bts-tbaon', 'bts-portaon', 'bts-olt', 'bts-tbgpon', 'bts-linegpon', 'bts-ghiChu'
+            ].forEach((id) => this._setBTSModalValue_(id, ''));
+
+            const uScope = (this.currentUser?.scope || 'all').toString().trim();
+            if (this.mapLienCum && this.mapLienCum.hasOwnProperty(uScope)) {
+                this._setBTSModalValue_('bts-maLienCum', uScope);
+            } else if (this.mapCum && this.mapCum.hasOwnProperty(uScope)) {
+                this._setBTSModalValue_('bts-maCum', uScope);
+                this._setBTSModalValue_('bts-maLienCum', this.getParentLienCum(uScope) || '');
+            }
+            this.openModal('modal-edit-bts');
+        },
+        openEditBTSModal(maTram) {
+            const id = String(maTram || '').trim();
+            if (!id || id === '-') return;
+            const list = this.cachedData.bts || [];
+            const row = list.find((r) => String(this._pickRowValue_(r, 'maTram', 'Mã Trạm', 'matram', 'id')).trim() === id);
+            if (!row) return alert('Không tìm thấy dữ liệu trạm BTS.');
+
+            this.btsEditMode = 'edit';
+            this.currentEditingBTSId = id;
+            this._applyBTSModalMode_('edit');
+
+            this._setBTSModalValue_('bts-old-maTram', id);
+            this._setBTSModalValue_('bts-maTram', this._pickRowValue_(row, 'maTram', 'Mã Trạm', 'matram', 'id'));
+            this._setBTSModalValue_('bts-loaiTram', this._pickRowValue_(row, 'loaiTram', 'loaitram', 'Loại trạm'));
+            this._setBTSModalValue_('bts-maLienCum', this._pickRowValue_(row, 'maLienCum', 'Mã Liên Cụm', 'maliencum'));
+            this._setBTSModalValue_('bts-maCum', this._pickRowValue_(row, 'maCum', 'Mã Cụm', 'macum'));
+            this._setBTSModalValue_('bts-diaChi', this._pickRowValue_(row, 'diaChi', 'Địa chỉ', 'diachi'));
+            this._setBTSModalValue_('bts-lat', this._pickRowValue_(row, 'lat', 'Lat'));
+            this._setBTSModalValue_('bts-lng', this._pickRowValue_(row, 'lng', 'Lng'));
+            this._setBTSModalValue_('bts-vlr3g', this._pickRowValue_(row, 'VLR 3G', 'vlr3g'));
+            this._setBTSModalValue_('bts-vlr4g', this._pickRowValue_(row, 'VLR 4G', 'vlr4g'));
+            this._setBTSModalValue_('bts-asim', this._pickRowValue_(row, 'ASIM'));
+            this._setBTSModalValue_('bts-gtel', this._pickRowValue_(row, 'GTEL'));
+            this._setBTSModalValue_('bts-vnsky', this._pickRowValue_(row, 'VNSKY'));
+            this._setBTSModalValue_('bts-saymee', this._pickRowValue_(row, 'SAYMEE'));
+            this._setBTSModalValue_('bts-m2m', this._pickRowValue_(row, 'M2M - Tổng', 'm2m'));
+            this._setBTSModalValue_('bts-data', this._pickRowValue_(row, 'Data (GB/BQN)', 'data'));
+            this._setBTSModalValue_('bts-csg', this._pickRowValue_(row, 'CSG'));
+            this._setBTSModalValue_('bts-tbaon', this._pickRowValue_(row, 'TBAON_ACTIVE'));
+            this._setBTSModalValue_('bts-portaon', this._pickRowValue_(row, 'PORTAON_EMTY'));
+            this._setBTSModalValue_('bts-olt', this._pickRowValue_(row, 'OLT'));
+            this._setBTSModalValue_('bts-tbgpon', this._pickRowValue_(row, 'TBGPON_ACTIVE'));
+            this._setBTSModalValue_('bts-linegpon', this._pickRowValue_(row, 'LINEGPON_EMTY'));
+            this._setBTSModalValue_('bts-ghiChu', this._pickRowValue_(row, 'ghiChu', 'Ghi chú'));
+
+            this.openModal('modal-edit-bts');
+        },
+        async saveBTSChanges() {
+            const btn = document.getElementById('btn-save-bts');
+            const btnText = document.getElementById('btn-save-bts-text');
+            const isCreate = this.btsEditMode === 'create';
+            if (btn) btn.disabled = true;
+            if (btnText) btnText.textContent = 'Đang lưu...';
+
+            const v = (id) => String(document.getElementById(id)?.value || '').trim();
+            try {
+                const maTram = v('bts-maTram');
+                if (!maTram) throw new Error('Vui lòng nhập Mã trạm.');
+                const payload = {
+                    oldMaTram: v('bts-old-maTram') || maTram,
+                    maTram: maTram,
+                    loaiTram: v('bts-loaiTram'),
+                    maLienCum: v('bts-maLienCum'),
+                    maCum: v('bts-maCum'),
+                    diaChi: v('bts-diaChi'),
+                    lat: v('bts-lat'),
+                    lng: v('bts-lng'),
+                    vlr3g: v('bts-vlr3g'),
+                    vlr4g: v('bts-vlr4g'),
+                    asim: v('bts-asim'),
+                    gtel: v('bts-gtel'),
+                    vnsky: v('bts-vnsky'),
+                    saymee: v('bts-saymee'),
+                    m2m: v('bts-m2m'),
+                    dataBqn: v('bts-data'),
+                    csg: v('bts-csg'),
+                    tbaon: v('bts-tbaon'),
+                    portaon: v('bts-portaon'),
+                    olt: v('bts-olt'),
+                    tbgpon: v('bts-tbgpon'),
+                    linegpon: v('bts-linegpon'),
+                    ghiChu: v('bts-ghiChu')
+                };
+
+                const response = (DataService.upsertBTS)
+                    ? await DataService.upsertBTS(payload)
+                    : await DataService.postData({ action: 'upsert_bts', data: payload });
+
+                if (!(response && (response.status === 'success' || response.result === 'success' || response.success))) {
+                    throw new Error(response?.error || 'Lưu trạm BTS thất bại.');
+                }
+
+                if (DataService.invalidateLocalCache_) DataService.invalidateLocalCache_(['bts']);
+                if (typeof DataService.ensureData === 'function') await DataService.ensureData(true);
+                const latest = await DataService.getBTS();
+                if (Array.isArray(latest)) this.cachedData.bts = this.filterDataByScope(this.normalizeDataSet(latest));
+                this.applyBTSFilters();
+                this.closeModal('modal-edit-bts');
+                alert(isCreate ? '✅ Đã thêm mới trạm BTS thành công!' : '✅ Đã cập nhật trạm BTS thành công!');
+            } catch (e) {
+                alert('⚠️ Không thể lưu trạm BTS: ' + e.message);
+            } finally {
+                if (btn) btn.disabled = false;
+                if (btnText) btnText.textContent = isCreate ? 'Lưu Trạm Mới' : 'Lưu trạm BTS';
             }
         },
         openRentConfigModal() { if (this.currentUser.role === 'admin') document.getElementById('modal-rent-config').classList.add('open'); else alert('Quyền hạn chế!'); },
