@@ -3,7 +3,7 @@
  * Update: Tích hợp xác thực Token, Caching thông minh & Xử lý lỗi
  * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwU2eOu5tgY5O7ih17ZZ6dW5OVu413uTJGIYWES_rVJZiArbpSs6LIUGm-FHkYNORHgXw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwLWj2Ov-8I0sgo7hEQe2HL8pRwdoXGbGOUho54dxQpdbMV6gYzo9geszvqe3V1ivfihQ/exec";
 
 const DataService = {
     _cache: null,          // Core data (Users, Stores, BTS...)
@@ -486,6 +486,13 @@ const DataService = {
         });
     },
 
+    async upsertBTS(data) {
+        return this.postData({
+            action: 'upsert_bts',
+            data: data
+        });
+    },
+
     async saveIndirectCheckin(data) {
         return this.postData({
             action: 'upsert_indirect_checkin',
@@ -580,6 +587,9 @@ const DataService = {
                 }
                 if (safePayload.action === 'update_store' && this._cache) {
                     this.invalidateLocalCache_(['stores']);
+                }
+                if (safePayload.action === 'upsert_bts' && this._cache) {
+                    this.invalidateLocalCache_(['bts']);
                 }
                 if (safePayload.action === 'upsert_weekly_plan' || safePayload.action === 'approve_weekly_plan') {
                     this.invalidateLocalCache_(['lich_tuan']);
