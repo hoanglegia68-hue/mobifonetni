@@ -30,6 +30,38 @@
         currentStaffDataGroups: null,
         isSidebarOpen: false,
         mobileBreakpoint: 1024,
+        indirectRouteState: {
+            route: 'all',
+            period: 'month',
+            map: null,
+            layer: null,
+            sourceData: null,
+            checkinsSynced: false,
+            syncingCheckins: false
+        },
+        storeMapState: { cum: 'all', map: null, layer: null, sourceData: null },
+        indirectCheckinDistanceThresholdM: 300,
+        indirectKpiHistoryRows: [],
+        tablePaginationState: {},
+        tablePaginationObservers: {},
+        tablePaginationDefaultSize: 20,
+        tablePaginationBodyIds: [
+            'dashboard-breakdown-body',
+            'cluster-table-body',
+            'store-list-body',
+            'gdv-list-body',
+            'sales-list-body',
+            'b2b-list-body',
+            'indirect-route-kpi-body',
+            'indirect-kpi-assign-body',
+            'indirect-list-body',
+            'bts-list-body',
+            'kpi-personal-table-body',
+            'weekly-report-table-body',
+            'market-table-body',
+            'focus-report-table-body',
+            'product-table-body'
+        ],
 
         // BTS Filter State (lọc theo Liên Cụm/Cụm + tìm kiếm)
         btsFilterState: { keyword: '', liencum: 'all', cum: 'all' },
@@ -65,35 +97,45 @@
                 // 1. Xử lý Nút Menu (3 gạch)
                 const btnMenu = document.getElementById('mobile-menu-btn');
                 if (btnMenu) {
-                    // Clone nút để xóa sạch các event cũ (tránh lỗi lặp lệnh)
-                    const newBtn = btnMenu.cloneNode(true);
-                    btnMenu.parentNode.replaceChild(newBtn, btnMenu);
-
-                    newBtn.addEventListener('click', (e) => {
+                    if (!btnMenu.dataset.boundSidebar) {
+                        btnMenu.dataset.boundSidebar = '1';
+                        btnMenu.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.toggleSidebar();
+                        });
+                    }
+                    btnMenu.onclick = (e) => {
                         e.preventDefault();
-                        e.stopPropagation(); // Ngăn sự kiện nổi bọt
-                        console.log("🖱️ CLICK: Đã bấm nút Menu!");
+                        e.stopPropagation();
                         this.toggleSidebar();
-                    });
+                    };
                     console.log("✅ Đã kích hoạt nút Menu Mobile");
                 } else {
                     console.error("❌ LỖI: Không tìm thấy nút id='mobile-menu-btn'");
                 }
 
+                // Event delegation fallback: đảm bảo nút menu vẫn hoạt động nếu DOM bị re-render
+                if (!document.body.dataset.boundMobileMenuDelegated) {
+                    document.body.dataset.boundMobileMenuDelegated = '1';
+                    document.body.addEventListener('click', (e) => {
+                        const btn = e.target && e.target.closest ? e.target.closest('#mobile-menu-btn') : null;
+                        if (!btn) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.toggleSidebar();
+                    }, true);
+                }
+
                 // 2. Xử lý Overlay (Vùng tối) - GỘP CHUNG VÀO ĐÂY
                 const overlay = document.getElementById('mobile-overlay');
                 if (overlay) {
-                    // Clone để reset sự kiện cũ
-                    const newOverlay = overlay.cloneNode(true);
-                    overlay.parentNode.replaceChild(newOverlay, overlay);
-
-                    // Gán sự kiện click: Bấm vào vùng tối thì đóng menu
-                    newOverlay.addEventListener('click', () => {
-                        console.log("🖱️ CLICK: Đã bấm vào Overlay");
-                        if (this.isSidebarOpen) {
-                            this.toggleSidebar();
-                        }
-                    });
+                    if (!overlay.dataset.boundSidebar) {
+                        overlay.dataset.boundSidebar = '1';
+                        overlay.addEventListener('click', () => {
+                            if (this.isSidebarOpen) this.toggleSidebar();
+                        });
+                    }
                 }
 
                 // 3. Xử lý khi co giãn màn hình (Resize)
@@ -142,6 +184,7 @@
 
                 this.buildDictionary();
                 this.updateUserInterface();
+                this.initTablePagination_();
                 this.renderFooter();
 
                 if (window.lucide) lucide.createIcons();
@@ -1295,6 +1338,7 @@
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu cửa hàng.</td></tr>';
+                this.renderDirectStoreMap(data);
                 return;
             }
 
@@ -1467,6 +1511,7 @@
             });
 
             tbody.innerHTML = html;
+            this.renderDirectStoreMap(data);
             if(window.lucide) lucide.createIcons();
         },
 
@@ -1503,6 +1548,130 @@
                 }
             });
             UIRenderer.renderKPIUserLogs(Array.from(users.values()).map(u => ({ ...u, channelStr: Array.from(u.channels).join(', ') })));
+        },
+
+        initTablePagination_() {
+            if (this._tablePaginationInitialized) return;
+            this._tablePaginationInitialized = true;
+            this._tablePaginationTimers = this._tablePaginationTimers || {};
+
+            const ids = Array.isArray(this.tablePaginationBodyIds) ? this.tablePaginationBodyIds : [];
+            ids.forEach((tbodyId) => {
+                const tbody = document.getElementById(tbodyId);
+                if (!tbody) return;
+                if (this.tablePaginationObservers[tbodyId]) {
+                    try { this.tablePaginationObservers[tbodyId].disconnect(); } catch (e) {}
+                }
+                const obs = new MutationObserver(() => this._queueApplyTablePagination_(tbodyId));
+                obs.observe(tbody, { childList: true });
+                this.tablePaginationObservers[tbodyId] = obs;
+                this._queueApplyTablePagination_(tbodyId);
+            });
+        },
+
+        _queueApplyTablePagination_(tbodyId) {
+            if (!tbodyId) return;
+            this._tablePaginationTimers = this._tablePaginationTimers || {};
+            if (this._tablePaginationTimers[tbodyId]) {
+                clearTimeout(this._tablePaginationTimers[tbodyId]);
+            }
+            this._tablePaginationTimers[tbodyId] = setTimeout(() => {
+                delete this._tablePaginationTimers[tbodyId];
+                this._applyTablePagination_(tbodyId);
+            }, 50);
+        },
+
+        _getTablePagerEl_(tbodyId, tbody) {
+            const pagerId = `table-pager-${tbodyId}`;
+            let pager = document.getElementById(pagerId);
+            if (pager) return pager;
+
+            const table = tbody?.closest('table');
+            const anchor = table?.parentElement || table || tbody;
+            pager = document.createElement('div');
+            pager.id = pagerId;
+            pager.className = 'table-pager border-t border-slate-100 bg-slate-50 px-2 py-1.5';
+            if (anchor && anchor.parentNode) {
+                anchor.parentNode.insertBefore(pager, anchor.nextSibling);
+            }
+            return pager;
+        },
+
+        _applyTablePagination_(tbodyId) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            const rows = Array.from(tbody.children || []).filter((el) => el.tagName === 'TR');
+            const totalRows = rows.length;
+            const pager = this._getTablePagerEl_(tbodyId, tbody);
+
+            const st = this.tablePaginationState[tbodyId] || {
+                page: 1,
+                size: this.tablePaginationDefaultSize
+            };
+            st.page = Number(st.page) || 1;
+            st.size = Number(st.size) || this.tablePaginationDefaultSize;
+            this.tablePaginationState[tbodyId] = st;
+
+            if (totalRows <= st.size || totalRows <= 1) {
+                rows.forEach((r) => { r.style.display = ''; });
+                if (pager) pager.classList.add('hidden');
+                return;
+            }
+
+            const totalPages = Math.max(1, Math.ceil(totalRows / st.size));
+            if (st.page > totalPages) st.page = totalPages;
+            if (st.page < 1) st.page = 1;
+
+            const start = (st.page - 1) * st.size;
+            const end = start + st.size;
+            rows.forEach((r, idx) => {
+                r.style.display = (idx >= start && idx < end) ? '' : 'none';
+            });
+
+            const options = [10, 20, 50, 100]
+                .map((n) => `<option value="${n}" ${st.size === n ? 'selected' : ''}>${n}</option>`)
+                .join('');
+            if (pager) {
+                pager.classList.remove('hidden');
+                pager.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 text-xs">
+                        <div class="text-slate-500">Tổng <b>${this._fmtNum(totalRows)}</b> dòng</div>
+                        <div class="flex items-center gap-1">
+                            <button class="btn-secondary h-[26px] px-2 ${st.page <= 1 ? 'opacity-40 pointer-events-none' : ''}" onclick="app.changeTablePage_('${tbodyId}', -1)">Trước</button>
+                            <span class="px-1 text-slate-600">Trang <b>${st.page}</b> / ${totalPages}</span>
+                            <button class="btn-secondary h-[26px] px-2 ${st.page >= totalPages ? 'opacity-40 pointer-events-none' : ''}" onclick="app.changeTablePage_('${tbodyId}', 1)">Sau</button>
+                            <select class="border border-slate-300 rounded px-1 py-1 text-xs bg-white" onchange="app.setTablePageSize_('${tbodyId}', this.value)">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>
+                `;
+            }
+        },
+
+        changeTablePage_(tbodyId, delta) {
+            const id = String(tbodyId || '').trim();
+            if (!id) return;
+            const st = this.tablePaginationState[id] || { page: 1, size: this.tablePaginationDefaultSize };
+            st.page = Math.max(1, (Number(st.page) || 1) + (Number(delta) || 0));
+            this.tablePaginationState[id] = st;
+            this._applyTablePagination_(id);
+        },
+
+        setTablePageSize_(tbodyId, size) {
+            const id = String(tbodyId || '').trim();
+            if (!id) return;
+            const pageSize = Number(size) || this.tablePaginationDefaultSize;
+            const st = this.tablePaginationState[id] || { page: 1, size: this.tablePaginationDefaultSize };
+            st.size = pageSize;
+            st.page = 1;
+            this.tablePaginationState[id] = st;
+            this._applyTablePagination_(id);
+        },
+
+        refreshTablePaginations_() {
+            const ids = Array.isArray(this.tablePaginationBodyIds) ? this.tablePaginationBodyIds : [];
+            ids.forEach((id) => this._queueApplyTablePagination_(id));
         },
 
         // ============================================================
@@ -1719,11 +1888,1201 @@
                 }
             }
             else if (pageId === 'indirect_channel') {
-                UIRenderer.renderIndirectTable(this.filterDataByScope(this.cachedData.indirect));
+                this.renderIndirectChannelPage(this.filterDataByScope(this.cachedData.indirect));
             }
             else if (pageId === 'bts') {
                 UIRenderer.renderBTSTable(this.filterDataByScope(this.cachedData.bts || []));
                 this.initBTSFilterControls();
+            }
+
+            setTimeout(() => this.refreshTablePaginations_(), 80);
+        },
+
+        renderIndirectChannelPage(data = null) {
+            const rows = Array.isArray(data) ? data : this.filterDataByScope(this.cachedData.indirect || []);
+            UIRenderer.renderIndirectTable(rows);
+            this.renderIndirectRouteMapAndKPI(rows);
+            this.initIndirectKpiAssignmentPanel();
+            this._syncIndirectCheckinsFromServer_();
+        },
+
+        _pickIndirectVal(row, ...aliases) {
+            if (!row) return '';
+            const norm = (s) => String(s || '')
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/đ/g, "d").replace(/Đ/g, "D")
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, "");
+            const allKeys = Object.keys(row || {});
+            const lmap = {};
+            allKeys.forEach((k) => { lmap[norm(k)] = k; });
+            for (const a of aliases) {
+                if (!a) continue;
+                if (row[a] !== undefined && row[a] !== null && String(row[a]).trim() !== '') return row[a];
+                const cleanAlias = norm(a);
+                const keyExact = lmap[cleanAlias];
+                if (keyExact && row[keyExact] !== undefined && row[keyExact] !== null && String(row[keyExact]).trim() !== '') return row[keyExact];
+                const keyContains = allKeys.find((k) => norm(k).includes(cleanAlias));
+                if (keyContains && row[keyContains] !== undefined && row[keyContains] !== null && String(row[keyContains]).trim() !== '') return row[keyContains];
+            }
+            return '';
+        },
+
+        _parseIndirectSubsMonthly_(raw) {
+            if (!raw) return {};
+            let data = raw;
+            if (typeof raw === 'string') {
+                const s = raw.trim();
+                if (!s) return {};
+                try {
+                    data = JSON.parse(s);
+                } catch (e) {
+                    return {};
+                }
+            }
+            if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+            const out = {};
+            Object.keys(data).forEach((k) => {
+                const key = String(k || '').trim();
+                if (!/^\d{4}-\d{2}$/.test(key)) return;
+                const num = Number(data[k]) || 0;
+                out[key] = num;
+            });
+            return out;
+        },
+
+        _formatIndirectSubsHistoryText_(monthlyObj) {
+            const keys = Object.keys(monthlyObj || {}).sort((a, b) => b.localeCompare(a));
+            if (!keys.length) return '';
+            return keys.map((k) => `${k}:${this._fmtNum(monthlyObj[k])}`).join(' | ');
+        },
+
+        _getPeriodMonthKeys_(period) {
+            const now = new Date();
+            const keys = [];
+            const count = period === 'quarter' ? 3 : 1;
+            for (let i = 0; i < count; i += 1) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                keys.push(`${y}-${m}`);
+            }
+            return keys;
+        },
+
+        _normalizeIndirectPoints(data = null) {
+            const src = Array.isArray(data) ? data : this.filterDataByScope(this.cachedData.indirect || []);
+            return (src || []).map((r) => {
+                const maDL = String(this._pickIndirectVal(r, 'maDL', 'MaDL', 'maCode', 'code', 'id') || '').trim();
+                const ten = String(this._pickIndirectVal(r, 'ten', 'Ten', 'tenDiemBan') || '').trim() || maDL;
+                const tuyen = String(this._pickIndirectVal(r, 'tuyen', 'Tuyen', 'tuyenBanHang') || '').trim() || 'Chưa phân tuyến';
+                const maCum = String(this._pickIndirectVal(r, 'maCum', 'macum', 'cum', 'Cum') || '').trim();
+                const latRaw = this._pickIndirectVal(r, 'lat', 'Lat', 'ViDo');
+                const lngRaw = this._pickIndirectVal(r, 'lng', 'Lng', 'KinhDo');
+                const lat = this._toCoordNumber(latRaw);
+                const lng = this._toCoordNumber(lngRaw);
+                const hasCoord = Number.isFinite(lat) && Number.isFinite(lng);
+
+                const subsRaw = this._pickIndirectVal(
+                    r,
+                    'thuebao', 'thue_bao', 'thueBao', 'tb',
+                    'doanhso', 'doanh_so', 'doanhSo',
+                    'doanhthu', 'doanh_thu', 'doanhThu',
+                    'sales', 'revenue'
+                );
+                const subs = Number(String(subsRaw || 0).replace(/[^\d.-]/g, '')) || 0;
+                const subsMonthlyRaw = this._pickIndirectVal(
+                    r,
+                    'thuebaothang', 'thue_bao_thang', 'thueBaoThang', 'tbThang'
+                );
+                const subsMonthly = this._parseIndirectSubsMonthly_(subsMonthlyRaw);
+
+                return {
+                    maDL,
+                    ten,
+                    tuyen,
+                    maCum,
+                    lat: hasCoord ? lat : null,
+                    lng: hasCoord ? lng : null,
+                    hasCoord,
+                    subs,
+                    subsMonthly
+                };
+            }).filter((p) => p.maDL);
+        },
+
+        _loadIndirectCheckins() {
+            try {
+                const raw = localStorage.getItem('MIS_INDIRECT_CHECKINS');
+                const arr = JSON.parse(raw || '[]');
+                return Array.isArray(arr) ? arr : [];
+            } catch (e) {
+                return [];
+            }
+        },
+
+        _saveIndirectCheckins(list) {
+            const safe = Array.isArray(list) ? list.slice(-5000) : [];
+            localStorage.setItem('MIS_INDIRECT_CHECKINS', JSON.stringify(safe));
+        },
+
+        async _syncIndirectCheckinsFromServer_(force = false) {
+            if (!window.DataService || typeof DataService.getIndirectCheckins !== 'function') return;
+            if (this.indirectRouteState.syncingCheckins) return;
+            if (!force && this.indirectRouteState.checkinsSynced) return;
+
+            this.indirectRouteState.syncingCheckins = true;
+            try {
+                const remoteRows = await DataService.getIndirectCheckins();
+                const remote = Array.isArray(remoteRows) ? remoteRows : [];
+                const local = this._loadIndirectCheckins();
+                const merged = new Map();
+                local.forEach((c) => {
+                    const key = String(c.id || `${c.maDL}_${c.ts}_${c.gpsLat}_${c.gpsLng}`).trim();
+                    if (!key) return;
+                    merged.set(key, c);
+                });
+                remote.forEach((r) => {
+                    const key = String(r.id || `${r.ma_dl || r.maDL}_${r.ts}_${r.gps_lat || r.gpsLat}_${r.gps_lng || r.gpsLng}`).trim();
+                    if (!key) return;
+                    merged.set(key, {
+                        id: r.id,
+                        maDL: r.ma_dl || r.maDL || '',
+                        ten: r.ten_diem_ban || r.ten || '',
+                        tuyen: r.tuyen || '',
+                        ts: r.ts || r.time || r.created_at || '',
+                        gpsLat: Number(r.gps_lat || r.gpsLat) || null,
+                        gpsLng: Number(r.gps_lng || r.gpsLng) || null,
+                        pointLat: Number(r.point_lat || r.pointLat) || null,
+                        pointLng: Number(r.point_lng || r.pointLng) || null,
+                        distanceM: Number(r.distance_m || r.distanceM) || null,
+                        near: String(r.near).toLowerCase() === 'true' || r.near === true,
+                        user: r.user_name || r.user || '',
+                        username: r.username || '',
+                        email: String(r.email || '').trim().toLowerCase(),
+                        scope: r.scope || ''
+                    });
+                });
+                const mergedList = Array.from(merged.values())
+                    .sort((a, b) => String(a.ts || '').localeCompare(String(b.ts || '')))
+                    .slice(-5000);
+                this._saveIndirectCheckins(mergedList);
+                this.indirectRouteState.checkinsSynced = true;
+                this.renderIndirectRouteMapAndKPI();
+            } catch (e) {
+                console.warn('[Indirect] Sync check-in from server failed:', e);
+            } finally {
+                this.indirectRouteState.syncingCheckins = false;
+            }
+        },
+
+        _getIndirectPeriodStart(period) {
+            const now = new Date();
+            const d = new Date(now);
+            if (period === 'week') d.setDate(now.getDate() - 7);
+            else if (period === 'quarter') d.setDate(now.getDate() - 90);
+            else d.setDate(now.getDate() - 30); // month default
+            d.setHours(0, 0, 0, 0);
+            return d;
+        },
+
+        _formatPct(value) {
+            const n = Number(value) || 0;
+            return `${n.toFixed(1)}%`;
+        },
+
+        _fmtNum(value) {
+            return (window.UIRenderer && typeof UIRenderer.formatNumber === 'function')
+                ? UIRenderer.formatNumber(Number(value) || 0)
+                : new Intl.NumberFormat('vi-VN').format(Number(value) || 0);
+        },
+
+        _notify(message, level = 'info') {
+            if (typeof this.toast_ === 'function') {
+                this.toast_(message, level);
+                return;
+            }
+            if (level === 'error' || level === 'warning') alert(message);
+            else console.log(message);
+        },
+
+        _escapeHtml_(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        },
+
+        _initIndirectRouteMap() {
+            const mapEl = document.getElementById('indirect-route-map');
+            if (!mapEl || !window.L) return null;
+
+            if (!this.indirectRouteState.map) {
+                this.indirectRouteState.map = L.map(mapEl, { preferCanvas: true }).setView([10.75, 106.67], 9);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(this.indirectRouteState.map);
+                this.indirectRouteState.layer = L.layerGroup().addTo(this.indirectRouteState.map);
+            }
+            return this.indirectRouteState.map;
+        },
+
+        _calcDistanceMeters(lat1, lng1, lat2, lng2) {
+            const toRad = (v) => (v * Math.PI) / 180;
+            const R = 6371000;
+            const dLat = toRad(lat2 - lat1);
+            const dLng = toRad(lng2 - lng1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return Math.round(R * c);
+        },
+
+        _updateIndirectRouteFilter(points) {
+            const sel = document.getElementById('indirect-route-filter');
+            if (!sel) return;
+            const current = String(sel.value || this.indirectRouteState.route || 'all');
+            const routes = Array.from(new Set((points || []).map((p) => p.tuyen))).sort((a, b) => a.localeCompare(b, 'vi'));
+            let html = `<option value="all">Tất cả tuyến</option>`;
+            routes.forEach((r) => { html += `<option value="${r}">${r}</option>`; });
+            sel.innerHTML = html;
+            sel.value = routes.includes(current) || current === 'all' ? current : 'all';
+            this.indirectRouteState.route = sel.value;
+        },
+
+        _renderIndirectRouteKPI(allPoints, viewPoints) {
+            const periodSel = document.getElementById('indirect-kpi-period');
+            const period = String(periodSel?.value || this.indirectRouteState.period || 'month');
+            this.indirectRouteState.period = period;
+            const fromDate = this._getIndirectPeriodStart(period);
+            const periodMonths = this._getPeriodMonthKeys_(period);
+            const pointSubsForPeriod = (point) => {
+                const monthly = point?.subsMonthly || {};
+                if (periodMonths.length && Object.keys(monthly).length) {
+                    return periodMonths.reduce((acc, m) => acc + (Number(monthly[m]) || 0), 0);
+                }
+                return Number(point?.subs) || 0;
+            };
+
+            const pointMap = new Map((viewPoints || []).map((p) => [p.maDL, p]));
+            const checkins = this._loadIndirectCheckins().filter((c) => {
+                const t = new Date(c.ts || c.time || 0);
+                return pointMap.has(String(c.maDL || '').trim()) && t >= fromDate;
+            });
+            const totalPoints = (viewPoints || []).length;
+            const totalSubsByPoint = (viewPoints || []).reduce((acc, p) => acc + pointSubsForPeriod(p), 0);
+            const reportedSubs = (() => {
+                const pType = (period === 'month') ? 'month' : ((period === 'week') ? 'week' : '');
+                if (!pType) return 0;
+                const pKey = pType === 'month'
+                    ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+                    : this._dateKey(this._startOfWeekMonday(new Date()));
+                const cumSet = new Set((viewPoints || []).map((p) => String(p.maCum || '').trim().toLowerCase()).filter(Boolean));
+                return (this.indirectKpiHistoryRows || []).reduce((acc, r) => {
+                    const rType = String(r.periodType || '').trim().toLowerCase();
+                    const rKey = String(r.periodKey || '').trim();
+                    if (rType !== pType || rKey !== pKey) return acc;
+                    const rCum = String(r.maCum || '').trim().toLowerCase();
+                    if (cumSet.size && rCum && !cumSet.has(rCum)) return acc;
+                    return acc + (Number(r.actualSubs || 0) || 0);
+                }, 0);
+            })();
+            const visitedSet = new Set(checkins.map((c) => String(c.maDL || '').trim()));
+            const coverage = totalPoints > 0 ? (visitedSet.size / totalPoints) * 100 : 0;
+            const frequency = totalPoints > 0 ? (checkins.length / totalPoints) : 0;
+
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
+            setTxt('indirect-kpi-subs', this._fmtNum(reportedSubs > 0 ? reportedSubs : totalSubsByPoint));
+            setTxt('indirect-kpi-coverage', this._formatPct(coverage));
+            setTxt('indirect-kpi-frequency', `${frequency.toFixed(2)} lần/điểm`);
+            setTxt('indirect-kpi-checkins', this._fmtNum(checkins.length));
+
+            const tbody = document.getElementById('indirect-route-kpi-body');
+            if (!tbody) return;
+            const routeMap = new Map();
+            (viewPoints || []).forEach((p) => {
+                if (!routeMap.has(p.tuyen)) routeMap.set(p.tuyen, []);
+                routeMap.get(p.tuyen).push(p);
+            });
+
+            const html = Array.from(routeMap.entries()).map(([route, pts], idx) => {
+                const idSet = new Set(pts.map((p) => p.maDL));
+                const logs = checkins.filter((c) => idSet.has(String(c.maDL || '').trim()));
+                const visited = new Set(logs.map((c) => String(c.maDL || '').trim())).size;
+                const routeCoverage = pts.length > 0 ? (visited / pts.length) * 100 : 0;
+                const routeFrequency = pts.length > 0 ? (logs.length / pts.length) : 0;
+                const routeSubs = pts.reduce((acc, p) => acc + pointSubsForPeriod(p), 0);
+                return `
+                    <tr class="border-b border-slate-100">
+                        <td class="px-2 py-1 text-xs">${idx + 1}</td>
+                        <td class="px-2 py-1 text-xs font-semibold text-slate-700">${route}</td>
+                        <td class="px-2 py-1 text-right text-xs">${this._fmtNum(routeSubs)}</td>
+                        <td class="px-2 py-1 text-right text-xs">${visited}/${pts.length} (${routeCoverage.toFixed(1)}%)</td>
+                        <td class="px-2 py-1 text-right text-xs">${routeFrequency.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+            tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-4 text-slate-400 text-xs">Chưa có dữ liệu tuyến.</td></tr>`;
+        },
+
+        renderIndirectRouteMapAndKPI(sourceData = null) {
+            const activeSource = Array.isArray(sourceData)
+                ? sourceData
+                : (Array.isArray(this.indirectRouteState.sourceData)
+                    ? this.indirectRouteState.sourceData
+                    : this.filterDataByScope(this.cachedData.indirect || []));
+
+            this.indirectRouteState.sourceData = activeSource;
+            const points = this._normalizeIndirectPoints(activeSource);
+            this._updateIndirectRouteFilter(points);
+
+            const route = this.indirectRouteState.route || 'all';
+            const viewPoints = route === 'all' ? points : points.filter((p) => p.tuyen === route);
+            this._renderIndirectRouteKPI(points, viewPoints);
+
+            const mapEmpty = document.getElementById('indirect-map-empty');
+            const map = this._initIndirectRouteMap();
+            if (!map || !this.indirectRouteState.layer) {
+                if (mapEmpty) {
+                    mapEmpty.classList.remove('hidden');
+                    mapEmpty.textContent = 'Không tải được thư viện bản đồ (Leaflet).';
+                }
+                return;
+            }
+
+            const layer = this.indirectRouteState.layer;
+            layer.clearLayers();
+            const coords = viewPoints.filter((p) => p.hasCoord);
+            if (!coords.length) {
+                if (mapEmpty) {
+                    mapEmpty.classList.remove('hidden');
+                    mapEmpty.textContent = 'Chưa có tọa độ để hiển thị bản đồ tuyến.';
+                }
+                return;
+            }
+            if (mapEmpty) mapEmpty.classList.add('hidden');
+
+            const palette = ['#2563eb', '#059669', '#dc2626', '#d97706', '#7c3aed', '#0891b2', '#be123c', '#374151'];
+            const routeMap = new Map();
+            coords.forEach((p) => {
+                if (!routeMap.has(p.tuyen)) routeMap.set(p.tuyen, []);
+                routeMap.get(p.tuyen).push(p);
+            });
+
+            const bounds = [];
+            Array.from(routeMap.entries()).forEach(([routeName, pts], idx) => {
+                const color = palette[idx % palette.length];
+                const ordered = pts.slice().sort((a, b) => String(a.ten).localeCompare(String(b.ten), 'vi'));
+                const poly = ordered.map((p) => [p.lat, p.lng]);
+                if (poly.length >= 2) {
+                    L.polyline(poly, { color, weight: 3, opacity: 0.75 }).addTo(layer).bindTooltip(routeName);
+                }
+                ordered.forEach((p, orderIdx) => {
+                    const marker = L.circleMarker([p.lat, p.lng], {
+                        radius: 7, color, fillColor: color, fillOpacity: 0.85, weight: 2
+                    }).addTo(layer);
+                    marker.bindPopup(`
+                        <div class="text-xs">
+                            <div><b>${p.ten}</b></div>
+                            <div>Mã: ${p.maDL}</div>
+                            <div>Tuyến: ${p.tuyen}</div>
+                            <div>Thứ tự: ${orderIdx + 1}</div>
+                        </div>
+                    `);
+                    bounds.push([p.lat, p.lng]);
+                });
+            });
+
+            if (bounds.length) {
+                map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
+            }
+            setTimeout(() => map.invalidateSize(), 80);
+        },
+
+        handleIndirectRouteFilterChange(value) {
+            this.indirectRouteState.route = String(value || 'all');
+            this.renderIndirectRouteMapAndKPI();
+        },
+
+        handleIndirectPeriodChange(value) {
+            this.indirectRouteState.period = String(value || 'month');
+            this.renderIndirectRouteMapAndKPI();
+        },
+
+        handleIndirectAssignPeriodChange(value) {
+            const period = String(value || 'week');
+            const weekEl = document.getElementById('indirect-kpi-assign-week');
+            const monthEl = document.getElementById('indirect-kpi-assign-month');
+            if (!weekEl || !monthEl) return;
+            if (period === 'month') {
+                weekEl.classList.add('hidden');
+                monthEl.classList.remove('hidden');
+                if (!monthEl.value) {
+                    const now = new Date();
+                    monthEl.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                }
+            } else {
+                monthEl.classList.add('hidden');
+                weekEl.classList.remove('hidden');
+                if (!weekEl.value) weekEl.value = this._dateKey(this._startOfWeekMonday(new Date()));
+            }
+        },
+
+        _buildIndirectSalesStaffOptions_() {
+            const sel = document.getElementById('indirect-kpi-assign-staff');
+            if (!sel) return;
+            const sales = this.filterDataByScope(this.cachedData.sales || []);
+            const list = (sales || []).map((s) => ({
+                maNV: String(s.maNV || s.manv || s.code || '').trim(),
+                tenNV: String(s.ten || s.hoTen || s.fullName || s.name || '').trim(),
+                email: String(s.email || s.Email || '').trim().toLowerCase(),
+                maCum: String(s.maCum || s.macum || s.cum || '').trim()
+            })).filter((r) => r.maNV || r.email);
+            list.sort((a, b) => String(a.tenNV || a.maNV).localeCompare(String(b.tenNV || b.maNV), 'vi'));
+
+            let html = '<option value="">Chọn nhân viên bán hàng</option>';
+            list.forEach((s) => {
+                const value = encodeURIComponent(JSON.stringify(s));
+                const label = `${s.tenNV || s.maNV}${s.maNV ? ` (${s.maNV})` : ''}`;
+                html += `<option value="${value}">${label}</option>`;
+            });
+            sel.innerHTML = html;
+        },
+
+        _renderIndirectKpiAssignments_(rows) {
+            const tbody = document.getElementById('indirect-kpi-assign-body');
+            if (!tbody) return;
+            const list = Array.isArray(rows) ? rows : [];
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-3 text-center text-slate-400">Chưa có dữ liệu giao KPI.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = list.slice(0, 100).map((r) => {
+                const periodType = String(r.period_type || r.periodType || 'week').toLowerCase();
+                const periodKey = String(r.period_key || r.period_start || '');
+                const periodLabel = periodType === 'month' ? `Tháng ${periodKey}` : `Tuần ${periodKey}`;
+                const staffLabel = String(r.ten_nv || r.tenNV || r.ma_nv || r.maNV || '-');
+                const subs = Number(r.thue_bao_target || r.thueBaoTarget || 0) || 0;
+                const cov = Number(r.do_phu_target || r.doPhuTarget || 0) || 0;
+                const freq = Number(r.tan_suat_target || r.tanSuatTarget || 0) || 0;
+                return `
+                    <tr class="border-b border-slate-100">
+                        <td class="px-2 py-1">${periodLabel}</td>
+                        <td class="px-2 py-1">${staffLabel}</td>
+                        <td class="px-2 py-1 text-right">${this._fmtNum(subs)}</td>
+                        <td class="px-2 py-1 text-right">${cov.toFixed(1)}%</td>
+                        <td class="px-2 py-1 text-right">${freq.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+        },
+
+        async _loadIndirectKpiAssignments_() {
+            if (!window.DataService || typeof DataService.getIndirectKpiPlans !== 'function') {
+                this._renderIndirectKpiAssignments_([]);
+                return [];
+            }
+            try {
+                const rows = await DataService.getIndirectKpiPlans();
+                const listRaw = Array.isArray(rows) ? rows : [];
+                const merged = new Map();
+                listRaw.forEach((r) => {
+                    const k = [
+                        String(r.period_type || '').trim().toLowerCase(),
+                        String(r.period_key || r.period_start || '').trim(),
+                        String(r.ma_nv || r.maNV || '').trim().toLowerCase()
+                    ].join('|');
+                    if (!k) return;
+                    const prev = merged.get(k);
+                    if (!prev) {
+                        merged.set(k, r);
+                        return;
+                    }
+                    const pAt = String(prev.updated_at || prev.created_at || '');
+                    const nAt = String(r.updated_at || r.created_at || '');
+                    if (nAt.localeCompare(pAt) >= 0) merged.set(k, r);
+                });
+                const list = Array.from(merged.values());
+                list.sort((a, b) => {
+                    const ak = String(a.period_key || a.period_start || '');
+                    const bk = String(b.period_key || b.period_start || '');
+                    if (ak !== bk) return bk.localeCompare(ak);
+                    return String(b.updated_at || '').localeCompare(String(a.updated_at || ''));
+                });
+                this._renderIndirectKpiAssignments_(list);
+                return list;
+            } catch (e) {
+                console.error('[Indirect KPI] load assignment failed:', e);
+                this._renderIndirectKpiAssignments_([]);
+                return [];
+            }
+        },
+
+        async initIndirectKpiAssignmentPanel() {
+            const periodEl = document.getElementById('indirect-kpi-assign-period');
+            const isPrivileged = this._isPrivilegedRoleForIndirect_();
+            const assignPanel = document.getElementById('indirect-kpi-assign-panel');
+            const myPanel = document.getElementById('indirect-kpi-my-panel');
+            if (assignPanel) assignPanel.classList.toggle('hidden', !isPrivileged);
+            if (myPanel) myPanel.classList.toggle('hidden', isPrivileged);
+
+            if (periodEl) {
+                this._buildIndirectSalesStaffOptions_();
+                this.handleIndirectAssignPeriodChange(periodEl.value || 'week');
+                await this._loadIndirectKpiAssignments_();
+            }
+
+            const myPeriodEl = document.getElementById('indirect-kpi-my-period');
+            if (myPeriodEl) {
+                this.handleIndirectMyPeriodChange(myPeriodEl.value || 'week');
+                await this.loadMyIndirectKpiPlan_();
+            }
+
+            await this.loadIndirectKpiHistory_();
+            this.renderIndirectRouteMapAndKPI();
+        },
+
+        _isPrivilegedRoleForIndirect_() {
+            const role = String(this.currentUser?.role || '').toLowerCase();
+            const scope = String(this.currentUser?.scope || '').toLowerCase();
+            return role === 'admin' || role === 'bgd' || role === 'manager' || scope === 'all';
+        },
+
+        _resolvePeriodKey_(periodType) {
+            const type = String(periodType || 'week');
+            if (type === 'month') {
+                const month = String(document.getElementById('indirect-kpi-my-month')?.value || '').trim();
+                if (month) return month;
+                const now = new Date();
+                return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            }
+            const week = String(document.getElementById('indirect-kpi-my-week')?.value || '').trim();
+            if (week) return this._dateKey(this._startOfWeekMonday(new Date(week)));
+            return this._dateKey(this._startOfWeekMonday(new Date()));
+        },
+
+        handleIndirectMyPeriodChange(value) {
+            const period = String(value || 'week');
+            const weekEl = document.getElementById('indirect-kpi-my-week');
+            const monthEl = document.getElementById('indirect-kpi-my-month');
+            if (!weekEl || !monthEl) return;
+            if (period === 'month') {
+                weekEl.classList.add('hidden');
+                monthEl.classList.remove('hidden');
+                if (!monthEl.value) {
+                    const now = new Date();
+                    monthEl.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                }
+            } else {
+                monthEl.classList.add('hidden');
+                weekEl.classList.remove('hidden');
+                if (!weekEl.value) weekEl.value = this._dateKey(this._startOfWeekMonday(new Date()));
+            }
+            this.loadMyIndirectKpiPlan_();
+        },
+
+        _periodWindow_(periodType, periodKey) {
+            if (periodType === 'month') {
+                const [y, m] = String(periodKey || '').split('-').map((x) => Number(x));
+                const from = new Date(y || new Date().getFullYear(), (m || 1) - 1, 1);
+                const to = new Date(from.getFullYear(), from.getMonth() + 1, 1);
+                return { from, to };
+            }
+            const from = this._startOfWeekMonday(new Date(periodKey || new Date()));
+            const to = this._addDays(from, 7);
+            return { from, to };
+        },
+
+        _calcMyCheckinStats_(periodType, periodKey, maCum = '') {
+            const me = String(this.currentUser?.email || this.currentUser?.username || '').trim().toLowerCase();
+            const window = this._periodWindow_(periodType, periodKey);
+            const logs = this._loadIndirectCheckins().filter((c) => {
+                const owner = String(c.email || c.user || c.username || '').trim().toLowerCase();
+                if (me && owner && owner !== me) return false;
+                const t = new Date(c.ts || c.time || 0);
+                return t >= window.from && t < window.to;
+            });
+            const points = this._normalizeIndirectPoints().filter((p) => {
+                if (!maCum) return true;
+                return String(p.maCum || '').trim() === String(maCum).trim();
+            });
+            const pointSet = new Set(points.map((p) => String(p.maDL || '').trim()));
+            const validLogs = logs.filter((c) => pointSet.has(String(c.maDL || '').trim()));
+            const visited = new Set(validLogs.map((c) => String(c.maDL || '').trim())).size;
+            const totalPoints = points.length;
+            const coverage = totalPoints > 0 ? (visited / totalPoints) * 100 : 0;
+            const frequency = totalPoints > 0 ? (validLogs.length / totalPoints) : 0;
+            return {
+                checkins: validLogs.length,
+                coverage,
+                frequency
+            };
+        },
+
+        async loadMyIndirectKpiPlan_() {
+            const periodType = String(document.getElementById('indirect-kpi-my-period')?.value || 'week');
+            const periodKey = this._resolvePeriodKey_(periodType);
+            if (!window.DataService || typeof DataService.getIndirectKpiPlans !== 'function') return;
+            try {
+                const rows = await DataService.getIndirectKpiPlans();
+                const meMail = String(this.currentUser?.email || '').trim().toLowerCase();
+                const meCode = String(this.currentUser?.maNV || this.currentUser?.username || '').trim().toLowerCase();
+                const target = (rows || []).find((r) => {
+                    const rType = String(r.period_type || '').trim().toLowerCase();
+                    const rKey = String(r.period_key || r.period_start || '').trim();
+                    const rMail = String(r.email || '').trim().toLowerCase();
+                    const rCode = String(r.ma_nv || r.maNV || '').trim().toLowerCase();
+                    return rType === periodType && rKey === periodKey
+                        && ((meMail && rMail === meMail) || (meCode && rCode === meCode));
+                }) || null;
+                let report = null;
+                if (typeof DataService.getIndirectKpiReports === 'function') {
+                    const reports = await DataService.getIndirectKpiReports();
+                    report = (reports || []).find((r) => {
+                        const rType = String(r.period_type || '').trim().toLowerCase();
+                        const rKey = String(r.period_key || r.period_start || '').trim();
+                        const rMail = String(r.email || '').trim().toLowerCase();
+                        const rCode = String(r.ma_nv || r.maNV || '').trim().toLowerCase();
+                        return rType === periodType && rKey === periodKey
+                            && ((meMail && rMail === meMail) || (meCode && rCode === meCode));
+                    }) || null;
+                }
+
+                const targetSubs = Number(target?.thue_bao_target || 0) || 0;
+                const targetCoverage = Number(target?.do_phu_target || 0) || 0;
+                const targetFrequency = Number(target?.tan_suat_target || 0) || 0;
+                const maCum = String(target?.ma_cum || '').trim();
+                const stats = this._calcMyCheckinStats_(periodType, periodKey, maCum);
+                const setTxt = (id, value) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = value;
+                };
+                setTxt('indirect-kpi-my-target-subs', this._fmtNum(targetSubs));
+                setTxt('indirect-kpi-my-target-coverage', `${targetCoverage.toFixed(1)}%`);
+                setTxt('indirect-kpi-my-target-frequency', targetFrequency.toFixed(2));
+                setTxt('indirect-kpi-my-checkins', this._fmtNum(stats.checkins));
+                const input = document.getElementById('indirect-kpi-my-actual-subs');
+                const noteInput = document.getElementById('indirect-kpi-my-note');
+                const reportSubs = Number(report?.thue_bao_actual || report?.thueBaoActual || 0) || 0;
+                const reportNote = String(report?.ghi_chu || report?.ghiChu || '').trim();
+                if (input && (!input.value || input.dataset.periodKey !== `${periodType}_${periodKey}`)) {
+                    input.value = reportSubs > 0 ? String(reportSubs) : '';
+                    input.dataset.periodKey = `${periodType}_${periodKey}`;
+                }
+                if (noteInput && noteInput.dataset.periodKey !== `${periodType}_${periodKey}`) {
+                    noteInput.value = reportNote;
+                    noteInput.dataset.periodKey = `${periodType}_${periodKey}`;
+                }
+                this._myIndirectKpiContext = {
+                    periodType,
+                    periodKey,
+                    target,
+                    stats,
+                    report
+                };
+            } catch (e) {
+                console.error('[Indirect KPI] load my plan failed:', e);
+            }
+        },
+
+        async saveMyIndirectKpiReport() {
+            if (!window.DataService || typeof DataService.upsertIndirectKpiReport !== 'function') {
+                this._notify('Không tìm thấy API báo cáo KPI.', 'error');
+                return;
+            }
+            const ctx = this._myIndirectKpiContext || {};
+            const periodType = ctx.periodType || String(document.getElementById('indirect-kpi-my-period')?.value || 'week');
+            const periodKey = ctx.periodKey || this._resolvePeriodKey_(periodType);
+            const target = ctx.target || {};
+            const actualSubs = Number(document.getElementById('indirect-kpi-my-actual-subs')?.value || 0) || 0;
+            const note = String(document.getElementById('indirect-kpi-my-note')?.value || '').trim();
+            const stats = ctx.stats || this._calcMyCheckinStats_(periodType, periodKey, String(target?.ma_cum || ''));
+
+            const payload = {
+                period_type: periodType,
+                period_start: periodKey,
+                ma_nv: target?.ma_nv || this.currentUser?.maNV || this.currentUser?.username || '',
+                ten_nv: target?.ten_nv || this.currentUser?.name || this.currentUser?.fullname || '',
+                email: target?.email || this.currentUser?.email || '',
+                ma_cum: target?.ma_cum || this.currentUser?.scope || '',
+                thue_bao_target: Number(target?.thue_bao_target || 0) || 0,
+                do_phu_target: Number(target?.do_phu_target || 0) || 0,
+                tan_suat_target: Number(target?.tan_suat_target || 0) || 0,
+                thue_bao_actual: actualSubs,
+                checkin_count: Number(stats.checkins || 0),
+                do_phu_actual: Number(stats.coverage || 0),
+                tan_suat_actual: Number(stats.frequency || 0),
+                ghi_chu: note
+            };
+
+            try {
+                const resp = await DataService.upsertIndirectKpiReport(payload);
+                if (resp?.error) throw new Error(resp.error);
+                this._notify('Đã lưu báo cáo KPI của bạn.', 'success');
+                await this.loadMyIndirectKpiPlan_();
+                await this.loadIndirectKpiHistory_();
+                this.renderIndirectRouteMapAndKPI();
+            } catch (e) {
+                console.error('[Indirect KPI] save my report failed:', e);
+                this._notify(`Không lưu được báo cáo KPI: ${e.message}`, 'error');
+            }
+        },
+
+        _normalizeIndirectKpiHistoryRow_(row, idx) {
+            const periodType = String(row.period_type || row.periodType || 'week').trim().toLowerCase() === 'month' ? 'month' : 'week';
+            const periodKey = String(row.period_key || row.period_start || '').trim();
+            const maNV = String(row.ma_nv || row.maNV || '').trim();
+            const tenNV = String(row.ten_nv || row.tenNV || '').trim();
+            const email = String(row.email || '').trim().toLowerCase();
+            const maCum = String(row.ma_cum || row.maCum || '').trim();
+            const targetSubs = Number(row.thue_bao_target || row.thueBaoTarget || 0) || 0;
+            const actualSubs = Number(row.thue_bao_actual || row.thueBaoActual || 0) || 0;
+            const checkins = Number(row.checkin_count || row.checkinCount || 0) || 0;
+            const targetCoverage = Number(row.do_phu_target || row.doPhuTarget || 0) || 0;
+            const actualCoverage = Number(row.do_phu_actual || row.doPhuActual || 0) || 0;
+            const targetFrequency = Number(row.tan_suat_target || row.tanSuatTarget || 0) || 0;
+            const actualFrequency = Number(row.tan_suat_actual || row.tanSuatActual || 0) || 0;
+            const note = String(row.ghi_chu || row.ghiChu || '').trim();
+            const updatedAt = String(row.updated_at || row.created_at || '').trim();
+            return {
+                id: String(row.id || `IKR_${idx}`).trim() || `IKR_${idx}`,
+                periodType,
+                periodKey,
+                maNV,
+                tenNV,
+                email,
+                maCum,
+                targetSubs,
+                actualSubs,
+                checkins,
+                targetCoverage,
+                actualCoverage,
+                targetFrequency,
+                actualFrequency,
+                note,
+                updatedAt
+            };
+        },
+
+        _renderIndirectKpiHistory_(rows) {
+            const countEl = document.getElementById('indirect-kpi-history-count');
+            const tbody = document.getElementById('indirect-kpi-history-body');
+            const list = Array.isArray(rows) ? rows : [];
+            if (countEl) countEl.textContent = this._fmtNum(list.length);
+            if (!tbody) return;
+            if (!list.length) {
+                tbody.innerHTML = '';
+                return;
+            }
+            tbody.innerHTML = list.slice(0, 300).map((r) => {
+                const periodLabel = r.periodType === 'month' ? `Tháng ${r.periodKey}` : `Tuần ${r.periodKey}`;
+                const staffLabel = String(r.tenNV || r.maNV || r.email || '-');
+                const cumName = this.getNameCum ? (this.getNameCum(r.maCum) || r.maCum || '-') : (r.maCum || '-');
+                const subsLabel = `${this._fmtNum(r.actualSubs)}/${this._fmtNum(r.targetSubs)}`;
+                const checkinLabel = `${this._fmtNum(r.checkins)} | ĐP ${r.actualCoverage.toFixed(1)}%/${r.targetCoverage.toFixed(1)}% | TS ${r.actualFrequency.toFixed(2)}/${r.targetFrequency.toFixed(2)}`;
+                const title = `Cập nhật: ${r.updatedAt || '-'}${r.note ? ` | Ghi chú: ${r.note}` : ''}`;
+                return `
+                    <tr class="border-b border-slate-100" title="${this._escapeHtml_(title)}">
+                        <td class="px-2 py-1">${periodLabel}</td>
+                        <td class="px-2 py-1">${this._escapeHtml_(staffLabel)}</td>
+                        <td class="px-2 py-1">${this._escapeHtml_(cumName)}</td>
+                        <td class="px-2 py-1 text-right">${subsLabel}</td>
+                        <td class="px-2 py-1 text-right">${checkinLabel}</td>
+                    </tr>
+                `;
+            }).join('');
+        },
+
+        _populateIndirectKpiHistoryFilterOptions_(rows) {
+            const list = Array.isArray(rows) ? rows : [];
+            const staffEl = document.getElementById('indirect-kpi-history-staff');
+            const cumEl = document.getElementById('indirect-kpi-history-cum');
+            const currentStaff = String(staffEl?.value || 'all');
+            const currentCum = String(cumEl?.value || 'all');
+
+            if (staffEl) {
+                const staffMap = new Map();
+                list.forEach((r) => {
+                    const key = String(r.maNV || r.email || '').trim().toLowerCase();
+                    if (!key) return;
+                    if (!staffMap.has(key)) {
+                        const label = String(r.tenNV || r.maNV || r.email || key).trim();
+                        staffMap.set(key, label);
+                    }
+                });
+                const staffEntries = Array.from(staffMap.entries()).sort((a, b) => String(a[1]).localeCompare(String(b[1]), 'vi'));
+                let html = '<option value="all">Tất cả NVBH</option>';
+                staffEntries.forEach(([key, label]) => {
+                    html += `<option value="${this._escapeHtml_(key)}">${this._escapeHtml_(label)}</option>`;
+                });
+                staffEl.innerHTML = html;
+                staffEl.value = staffMap.has(currentStaff) ? currentStaff : 'all';
+            }
+
+            if (cumEl) {
+                const cumList = Array.from(new Set(list.map((r) => String(r.maCum || '').trim()).filter(Boolean)))
+                    .sort((a, b) => String(a).localeCompare(String(b), 'vi'));
+                let html = '<option value="all">Tất cả cụm</option>';
+                cumList.forEach((code) => {
+                    const name = this.getNameCum ? (this.getNameCum(code) || code) : code;
+                    html += `<option value="${this._escapeHtml_(code)}">${this._escapeHtml_(name)}</option>`;
+                });
+                cumEl.innerHTML = html;
+                cumEl.value = cumList.includes(currentCum) ? currentCum : 'all';
+            }
+        },
+
+        _getFilteredIndirectKpiHistory_() {
+            const periodType = String(document.getElementById('indirect-kpi-history-period')?.value || 'all').trim().toLowerCase();
+            const staffKey = String(document.getElementById('indirect-kpi-history-staff')?.value || 'all').trim().toLowerCase();
+            const cumKey = String(document.getElementById('indirect-kpi-history-cum')?.value || 'all').trim().toLowerCase();
+            return (this.indirectKpiHistoryRows || []).filter((r) => {
+                if (periodType !== 'all' && String(r.periodType || '').toLowerCase() !== periodType) return false;
+                if (staffKey !== 'all') {
+                    const rowStaffKey = String(r.maNV || r.email || '').trim().toLowerCase();
+                    if (rowStaffKey !== staffKey) return false;
+                }
+                if (cumKey !== 'all' && String(r.maCum || '').trim().toLowerCase() !== cumKey) return false;
+                return true;
+            });
+        },
+
+        filterIndirectKpiHistory() {
+            this._renderIndirectKpiHistory_(this._getFilteredIndirectKpiHistory_());
+        },
+
+        async loadIndirectKpiHistory_() {
+            if (!window.DataService || typeof DataService.getIndirectKpiReports !== 'function') {
+                this.indirectKpiHistoryRows = [];
+                this._populateIndirectKpiHistoryFilterOptions_([]);
+                this._renderIndirectKpiHistory_([]);
+                return [];
+            }
+            try {
+                const rows = await DataService.getIndirectKpiReports();
+                const list = (Array.isArray(rows) ? rows : []).map((r, i) => this._normalizeIndirectKpiHistoryRow_(r, i));
+                list.sort((a, b) => {
+                    if (a.periodKey !== b.periodKey) return String(b.periodKey).localeCompare(String(a.periodKey));
+                    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+                });
+                this.indirectKpiHistoryRows = list;
+                this._populateIndirectKpiHistoryFilterOptions_(list);
+                this.filterIndirectKpiHistory();
+                return list;
+            } catch (e) {
+                console.error('[Indirect KPI] load history failed:', e);
+                this.indirectKpiHistoryRows = [];
+                this._populateIndirectKpiHistoryFilterOptions_([]);
+                this._renderIndirectKpiHistory_([]);
+                return [];
+            }
+        },
+
+        exportIndirectKpiHistory() {
+            const rows = this._getFilteredIndirectKpiHistory_();
+            if (!rows.length) {
+                this._notify('Không có dữ liệu lịch sử KPI để xuất.', 'warning');
+                return;
+            }
+            if (!window.XLSX) {
+                this._notify('Thiếu thư viện xuất Excel.', 'error');
+                return;
+            }
+            const out = rows.map((r) => ({
+                'Kỳ': r.periodType === 'month' ? `Tháng ${r.periodKey}` : `Tuần ${r.periodKey}`,
+                'Mã NV': r.maNV || '',
+                'Nhân viên': r.tenNV || r.email || '',
+                'Email': r.email || '',
+                'Cụm': this.getNameCum ? (this.getNameCum(r.maCum) || r.maCum || '') : (r.maCum || ''),
+                'Thuê bao KH': r.targetSubs,
+                'Thuê bao TH': r.actualSubs,
+                'Check-in': r.checkins,
+                'Độ phủ KH (%)': Number(r.targetCoverage.toFixed(2)),
+                'Độ phủ TH (%)': Number(r.actualCoverage.toFixed(2)),
+                'Tần suất KH': Number(r.targetFrequency.toFixed(3)),
+                'Tần suất TH': Number(r.actualFrequency.toFixed(3)),
+                'Ghi chú': r.note || '',
+                'Cập nhật lúc': r.updatedAt || ''
+            }));
+            const ws = XLSX.utils.json_to_sheet(out);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'KPI_Indirect');
+            XLSX.writeFile(wb, `indirect_kpi_history_${this._dateKey(new Date())}.xlsx`);
+            this._notify('Đã xuất lịch sử báo cáo KPI.', 'success');
+        },
+
+        async saveIndirectKpiAssignment() {
+            if (!window.DataService || typeof DataService.upsertIndirectKpiPlan !== 'function') {
+                this._notify('Không tìm thấy API giao KPI.', 'error');
+                return;
+            }
+            const periodType = String(document.getElementById('indirect-kpi-assign-period')?.value || 'week');
+            const weekVal = String(document.getElementById('indirect-kpi-assign-week')?.value || '').trim();
+            const monthVal = String(document.getElementById('indirect-kpi-assign-month')?.value || '').trim();
+            const staffRaw = String(document.getElementById('indirect-kpi-assign-staff')?.value || '').trim();
+            if (!staffRaw) {
+                this._notify('Vui lòng chọn nhân viên bán hàng.', 'warning');
+                return;
+            }
+            let staff = null;
+            try {
+                staff = JSON.parse(decodeURIComponent(staffRaw));
+            } catch (e) {
+                this._notify('Thông tin nhân viên không hợp lệ.', 'error');
+                return;
+            }
+
+            const targetSubs = Number(document.getElementById('indirect-kpi-target-subs')?.value || 0);
+            const targetCoverage = Number(document.getElementById('indirect-kpi-target-coverage')?.value || 0);
+            const targetFrequency = Number(document.getElementById('indirect-kpi-target-frequency')?.value || 0);
+            const periodStart = periodType === 'month'
+                ? (monthVal || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
+                : this._dateKey(this._startOfWeekMonday(new Date(weekVal || new Date())));
+
+            const payload = {
+                period_type: periodType === 'month' ? 'month' : 'week',
+                period_start: periodStart,
+                ma_nv: staff.maNV || '',
+                ten_nv: staff.tenNV || '',
+                email: staff.email || '',
+                ma_cum: staff.maCum || '',
+                thue_bao_target: Number.isFinite(targetSubs) ? targetSubs : 0,
+                do_phu_target: Number.isFinite(targetCoverage) ? targetCoverage : 0,
+                tan_suat_target: Number.isFinite(targetFrequency) ? targetFrequency : 0
+            };
+
+            try {
+                const resp = await DataService.upsertIndirectKpiPlan(payload);
+                if (resp?.error) throw new Error(resp.error);
+                this._notify('Đã giao KPI cho nhân viên bán hàng.', 'success');
+                await this._loadIndirectKpiAssignments_();
+            } catch (e) {
+                console.error('[Indirect KPI] save assignment failed:', e);
+                this._notify(`Không lưu được KPI: ${e.message}`, 'error');
+            }
+        },
+
+        _normalizeStorePoints(data = null) {
+            const src = Array.isArray(data)
+                ? data
+                : (Array.isArray(this.storeMapState.sourceData)
+                    ? this.storeMapState.sourceData
+                    : this.filterDataByScope(this.cachedData.stores || []));
+            return (src || []).map((s) => {
+                const id = String(s.id || s.maCH || '').trim();
+                const ten = String(s.ten || s.Ten || id).trim() || id;
+                const diaChi = String(s.diaChi || s.DiaChi || '').trim();
+                const maCum = String(s.maCum || s.macum || '').trim();
+                const lat = this._toCoordNumber(s.lat || s.Lat || '');
+                const lng = this._toCoordNumber(s.lng || s.Lng || '');
+                const hasCoord = Number.isFinite(lat) && Number.isFinite(lng);
+                return { id, ten, diaChi, maCum, lat: hasCoord ? lat : null, lng: hasCoord ? lng : null, hasCoord };
+            }).filter((p) => p.id);
+        },
+
+        _initDirectStoreMap_() {
+            const mapEl = document.getElementById('direct-store-map');
+            if (!mapEl || !window.L) return null;
+            if (!this.storeMapState.map) {
+                this.storeMapState.map = L.map(mapEl, { preferCanvas: true }).setView([10.75, 106.67], 9);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(this.storeMapState.map);
+                this.storeMapState.layer = L.layerGroup().addTo(this.storeMapState.map);
+            }
+            return this.storeMapState.map;
+        },
+
+        _updateStoreMapFilter_(points) {
+            const sel = document.getElementById('direct-store-map-filter');
+            if (!sel) return;
+            const current = String(sel.value || this.storeMapState.cum || 'all');
+            const cums = Array.from(new Set((points || []).map((p) => p.maCum).filter(Boolean)))
+                .sort((a, b) => a.localeCompare(b, 'vi'));
+            let html = '<option value="all">Tất cả cụm</option>';
+            cums.forEach((c) => {
+                const label = this.getNameCum ? (this.getNameCum(c) || c) : c;
+                html += `<option value="${c}">${label}</option>`;
+            });
+            sel.innerHTML = html;
+            sel.value = (current === 'all' || cums.includes(current)) ? current : 'all';
+            this.storeMapState.cum = sel.value;
+        },
+
+        renderDirectStoreMap(sourceData = null) {
+            const activeSource = Array.isArray(sourceData)
+                ? sourceData
+                : (Array.isArray(this.storeMapState.sourceData)
+                    ? this.storeMapState.sourceData
+                    : this.filterDataByScope(this.cachedData.stores || []));
+            this.storeMapState.sourceData = activeSource;
+            const points = this._normalizeStorePoints(activeSource);
+            this._updateStoreMapFilter_(points);
+            const selectedCum = String(this.storeMapState.cum || 'all');
+            const viewPoints = selectedCum === 'all' ? points : points.filter((p) => p.maCum === selectedCum);
+            const coords = viewPoints.filter((p) => p.hasCoord);
+
+            const countEl = document.getElementById('direct-store-map-count');
+            if (countEl) countEl.textContent = this._fmtNum(coords.length);
+
+            const emptyEl = document.getElementById('direct-store-map-empty');
+            const map = this._initDirectStoreMap_();
+            if (!map || !this.storeMapState.layer) {
+                if (emptyEl) {
+                    emptyEl.classList.remove('hidden');
+                    emptyEl.textContent = 'Không tải được thư viện bản đồ (Leaflet).';
+                }
+                return;
+            }
+
+            const layer = this.storeMapState.layer;
+            layer.clearLayers();
+            if (!coords.length) {
+                if (emptyEl) {
+                    emptyEl.classList.remove('hidden');
+                    emptyEl.textContent = 'Chưa có tọa độ cửa hàng để hiển thị.';
+                }
+                return;
+            }
+            if (emptyEl) emptyEl.classList.add('hidden');
+
+            const palette = ['#2563eb', '#059669', '#dc2626', '#d97706', '#7c3aed', '#0891b2', '#be123c', '#374151'];
+            const cumIndex = new Map();
+            let colorIdx = 0;
+            const bounds = [];
+            coords.forEach((p) => {
+                if (!cumIndex.has(p.maCum)) {
+                    cumIndex.set(p.maCum, palette[colorIdx % palette.length]);
+                    colorIdx += 1;
+                }
+                const color = cumIndex.get(p.maCum);
+                L.circleMarker([p.lat, p.lng], {
+                    radius: 6,
+                    color,
+                    fillColor: color,
+                    fillOpacity: 0.85,
+                    weight: 2
+                }).addTo(layer).bindPopup(`
+                    <div class="text-xs">
+                        <div><b>${p.ten}</b></div>
+                        <div>Mã: ${p.id}</div>
+                        <div>Cụm: ${this.getNameCum ? (this.getNameCum(p.maCum) || p.maCum) : p.maCum}</div>
+                        <div>${p.diaChi || ''}</div>
+                    </div>
+                `);
+                bounds.push([p.lat, p.lng]);
+            });
+
+            if (bounds.length) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 14 });
+            setTimeout(() => map.invalidateSize(), 80);
+        },
+
+        handleStoreMapFilterChange(value) {
+            this.storeMapState.cum = String(value || 'all');
+            this.renderDirectStoreMap();
+        },
+
+        async checkInIndirectPoint(encodedMa) {
+            const maDL = decodeURIComponent(String(encodedMa || '')).trim();
+            if (!maDL) return;
+            if (!navigator.geolocation) {
+                this._notify('Thiết bị/trình duyệt không hỗ trợ GPS.', 'error');
+                return;
+            }
+
+            const points = this._normalizeIndirectPoints();
+            const point = points.find((p) => String(p.maDL).trim() === maDL);
+            if (!point) {
+                this._notify('Không tìm thấy điểm bán để check-in.', 'warning');
+                return;
+            }
+
+            const statusEl = document.getElementById('indirect-checkin-status');
+            if (statusEl) statusEl.textContent = `Đang check-in GPS cho: ${point.ten}...`;
+
+            const getPosition = () => new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: 0
+                });
+            });
+
+            try {
+                const pos = await getPosition();
+                const gpsLat = Number(pos.coords.latitude);
+                const gpsLng = Number(pos.coords.longitude);
+                const hasPointCoord = Number.isFinite(point.lat) && Number.isFinite(point.lng);
+                const distanceM = hasPointCoord ? this._calcDistanceMeters(point.lat, point.lng, gpsLat, gpsLng) : null;
+                const thresholdM = Number(this.indirectCheckinDistanceThresholdM) || 300;
+                const near = hasPointCoord ? distanceM <= thresholdM : null;
+
+                const logs = this._loadIndirectCheckins();
+                logs.push({
+                    id: `CI_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                    maDL: point.maDL,
+                    ten: point.ten,
+                    tuyen: point.tuyen,
+                    ts: new Date().toISOString(),
+                    gpsLat,
+                    gpsLng,
+                    pointLat: point.lat,
+                    pointLng: point.lng,
+                    distanceM,
+                    near,
+                    user: this.currentUser?.name || this.currentUser?.username || '',
+                    username: String(this.currentUser?.username || '').trim(),
+                    email: String(this.currentUser?.email || '').trim().toLowerCase(),
+                    scope: String(this.currentUser?.scope || '').trim()
+                });
+                this._saveIndirectCheckins(logs);
+
+                if (window.DataService && typeof DataService.saveIndirectCheckin === 'function') {
+                    try {
+                        await DataService.saveIndirectCheckin({
+                            id: logs[logs.length - 1].id,
+                            maDL: point.maDL,
+                            ten: point.ten,
+                            tuyen: point.tuyen,
+                            ma_cum: point.maCum,
+                            ts: logs[logs.length - 1].ts,
+                            gpsLat,
+                            gpsLng,
+                            pointLat: point.lat,
+                            pointLng: point.lng,
+                            distanceM,
+                            near,
+                            user: this.currentUser?.name || this.currentUser?.username || ''
+                        });
+                    } catch (errSave) {
+                        console.warn('[Indirect] save check-in to server failed:', errSave);
+                    }
+                }
+
+                if (statusEl) {
+                    if (distanceM === null) {
+                        statusEl.textContent = `Đã check-in ${point.ten} (chưa có tọa độ điểm để đo khoảng cách).`;
+                    } else {
+                        statusEl.textContent = `Đã check-in ${point.ten}: cách điểm ${distanceM}m ${near ? '(ĐẠT)' : '(CHƯA ĐẠT)'} (ngưỡng ${thresholdM}m).`;
+                    }
+                }
+                this._notify('Check-in GPS thành công.', 'success');
+                this.renderIndirectRouteMapAndKPI();
+            } catch (e) {
+                let msg = 'Không thể lấy vị trí GPS.';
+                if (e && e.code === 1) msg = 'Bạn đã từ chối quyền truy cập vị trí.';
+                if (e && e.code === 2) msg = 'Không xác định được vị trí hiện tại.';
+                if (e && e.code === 3) msg = 'Hết thời gian lấy vị trí GPS.';
+                if (statusEl) statusEl.textContent = msg;
+                this._notify(msg, 'error');
             }
         },
         // ============================================================
@@ -1895,9 +3254,15 @@
                 return newRow;
             });
         },
+        _toCoordNumber(value) {
+            const raw = String(value ?? '').trim().replace(/^\'+/, '').replace(',', '.');
+            if (!raw) return NaN;
+            const n = Number(raw);
+            return Number.isFinite(n) ? n : NaN;
+        },
         getMapLink(lat, lng) {
-            const la = Number(String(lat ?? '').replace(',', '.'));
-            const lo = Number(String(lng ?? '').replace(',', '.'));
+            const la = this._toCoordNumber(lat);
+            const lo = this._toCoordNumber(lng);
             if (!isFinite(la) || !isFinite(lo)) return '';
             // [FIXED] Correct Google Maps URL
             return this.sanitizeExternalUrl(`https://maps.google.com/?q=${la},${lo}`) || '';
@@ -2209,6 +3574,33 @@
         setVal('edit-indirect-type', pick(item, 'loai', 'Loai')); 
         setVal('edit-indirect-owner', pick(item, 'chuSoHuu', 'ChuSoHuu', 'chu')); 
 
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthInput = document.getElementById('edit-indirect-subs-month');
+        const subsInput = document.getElementById('edit-indirect-subs-value');
+        const historyInput = document.getElementById('edit-indirect-subs-history');
+        if (monthInput && !monthInput.value) monthInput.value = currentMonth;
+        const subsMonthly = this._parseIndirectSubsMonthly_(
+            pick(item, 'thuebaothang', 'thueBaoThang', 'thue_bao_thang', 'tbThang')
+        );
+        if (historyInput) historyInput.value = this._formatIndirectSubsHistoryText_(subsMonthly);
+        if (subsInput) {
+            const monthKey = monthInput?.value || currentMonth;
+            const currentVal = (subsMonthly[monthKey] !== undefined)
+                ? subsMonthly[monthKey]
+                : (pick(item, 'thuebao', 'thueBao', 'thue_bao', 'tb') || '');
+            subsInput.value = currentVal || '';
+        }
+
+        if (monthInput && !monthInput.dataset.bound) {
+            monthInput.addEventListener('change', () => {
+                const all = this._parseIndirectSubsMonthly_(historyInput?.dataset.raw || '{}');
+                if (subsInput) subsInput.value = all[monthInput.value] || '';
+            });
+            monthInput.dataset.bound = '1';
+        }
+        if (historyInput) historyInput.dataset.raw = JSON.stringify(subsMonthly);
+
         // 4. Xử lý ảnh (Reset trước khi show)
         if(document.getElementById('file-outside')) document.getElementById('file-outside').value = '';
         if(document.getElementById('file-inside')) document.getElementById('file-inside').value = '';
@@ -2495,32 +3887,35 @@
             const response = await DataService.updateStore(payload);
 
             if (response && (response.success || response.status === 'success' || response.result === 'success')) {
-                // 5. CẬP NHẬT CACHE & GIAO DIỆN NGAY LẬP TỨC
-                if (this.cachedData && this.cachedData.stores) {
-                    const storeIndex = this.cachedData.stores.findIndex(s => String(s.id) === String(storeId) || String(s.maCH) === String(storeId));
-                    
-                    if (storeIndex !== -1) {
-                        // Merge thông tin mới (payload) vào thông tin cũ trong Cache
-                        // Việc này đảm bảo DiaChi, Ten, Lat, Lng... cập nhật ngay trên bảng
-                        let currentStore = this.cachedData.stores[storeIndex];
-                        
-                        this.cachedData.stores[storeIndex] = { 
-                            ...currentStore, 
-                            ...payload 
-                        };
+                // Ưu tiên reload từ server để lấy đúng link ảnh Drive mới nhất
+                let refreshedOk = false;
+                try {
+                    if (DataService.invalidateLocalCache_) {
+                        DataService.invalidateLocalCache_(['stores']);
+                    }
+                    if (typeof DataService.ensureData === 'function') {
+                        await DataService.ensureData(true);
+                    }
+                    const latestStores = await DataService.getStores();
+                    if (Array.isArray(latestStores)) {
+                        this.cachedData.stores = this.filterDataByScope(this.normalizeDataSet(latestStores));
+                        refreshedOk = true;
+                    }
+                } catch (eReload) {
+                    console.warn('[Store] reload after save failed:', eReload);
+                }
 
-                        // Fix hiển thị ảnh ngay lập tức (Ưu tiên hiển thị Base64 vừa chọn)
-                        if (payload.imgOutside) {
-                            this.cachedData.stores[storeIndex].AnhNgoai = payload.imgOutside; 
-                        }
-                        if (payload.imgInside) {
-                            this.cachedData.stores[storeIndex].AnhTrong = payload.imgInside;
-                        }
+                // Fallback optimistic nếu reload không thành công
+                if (!refreshedOk && this.cachedData && this.cachedData.stores) {
+                    const storeIndex = this.cachedData.stores.findIndex(s => String(s.id) === String(storeId) || String(s.maCH) === String(storeId));
+                    if (storeIndex !== -1) {
+                        const currentStore = this.cachedData.stores[storeIndex];
+                        this.cachedData.stores[storeIndex] = { ...currentStore, ...payload };
                     }
                 }
 
-                // Render lại bảng danh sách ngay lập tức
                 this.renderStoreList();
+                this.tempStoreImages = { trong: null, ngoai: null };
 
                 alert("✅ Đã cập nhật thông tin cửa hàng thành công!");
                 this.closeModal('modal-edit-store');
@@ -2578,6 +3973,16 @@
 
             const tuyen = document.getElementById('edit-indirect-route')?.value;
             const chu = document.getElementById('edit-indirect-owner')?.value;
+            const subsMonth = String(document.getElementById('edit-indirect-subs-month')?.value || '').trim();
+            const subsValueRaw = String(document.getElementById('edit-indirect-subs-value')?.value || '').trim();
+            const subsValue = subsValueRaw === '' ? '' : (Number(subsValueRaw) || 0);
+            const existingSubsHistoryRaw = getOriginalVal(['thuebaothang', 'thueBaoThang', 'thue_bao_thang', 'tbThang']);
+            const subsHistory = this._parseIndirectSubsMonthly_(existingSubsHistoryRaw);
+            if (/^\d{4}-\d{2}$/.test(subsMonth)) {
+                if (subsValueRaw === '') delete subsHistory[subsMonth];
+                else subsHistory[subsMonth] = Number(subsValue) || 0;
+            }
+            const subsHistoryStr = JSON.stringify(subsHistory);
             // Tọa độ (Sửa ID: thêm 'edit-' nếu HTML của bạn dùng pattern này)
             const latVal = document.getElementById('edit-indirect-lat')?.value.trim() || document.getElementById('indirect-lat')?.value.trim();
             const lngVal = document.getElementById('edit-indirect-lng')?.value.trim() || document.getElementById('indirect-lng')?.value.trim();
@@ -2645,6 +4050,8 @@
                         phanloai: phanLoai,   
                         loai: loai,           
                         chusohuu: chu,        
+                        thuebao: subsValue,
+                        thuebaothang: subsHistoryStr,
                         maliencum: valLienCum,
                         macum: valCum,
 
@@ -2665,63 +4072,58 @@
                     // 1. Thông báo & Đóng Modal
                     alert("✅ Cập nhật thành công!");
                     this.closeModal('modal-edit-indirect');
-                    
-                    // 2. CHUẨN BỊ DỮ LIỆU MỚI ĐỂ CẬP NHẬT GIAO DIỆN NGAY
-                    // (Tạo object từ các biến bạn đã lấy từ form ở trên)
-                    const updatedItem = {
-                        ...originalItem, // Giữ lại các trường cũ không bị sửa
-                        id: newId,
-                        maDL: newId,
-                        maCode: newId,
-                        
-                        ten: name,
-                        sdt: phone,
-                        diaChi: address,
-                        lat: latVal,
-                        lng: lngVal,
-                        tuyen: tuyen,
-                        phanloai: phanLoai, // Chú ý: key phải khớp với hàm render (chữ thường)
-                        loai: loai,
-                        chuSoHuu: chu,
-                        
-                        maLienCum: valLienCum,
-                        maCum: valCum,
-                        
-                        // Xử lý ảnh: Nếu có ảnh mới upload (Base64) thì dùng, không thì giữ ảnh cũ
-                        // Lưu ý: Base64 cần thêm prefix để hiển thị được ngay
-                        anhNgoai: imgOutBase64 ? `data:image/jpeg;base64,${imgOutBase64}` : (originalItem ? (originalItem.anhNgoai || originalItem.imgOutside) : ''),
-                        anhTrong: imgInBase64 ? `data:image/jpeg;base64,${imgInBase64}` : (originalItem ? (originalItem.anhTrong || originalItem.imgInside) : '')
-                    };
 
-                    // 3. CẬP NHẬT VÀO BỘ NHỚ CACHE (QUAN TRỌNG NHẤT)
-                    if (!this.cachedData.indirect) this.cachedData.indirect = [];
-                    
-                    // Tìm vị trí dòng cũ
-                    const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
-
-                    if (index !== -1) {
-                        // TRƯỜNG HỢP SỬA: Ghi đè dữ liệu mới vào dòng cũ
-                        this.cachedData.indirect[index] = updatedItem;
-                        console.log("🔄 Đã cập nhật cache tại dòng:", index);
-                    } else {
-                        // TRƯỜNG HỢP MỚI: Thêm vào đầu danh sách
-                        this.cachedData.indirect.unshift(updatedItem);
-                        console.log("➕ Đã thêm mới vào cache");
+                    // 2. Reload từ server để đảm bảo lấy đúng link ảnh trong/ngoài mới nhất
+                    let refreshedOk = false;
+                    try {
+                        if (DataService.invalidateLocalCache_) {
+                            DataService.invalidateLocalCache_(['indirect']);
+                        }
+                        if (typeof DataService.ensureData === 'function') {
+                            await DataService.ensureData(true);
+                        }
+                        const latestIndirect = await DataService.getIndirectChannels();
+                        if (Array.isArray(latestIndirect)) {
+                            this.cachedData.indirect = this.filterDataByScope(this.normalizeDataSet(latestIndirect));
+                            refreshedOk = true;
+                        }
+                    } catch (eReload) {
+                        console.warn('[Indirect] reload after save failed:', eReload);
                     }
 
-                    // 4. VẼ LẠI BẢNG NGAY LẬP TỨC
-                    // Lọc lại theo Scope (để đảm bảo nếu sửa Cụm sang cụm khác thì nó tự ẩn đi nếu không thuộc quyền xem)
-                    const dataToShow = this.filterDataByScope(this.cachedData.indirect);
-                    
-                    // Nếu đang có từ khóa tìm kiếm thì lọc lại luôn
-                    const searchInput =
-                        document.querySelector('#view-indirect_channel input[onkeyup*="handleSearchIndirect"]') ||
-                        document.querySelector('input[placeholder*="Tìm Mã"], input[placeholder*="Tìm kiếm"]');
-                    if (searchInput && searchInput.value) {
-                        this.handleSearchIndirect(searchInput.value);
-                    } else {
-                        UIRenderer.renderIndirectTable(dataToShow);
+                    // 3. Fallback optimistic nếu reload không thành công
+                    if (!refreshedOk) {
+                        const updatedItem = {
+                            ...originalItem,
+                            id: newId,
+                            maDL: newId,
+                            maCode: newId,
+                            ten: name,
+                            sdt: phone,
+                            diaChi: address,
+                            lat: latVal,
+                            lng: lngVal,
+                            tuyen: tuyen,
+                            phanloai: phanLoai,
+                            loai: loai,
+                            chuSoHuu: chu,
+                            thueBao: subsValue,
+                            thuebao: subsValue,
+                            thueBaoThang: subsHistoryStr,
+                            thuebaothang: subsHistoryStr,
+                            maLienCum: valLienCum,
+                            maCum: valCum,
+                            anhNgoai: imgOutBase64 ? `data:image/jpeg;base64,${imgOutBase64}` : (originalItem ? (originalItem.anhNgoai || originalItem.imgOutside) : ''),
+                            anhTrong: imgInBase64 ? `data:image/jpeg;base64,${imgInBase64}` : (originalItem ? (originalItem.anhTrong || originalItem.imgInside) : '')
+                        };
+                        if (!this.cachedData.indirect) this.cachedData.indirect = [];
+                        const index = this.cachedData.indirect.findIndex(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
+                        if (index !== -1) this.cachedData.indirect[index] = updatedItem;
+                        else this.cachedData.indirect.unshift(updatedItem);
                     }
+
+                    // 4. Render lại danh sách + map/kpi để thấy số mới ngay sau khi lưu
+                    this.renderIndirectChannelPage(this.filterDataByScope(this.cachedData.indirect || []));
 
                 } else {
                     alert("❌ Server báo lỗi: " + (response.message || response.error || JSON.stringify(response)));
@@ -3070,6 +4472,7 @@
 
             if (!keyword) {
                 UIRenderer.renderIndirectTable(sourceData);
+                this.renderIndirectRouteMapAndKPI(sourceData);
                 return;
             }
 
@@ -3117,6 +4520,7 @@
             });
 
             UIRenderer.renderIndirectTable(filtered);
+            this.renderIndirectRouteMapAndKPI(filtered);
         },
 
     // [BỔ SUNG] CÁC HÀM TÌM KIẾM CÒN THIẾU
