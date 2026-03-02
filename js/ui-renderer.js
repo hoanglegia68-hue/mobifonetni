@@ -269,8 +269,8 @@ const UIRenderer = {
             return `
                 <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
                     title="${label}"
-                    onclick="event.stopPropagation(); window.open('${url}', '_blank')">
-                    <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                    onclick="event.stopPropagation(); if(window.app&&app.viewImage){app.viewImage('${url}')}">
+                    <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2254%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%2364758b%22%3ENo%20Image%3C/text%3E%3C/svg%3E';">
                 </div>
             `;
         };
@@ -658,8 +658,8 @@ const UIRenderer = {
                 const displayUrl = getDisplayUrl(url);
                 return `
                     <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
-                        onclick="event.stopPropagation(); window.open('${url}', '_blank')">
-                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                        onclick="event.stopPropagation(); if(window.app&&app.viewImage){app.viewImage('${url}')}">
+                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2254%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%2364758b%22%3ENo%20Image%3C/text%3E%3C/svg%3E';">
                     </div>
                 `;
             };
@@ -1997,8 +1997,8 @@ const UIRenderer = {
                 const displayUrl = getDisplayUrl(url);
                 return `
                     <div class="relative w-8 h-8 group-img cursor-pointer border border-slate-200 rounded overflow-hidden hover:scale-[3] hover:z-50 hover:shadow-xl transition-all bg-white"
-                            onclick="event.stopPropagation(); window.open('${url}', '_blank')">
-                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                            onclick="event.stopPropagation(); if(window.app&&app.viewImage){app.viewImage('${url}')}">
+                        <img src="${displayUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2254%22 font-size=%2212%22 text-anchor=%22middle%22 fill=%22%2364758b%22%3ENo%20Image%3C/text%3E%3C/svg%3E';">
                     </div>`;
             };
 
