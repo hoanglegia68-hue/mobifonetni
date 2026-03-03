@@ -2108,6 +2108,54 @@
             else console.log(message);
         },
 
+        _resolveActionButton_(target) {
+            if (!target) return null;
+            if (typeof HTMLElement !== 'undefined' && target instanceof HTMLElement) return target;
+            const key = String(target || '').trim();
+            if (!key) return null;
+            const byId = document.getElementById(key);
+            if (byId) return byId;
+            try {
+                return document.querySelector(key);
+            } catch (e) {
+                return null;
+            }
+        },
+
+        _setSaveActionState_(target, phase = 'idle', options = {}) {
+            const btn = this._resolveActionButton_(target);
+            if (!btn) return null;
+
+            if (!btn.dataset.saveStateOriginalHtml) btn.dataset.saveStateOriginalHtml = btn.innerHTML;
+            if (!btn.dataset.saveStateWasDisabled) btn.dataset.saveStateWasDisabled = btn.disabled ? '1' : '0';
+
+            if (phase === 'saving') {
+                btn.disabled = true;
+                btn.textContent = options.savingText || 'Đang lưu dữ liệu...';
+                return btn;
+            }
+
+            if (phase === 'success') {
+                btn.disabled = true;
+                btn.textContent = options.successText || 'Lưu dữ liệu thành công';
+                return btn;
+            }
+
+            if (btn.dataset.saveStateOriginalHtml !== undefined) btn.innerHTML = btn.dataset.saveStateOriginalHtml;
+            btn.disabled = btn.dataset.saveStateWasDisabled === '1';
+            delete btn.dataset.saveStateOriginalHtml;
+            delete btn.dataset.saveStateWasDisabled;
+            if (window.refreshLucide) window.refreshLucide();
+            return btn;
+        },
+
+        async _showSaveSuccessState_(target, successText = 'Lưu dữ liệu thành công', holdMs = 900) {
+            const btn = this._setSaveActionState_(target, 'success', { successText });
+            if (!btn) return;
+            await new Promise((resolve) => setTimeout(resolve, holdMs));
+            this._setSaveActionState_(btn, 'idle');
+        },
+
         _escapeHtml_(value) {
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
@@ -2644,6 +2692,8 @@
                 this._notify('Không tìm thấy API báo cáo KPI.', 'error');
                 return;
             }
+            const saveBtn = document.getElementById('btn-save-indirect-kpi-my') ||
+                document.querySelector('#indirect-kpi-my-panel button[onclick*="saveMyIndirectKpiReport"]');
             const ctx = this._myIndirectKpiContext || {};
             const periodType = ctx.periodType || String(document.getElementById('indirect-kpi-my-period')?.value || 'week');
             const periodKey = ctx.periodKey || this._resolvePeriodKey_(periodType);
@@ -2669,16 +2719,21 @@
                 ghi_chu: note
             };
 
+            this._setSaveActionState_(saveBtn, 'saving', { savingText: 'Đang lưu dữ liệu...' });
+            this._notify('Đang lưu dữ liệu báo cáo KPI...', 'info');
             try {
                 const resp = await DataService.upsertIndirectKpiReport(payload);
                 if (resp?.error) throw new Error(resp.error);
-                this._notify('Đã lưu báo cáo KPI của bạn.', 'success');
                 await this.loadMyIndirectKpiPlan_();
                 await this.loadIndirectKpiHistory_();
                 this.renderIndirectRouteMapAndKPI();
+                await this._showSaveSuccessState_(saveBtn, 'Lưu dữ liệu thành công', 700);
+                this._notify('Đã lưu báo cáo KPI của bạn.', 'success');
             } catch (e) {
                 console.error('[Indirect KPI] save my report failed:', e);
                 this._notify(`Không lưu được báo cáo KPI: ${e.message}`, 'error');
+            } finally {
+                this._setSaveActionState_(saveBtn, 'idle');
             }
         },
 
@@ -2888,6 +2943,8 @@
                 this._notify('Không tìm thấy API giao KPI.', 'error');
                 return;
             }
+            const saveBtn = document.getElementById('btn-save-indirect-kpi-assign') ||
+                document.querySelector('#indirect-kpi-assign-panel button[onclick*="saveIndirectKpiAssignment"]');
             const periodType = String(document.getElementById('indirect-kpi-assign-period')?.value || 'week');
             const weekVal = String(document.getElementById('indirect-kpi-assign-week')?.value || '').trim();
             const monthVal = String(document.getElementById('indirect-kpi-assign-month')?.value || '').trim();
@@ -2923,14 +2980,19 @@
                 tan_suat_target: Number.isFinite(targetFrequency) ? targetFrequency : 0
             };
 
+            this._setSaveActionState_(saveBtn, 'saving', { savingText: 'Đang lưu dữ liệu...' });
+            this._notify('Đang lưu dữ liệu KPI...', 'info');
             try {
                 const resp = await DataService.upsertIndirectKpiPlan(payload);
                 if (resp?.error) throw new Error(resp.error);
-                this._notify('Đã giao KPI cho nhân viên bán hàng.', 'success');
                 await this._loadIndirectKpiAssignments_();
+                await this._showSaveSuccessState_(saveBtn, 'Lưu dữ liệu thành công', 700);
+                this._notify('Đã giao KPI cho nhân viên bán hàng.', 'success');
             } catch (e) {
                 console.error('[Indirect KPI] save assignment failed:', e);
                 this._notify(`Không lưu được KPI: ${e.message}`, 'error');
+            } finally {
+                this._setSaveActionState_(saveBtn, 'idle');
             }
         },
 
@@ -3085,7 +3147,8 @@
                     statusEl.classList.add('text-slate-700', 'font-semibold');
                 }
             };
-            setCheckinStatus(`ĐANG CHECK-IN GPS: ${point.ten}...`, 'loading');
+            setCheckinStatus(`Đang lưu dữ liệu check-in GPS: ${point.ten}...`, 'loading');
+            this._notify('Đang lưu dữ liệu check-in GPS...', 'info');
 
             const getPosition = () => new Promise((resolve, reject) => {
                 navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -3163,9 +3226,9 @@
                 }
 
                 if (distanceM === null) {
-                    setCheckinStatus(`Đã check-in ${point.ten} (mỗi ngày 1 lần, bản ghi hôm nay đã được cập nhật).`, 'success');
+                    setCheckinStatus(`Lưu dữ liệu check-in GPS thành công: ${point.ten} (mỗi ngày 1 lần, bản ghi hôm nay đã được cập nhật).`, 'success');
                 } else {
-                    setCheckinStatus(`Đã check-in ${point.ten}: cách điểm ${distanceM}m ${near ? '(ĐẠT)' : '(CHƯA ĐẠT)'} - đã ghi đè bản ghi hôm nay nếu có.`, near ? 'success' : 'error');
+                    setCheckinStatus(`Lưu dữ liệu check-in GPS thành công: ${point.ten} - cách điểm ${distanceM}m ${near ? '(ĐẠT)' : '(CHƯA ĐẠT)'}; đã ghi đè bản ghi hôm nay nếu có.`, near ? 'success' : 'error');
                 }
                 this._notify('Check-in GPS thành công.', 'success');
                 this.renderIndirectRouteMapAndKPI();
@@ -4043,6 +4106,7 @@
                 if (btnText) btnText.innerText = 'Đang lưu dữ liệu...';
                 if (btnLoad) btnLoad.classList.remove('hidden');
             }
+            this._notify('Đang lưu dữ liệu cửa hàng...', 'info');
 
             try {
                 const oldStoreId = (document.getElementById('store-id')?.value || '').trim();
@@ -4107,11 +4171,16 @@
 
                 this.renderStoreList();
                 this.tempStoreImages = { trong: null, ngoai: null };
+                if (btnSave) {
+                    if (btnText) btnText.innerText = 'Lưu dữ liệu thành công';
+                    if (btnLoad) btnLoad.classList.add('hidden');
+                    await new Promise((resolve) => setTimeout(resolve, 600));
+                }
+                this._notify('Lưu dữ liệu cửa hàng thành công.', 'success');
                 this.closeModal('modal-edit-store');
-                alert(isCreate ? '✅ Đã thêm mới cửa hàng thành công!' : '✅ Đã cập nhật thông tin cửa hàng thành công!');
             } catch (e) {
                 console.error('Lỗi Save Store:', e);
-                alert('⚠️ Không thể lưu: ' + e.message);
+                this._notify('Không thể lưu dữ liệu cửa hàng: ' + e.message, 'error');
             } finally {
                 if (btnSave) {
                     btnSave.disabled = false;
@@ -4128,8 +4197,14 @@
             const isCreate = this.indirectEditMode === 'create';
             const codeInput = document.getElementById('edit-indirect-code')?.value.trim();
             const oldId = this.currentEditingIndirectId || codeInput;
-            if (!oldId && !isCreate) return alert("❌ Lỗi: Không xác định được ID bản ghi gốc.");
-            if (!codeInput) return alert("⚠️ Vui lòng nhập Mã Đại Lý / Điểm Bán.");
+            if (!oldId && !isCreate) {
+                this._notify('Không xác định được ID bản ghi gốc.', 'error');
+                return;
+            }
+            if (!codeInput) {
+                this._notify('Vui lòng nhập Mã Đại Lý / Điểm Bán.', 'warning');
+                return;
+            }
 
             // Tìm Item gốc để backup dữ liệu nếu form nhập thiếu
             const originalItem = (this.cachedData.indirect || []).find(i => String(i.id) == String(oldId) || String(i.maDL) == String(oldId));
@@ -4181,17 +4256,15 @@
 
             // Validate cơ bản
             if ((latVal && isNaN(latVal)) || (lngVal && isNaN(lngVal))) {
-                return alert("⚠️ Tọa độ phải là số (VD: 10.762)!");
+                this._notify('Tọa độ phải là số (VD: 10.762).', 'warning');
+                return;
             }
 
             // --- 3. UI LOADING ---
             const saveBtn = document.getElementById('btn-save-indirect') ||
                             document.querySelector('#modal-edit-indirect button[onclick*="save"]');
-            let oldBtnContent = saveBtn ? saveBtn.innerHTML : 'Lưu thay đổi';
-            if (saveBtn) {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = `<i class="animate-spin mr-2">⏳</i> Đang xử lý & Gửi...`;
-            }
+            this._setSaveActionState_(saveBtn, 'saving', { savingText: 'Đang lưu dữ liệu...' });
+            this._notify('Đang lưu dữ liệu điểm bán...', 'info');
 
             try {
                 // --- 4. XỬ LÝ ẢNH (NÉN & BASE64) ---
@@ -4252,12 +4325,7 @@
 
                 // --- 6. XỬ LÝ KẾT QUẢ (ĐÃ SỬA OPTIMISTIC UI) ---
                 if (response && (response.status === 'success' || response.result === 'success' || response.id)) {
-                    
-                    // 1. Thông báo & Đóng Modal
-                    alert(isCreate ? "✅ Đã thêm mới điểm bán thành công!" : "✅ Cập nhật thành công!");
-                    this.closeModal('modal-edit-indirect');
-
-                    // 2. Reload từ server để đảm bảo lấy đúng link ảnh trong/ngoài mới nhất
+                    // 1. Reload từ server để đảm bảo lấy đúng link ảnh trong/ngoài mới nhất
                     let refreshedOk = false;
                     try {
                         if (DataService.invalidateLocalCache_) {
@@ -4308,19 +4376,19 @@
 
                     // 4. Render lại danh sách + map/kpi để thấy số mới ngay sau khi lưu
                     this.renderIndirectChannelPage(this.filterDataByScope(this.cachedData.indirect || []));
+                    await this._showSaveSuccessState_(saveBtn, 'Lưu dữ liệu thành công', 700);
+                    this._notify(isCreate ? 'Đã thêm mới điểm bán thành công.' : 'Đã cập nhật điểm bán thành công.', 'success');
+                    this.closeModal('modal-edit-indirect');
 
                 } else {
-                    alert("❌ Server báo lỗi: " + (response.message || response.error || JSON.stringify(response)));
+                    this._notify('Server báo lỗi: ' + (response.message || response.error || JSON.stringify(response)), 'error');
                 }
 
             } catch (error) {
                 console.error("Critical Save Error:", error);
-                alert("❌ Lỗi ứng dụng: " + error.message);
+                this._notify('Lỗi ứng dụng: ' + error.message, 'error');
             } finally {
-                if (saveBtn) {
-                    saveBtn.disabled = false;
-                    saveBtn.innerHTML = oldBtnContent;
-                }
+                this._setSaveActionState_(saveBtn, 'idle');
             }
         },
 
