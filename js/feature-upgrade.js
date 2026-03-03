@@ -903,7 +903,11 @@
 
             async saveWeeklyPlan() {
                 if (this._savingWeekly) return;
+                const saveBtn = document.getElementById('btn-save-weekly-plan')
+                    || document.querySelector('button[onclick*="saveWeeklyPlan"]');
                 this._savingWeekly = true;
+                this._setSaveActionState_(saveBtn, 'saving', { savingText: 'Đang lưu dữ liệu...' });
+                this.toast_('Đang lưu dữ liệu lịch tuần...', 'info');
                 try {
                     const weekStart = this.setDefaultWeekInput_('weekly-week-start');
                     const me = this.getCurrentIdentity_();
@@ -922,7 +926,6 @@
                         : (row?.ten_nv || me.name || me.username);
                     if (!ownerEmail) {
                         this.toast_('Không xác định được email người gửi.', 'error');
-                        this._savingWeekly = false;
                         return;
                     }
 
@@ -951,12 +954,14 @@
 
                     const resp = await DataService.upsertWeeklyPlan(payload);
                     if (resp?.error) throw new Error(resp.error);
-                    this.toast_('Đã lưu lịch tuần thành công.', 'success');
                     await this.loadWeeklyPlanView(true);
+                    await this._showSaveSuccessState_(saveBtn, 'Lưu dữ liệu thành công', 700);
+                    this.toast_('Đã lưu lịch tuần thành công.', 'success');
                 } catch (e) {
                     console.error('[Weekly] save failed:', e);
                     this.toast_(`Không lưu được lịch tuần: ${e.message}`, 'error');
                 } finally {
+                    this._setSaveActionState_(saveBtn, 'idle');
                     this._savingWeekly = false;
                 }
             },
@@ -1280,7 +1285,11 @@
                     this.toast_('Admin chỉ xem bản tin thị trường, không nhập liệu tại màn hình này.', 'warning');
                     return;
                 }
+                const saveBtn = document.getElementById('btn-save-market-beat')
+                    || document.querySelector('button[onclick*="saveMarketBeat"]');
                 this._savingMarket = true;
+                this._setSaveActionState_(saveBtn, 'saving', { savingText: 'Đang lưu dữ liệu...' });
+                this.toast_('Đang lưu dữ liệu nhịp đập thị trường...', 'info');
                 try {
                     const weekStart = this.setDefaultWeekInput_('market-week-start');
                     const me = this.getCurrentIdentity_();
@@ -1303,13 +1312,15 @@
                     }
                     const resp = await DataService.upsertMarketBeat(payload);
                     if (resp?.error) throw new Error(resp.error);
-                    this.toast_('Đã ghi nhận nhịp đập thị trường.', 'success');
                     await this.loadMarketBeatView(true);
                     this.setMarketEntryExpanded_(false);
+                    await this._showSaveSuccessState_(saveBtn, 'Lưu dữ liệu thành công', 700);
+                    this.toast_('Đã ghi nhận nhịp đập thị trường.', 'success');
                 } catch (e) {
                     console.error('[Market] save failed:', e);
                     this.toast_(`Không lưu được dữ liệu thị trường: ${e.message}`, 'error');
                 } finally {
+                    this._setSaveActionState_(saveBtn, 'idle');
                     this._savingMarket = false;
                 }
             },
@@ -1496,7 +1507,11 @@
                     this.toast_('Admin chỉ xem báo cáo tại màn hình này.', 'warning');
                     return;
                 }
+                const saveBtn = document.getElementById('btn-save-focus-report')
+                    || document.querySelector('button[onclick*="saveFocusReport"]');
                 this._savingFocus = true;
+                this._setSaveActionState_(saveBtn, 'saving', { savingText: 'Đang lưu dữ liệu...' });
+                this.toast_('Đang lưu dữ liệu báo cáo trọng tâm...', 'info');
                 try {
                     const weekStart = this.setDefaultWeekInput_('focus-week-start');
                     const me = this.getCurrentIdentity_();
@@ -1520,13 +1535,15 @@
                     }
                     const resp = await DataService.upsertFocusReport(payload);
                     if (resp?.error) throw new Error(resp.error);
-                    this.toast_('Đã lưu báo cáo trọng tâm.', 'success');
                     await this.loadFocusReportView(true);
                     if (!this.isAdminUser_()) this.setFocusEntryExpanded_(false);
+                    await this._showSaveSuccessState_(saveBtn, 'Lưu dữ liệu thành công', 700);
+                    this.toast_('Đã lưu báo cáo trọng tâm.', 'success');
                 } catch (e) {
                     console.error('[Focus] save failed:', e);
                     this.toast_(`Không lưu được báo cáo: ${e.message}`, 'error');
                 } finally {
+                    this._setSaveActionState_(saveBtn, 'idle');
                     this._savingFocus = false;
                 }
             },
