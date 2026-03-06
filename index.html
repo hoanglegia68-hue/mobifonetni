@@ -1150,8 +1150,11 @@
                             <div class="flex gap-2 items-center">
                                 <div class="relative">
                                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                                    <input type="text" placeholder="Tìm Mã, Tên, SĐT, Cụm..." class="input-search pl-9 pr-4 py-1.5 border border-slate-300 rounded text-sm focus:border-blue-500 outline-none w-64" onkeyup="app.handleSearchIndirect(this.value)">
+                                    <input id="indirect-search-input" type="text" placeholder="Tìm Mã, Tên, SĐT, Cụm..." class="input-search pl-9 pr-4 py-1.5 border border-slate-300 rounded text-sm focus:border-blue-500 outline-none w-64" onkeyup="app.handleSearchIndirect(this.value)">
                                 </div>
+                                <select id="indirect-type-filter" class="h-9 border border-slate-300 rounded px-3 text-sm bg-white focus:border-blue-500 outline-none min-w-[190px]" onchange="app.handleIndirectTypeFilterChange(this.value)">
+                                    <option value="all">Tất cả loại điểm bán</option>
+                                </select>
                                 <button class="btn-primary h-9 text-xs px-3 privileged-only" onclick="app.openCreateIndirectModal()">
                                     <i data-lucide="plus" class="w-4 h-4 mr-1"></i>Thêm đại lý
                                 </button>
