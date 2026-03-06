@@ -464,6 +464,184 @@
             width: 100%;
         }
     }
+
+    /* =========================================
+       7. RESPONSIVE HARDENING (Mobile / Tablet / PC)
+       ========================================= */
+    #main-container {
+        scrollbar-gutter: stable both-edges;
+    }
+    .table-pager > div {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    .table-pager .btn-secondary {
+        white-space: nowrap;
+    }
+    .tab-btn {
+        white-space: nowrap;
+    }
+
+    @media (max-width: 1279px) {
+        #main-container {
+            padding: 16px !important;
+        }
+        .compact-toolbar {
+            gap: 8px !important;
+            padding: 10px !important;
+        }
+        .compact-toolbar > div {
+            min-width: 0;
+        }
+        .compact-toolbar input,
+        .compact-toolbar select,
+        .compact-toolbar .input-search {
+            max-width: 100%;
+        }
+        .modern-table {
+            min-width: 720px;
+        }
+        .modern-table th,
+        .modern-table td {
+            padding: 10px 12px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        #main-container {
+            padding: 10px !important;
+            padding-bottom: calc(90px + env(safe-area-inset-bottom)) !important;
+        }
+
+        .compact-toolbar {
+            align-items: stretch !important;
+        }
+        .compact-toolbar > div:first-child,
+        .compact-toolbar > div:last-child {
+            width: 100%;
+        }
+        .compact-toolbar > div:last-child {
+            display: grid !important;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            align-items: stretch !important;
+        }
+        .compact-toolbar .relative,
+        .compact-toolbar .input-search,
+        .compact-toolbar select,
+        .compact-toolbar .btn-primary,
+        .compact-toolbar .btn-secondary {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .compact-toolbar .btn-primary,
+        .compact-toolbar .btn-secondary {
+            min-height: 38px;
+            justify-content: center;
+        }
+
+        .filter-bar .input-search,
+        .filter-bar select,
+        .filter-bar .btn-primary,
+        .filter-bar .btn-secondary {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        .modern-table {
+            min-width: 620px;
+        }
+        .tab-btn {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        .table-pager {
+            position: sticky;
+            bottom: 0;
+            z-index: 6;
+            box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.1);
+        }
+        .table-pager > div {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px !important;
+        }
+        .table-pager > div > div:last-child {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 6px;
+            align-items: center;
+        }
+        .table-pager > div > div:last-child span {
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+
+        .modal-content {
+            margin: 8px;
+            max-height: calc(100dvh - 16px);
+        }
+        #modal-edit-indirect > div,
+        #modal-edit-store > div:last-child,
+        #modal-edit-bts > div:last-child {
+            width: calc(100vw - 12px);
+            max-height: calc(100dvh - 12px);
+            border-radius: 12px;
+        }
+        #modal-detail-list > div {
+            width: 100vw;
+            height: 100dvh;
+            border-radius: 0;
+        }
+        #modal-detail-list .px-6.py-4 {
+            padding: 12px 14px;
+        }
+
+        .modal-overlay .bg-slate-50.px-6.py-4,
+        #modal-edit-indirect .bg-slate-50.px-6.py-4,
+        #modal-edit-store .bg-slate-50.px-6.py-4,
+        #modal-edit-bts .bg-slate-50.px-6.py-4,
+        #modal-detail-list .px-6.py-3.border-t {
+            position: sticky;
+            bottom: 0;
+            z-index: 7;
+            box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.1);
+            padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+        }
+        .modal-overlay .bg-slate-50.px-6.py-4,
+        #modal-edit-indirect .bg-slate-50.px-6.py-4,
+        #modal-edit-store .bg-slate-50.px-6.py-4,
+        #modal-edit-bts .bg-slate-50.px-6.py-4 {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .modal-overlay .bg-slate-50.px-6.py-4 button,
+        #modal-edit-indirect .bg-slate-50.px-6.py-4 button,
+        #modal-edit-store .bg-slate-50.px-6.py-4 button,
+        #modal-edit-bts .bg-slate-50.px-6.py-4 button {
+            flex: 1 1 calc(50% - 6px);
+            min-height: 40px;
+            justify-content: center;
+            white-space: nowrap;
+        }
+
+        #modal-edit-indirect .grid.grid-cols-2,
+        #modal-edit-store .grid.grid-cols-2 {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .modern-table {
+            min-width: 560px;
+        }
+        #modal-edit-indirect .bg-slate-50.px-6.py-4 button,
+        #modal-edit-store .bg-slate-50.px-6.py-4 button,
+        #modal-edit-bts .bg-slate-50.px-6.py-4 button {
+            flex: 1 1 100%;
+        }
+    }
 </style>
 </head>
 
