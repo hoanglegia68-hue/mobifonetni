@@ -43,6 +43,7 @@
         storeMapState: { cum: 'all', map: null, layer: null, sourceData: null },
         indirectCheckinDistanceThresholdM: 300,
         indirectKpiHistoryRows: [],
+        indirectFilterState: { keyword: '', phanLoai: 'all' },
         tablePaginationState: {},
         tablePaginationObservers: {},
         tablePaginationDefaultSize: 20,
@@ -1901,10 +1902,43 @@
 
         renderIndirectChannelPage(data = null) {
             const rows = Array.isArray(data) ? data : this.filterDataByScope(this.cachedData.indirect || []);
-            UIRenderer.renderIndirectTable(rows);
-            this.renderIndirectRouteMapAndKPI(rows);
+            this._renderIndirectTypeFilterOptions(rows);
+            this.applyIndirectFilters(rows);
             this.initIndirectKpiAssignmentPanel();
             this._syncIndirectCheckinsFromServer_();
+        },
+
+        _renderIndirectTypeFilterOptions(data = null) {
+            const sel = document.getElementById('indirect-type-filter');
+            const searchInput = document.getElementById('indirect-search-input');
+            const rows = Array.isArray(data) ? data : this.filterDataByScope(this.cachedData.indirect || []);
+
+            if (searchInput && searchInput.value !== String(this.indirectFilterState.keyword || '')) {
+                searchInput.value = String(this.indirectFilterState.keyword || '');
+            }
+            if (!sel) return;
+
+            const values = Array.from(new Set((rows || [])
+                .map((r) => String(this._pickIndirectVal(r, 'phanloai', 'Phanloai', 'PhanLoai') || '').trim())
+                .filter(Boolean)))
+                .sort((a, b) => a.localeCompare(b, 'vi', { sensitivity: 'base' }));
+
+            const esc = (s) => String(s || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+
+            let html = '<option value="all">Tất cả loại điểm bán</option>';
+            values.forEach((val) => {
+                const safe = esc(val);
+                html += `<option value="${safe}">${safe}</option>`;
+            });
+            sel.innerHTML = html;
+
+            const current = String(this.indirectFilterState.phanLoai || 'all').trim() || 'all';
+            this.indirectFilterState.phanLoai = (current === 'all' || values.includes(current)) ? current : 'all';
+            sel.value = this.indirectFilterState.phanLoai;
         },
 
         _pickIndirectVal(row, ...aliases) {
@@ -4871,60 +4905,57 @@
 
     // ============================================================
         handleSearchIndirect(k) {
-            const keyword = (k || '').toString().toLowerCase().trim();
-            const sourceData = this.filterDataByScope(this.cachedData.indirect || []);
+            this.indirectFilterState.keyword = (k || '').toString();
+            this.applyIndirectFilters();
+        },
 
-            if (!keyword) {
-                UIRenderer.renderIndirectTable(sourceData);
-                this.renderIndirectRouteMapAndKPI(sourceData);
-                return;
-            }
+        handleIndirectTypeFilterChange(value) {
+            this.indirectFilterState.phanLoai = String(value || 'all').trim() || 'all';
+            this.applyIndirectFilters();
+        },
 
-            // Hàm hỗ trợ lấy chuỗi an toàn để tìm kiếm
+        applyIndirectFilters(data = null) {
+            const sourceData = Array.isArray(data) ? data : this.filterDataByScope(this.cachedData.indirect || []);
+            const state = this.indirectFilterState || { keyword: '', phanLoai: 'all' };
+            const keyword = String(state.keyword || '').trim().toLowerCase();
+            const phanLoaiFilter = String(state.phanLoai || 'all').trim() || 'all';
+
             const getVal = (val) => String(val || '').toLowerCase();
 
-            // BỔ SUNG HÀM PICK TẠI ĐÂY
-            // Hàm này tìm giá trị trong object dựa trên danh sách các key (không phân biệt hoa/thường)
-            const pick = (row, ...keys) => {
-                for (let k of keys) {
-                    let lk = Object.keys(row).find(key => key.toLowerCase() === k.toLowerCase());
-                    if (lk && row[lk] !== undefined && row[lk] !== null && String(row[lk]).trim() !== '') {
-                        return String(row[lk]);
-                    }
-                }
-                return '';
-            };
+            const filtered = sourceData.filter((item) => {
+                const rowPhanLoai = String(this._pickIndirectVal(item, 'phanloai', 'Phanloai', 'PhanLoai') || '').trim();
+                if (phanLoaiFilter !== 'all' && rowPhanLoai !== phanLoaiFilter) return false;
+                if (!keyword) return true;
 
-            const filtered = sourceData.filter(item => {
-                // Tìm thông tin bổ sung từ Cụm để search
-                let clusterExtraInfo = "";
-                const maC = pick(item, 'maCum', 'MaCum', 'cum', 'Cum');
-                
+                let clusterExtraInfo = '';
+                const maC = this._pickIndirectVal(item, 'maCum', 'MaCum', 'cum', 'Cum');
                 if (maC && this.fullClusterData) {
                     for (const lc of this.fullClusterData) {
-                        const found = lc.cums.find(c => String(c.maCum).toUpperCase() === String(maC).toUpperCase());
+                        const found = (lc.cums || []).find((c) => String(c.maCum || '').toUpperCase() === String(maC).toUpperCase());
                         if (found) {
-                            clusterExtraInfo = (found.tenCum || "") + " " + (found.phuTrach || "");
+                            clusterExtraInfo = `${found.tenCum || ''} ${found.phuTrach || ''}`;
                             break;
                         }
                     }
                 }
 
                 return (
-                    getVal(item.ten).includes(keyword) ||
-                    getVal(item.maDL).includes(keyword) ||
-                    getVal(item.maCode).includes(keyword) ||
-                    getVal(item.sdt).includes(keyword) ||
-                    getVal(item.chuSoHuu).includes(keyword) ||
-                    getVal(item.diaChi).includes(keyword) ||
-                    getVal(item.tuyen).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'ten', 'Ten', 'tenDiemBan')).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'maDL', 'MaDL', 'maCode', 'code', 'id')).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'sdt', 'SDT', 'soDienThoai', 'phone')).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'chuSoHuu', 'ChuSoHuu', 'chu')).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'diaChi', 'DiaChi', 'diachi', 'DC')).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'tuyen', 'Tuyen', 'tuyenBanHang')).includes(keyword) ||
+                    getVal(this._pickIndirectVal(item, 'loai', 'Loai')).includes(keyword) ||
+                    getVal(rowPhanLoai).includes(keyword) ||
                     getVal(maC).includes(keyword) ||
-                    getVal(clusterExtraInfo).includes(keyword) // Tìm được theo Tên cụm/Trưởng cụm
+                    getVal(clusterExtraInfo).includes(keyword)
                 );
             });
 
             UIRenderer.renderIndirectTable(filtered);
             this.renderIndirectRouteMapAndKPI(filtered);
+            return filtered;
         },
 
     // [BỔ SUNG] CÁC HÀM TÌM KIẾM CÒN THIẾU
