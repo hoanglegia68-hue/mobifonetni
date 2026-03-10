@@ -266,11 +266,45 @@
                 return dateInputValue(d);
             },
 
+            markWeekInputManual_(id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.dataset.userSet = '1';
+                const normalized = this.toWeekStart_(el.value);
+                if (normalized && normalized !== el.value) {
+                    el.value = normalized;
+                }
+            },
+
             setDefaultWeekInput_(id) {
                 const el = document.getElementById(id);
                 if (!el) return '';
-                if (!el.value) el.value = this.toWeekStart_(new Date());
-                return this.toWeekStart_(el.value);
+                const currentWeek = this.toWeekStart_(new Date());
+                if (!el.value) {
+                    el.value = currentWeek;
+                    el.dataset.autoWeek = currentWeek;
+                    el.dataset.userSet = '0';
+                    return currentWeek;
+                }
+
+                const normalized = this.toWeekStart_(el.value);
+                const userSet = el.dataset.userSet === '1';
+                const autoWeek = String(el.dataset.autoWeek || '');
+
+                if (!userSet) {
+                    const shouldAutoUpdate = (!autoWeek || autoWeek === normalized) && normalized !== currentWeek;
+                    if (shouldAutoUpdate) {
+                        el.value = currentWeek;
+                        el.dataset.autoWeek = currentWeek;
+                        el.dataset.userSet = '0';
+                        return currentWeek;
+                    }
+                }
+
+                if (normalized && el.value !== normalized) {
+                    el.value = normalized;
+                }
+                return normalized || currentWeek;
             },
 
             getCurrentIdentity_() {
@@ -635,6 +669,10 @@
                 if (approveBtn) {
                     approveBtn.disabled = !this.isAdminUser_() || !row || row.trang_thai === 'approved';
                 }
+                const unapproveBtn = document.getElementById('btn-unapprove-weekly-plan');
+                if (unapproveBtn) {
+                    unapproveBtn.disabled = !this.isAdminUser_() || !row || row.trang_thai !== 'approved';
+                }
             },
 
             renderWeeklyRows_(rows) {
@@ -988,6 +1026,29 @@
                 }
             },
 
+            async unapproveWeeklyPlan() {
+                if (!this.isAdminUser_()) {
+                    this.toast_('Chỉ admin mới có quyền huỷ phê duyệt.', 'warning');
+                    return;
+                }
+                const id = String(document.getElementById('weekly-plan-id')?.value || '').trim();
+                if (!id) {
+                    this.toast_('Chọn bản ghi cần huỷ phê duyệt trước.', 'warning');
+                    return;
+                }
+                if (!confirm('Huỷ phê duyệt lịch tuần này?')) return;
+                try {
+                    const ghiChu = String(document.getElementById('weekly-ghi-chu')?.value || '').trim();
+                    const resp = await DataService.unapproveWeeklyPlan(id, ghiChu);
+                    if (resp?.error) throw new Error(resp.error);
+                    this.toast_('Đã huỷ phê duyệt lịch tuần.', 'success');
+                    await this.loadWeeklyPlanView(true);
+                } catch (e) {
+                    console.error('[Weekly] unapprove failed:', e);
+                    this.toast_(`Không huỷ phê duyệt được: ${e.message}`, 'error');
+                }
+            },
+
             copyWeeklyList(type) {
                 const list = this._weeklyCopyLists?.[type] || [];
                 if (!list.length) {
@@ -1253,15 +1314,6 @@
                     const allowed = new Set(this.allowedCumCodes_().map((x) => String(x).trim()));
                     const allRows = (raw || []).map((r, i) => this.normalizeMarketRow_(r, i));
                     let rows = allRows.filter((r) => r.week_start === weekStart);
-                    if (!rows.length && allRows.length) {
-                        const latestWeek = allRows.map((r) => r.week_start).filter(Boolean).sort().slice(-1)[0];
-                        if (latestWeek) {
-                            weekStart = latestWeek;
-                            const weekEl = document.getElementById('market-week-start');
-                            if (weekEl) weekEl.value = latestWeek;
-                            rows = allRows.filter((r) => r.week_start === latestWeek);
-                        }
-                    }
                     if (!this.isAdminUser_()) {
                         rows = rows.filter((r) => !r.ma_cum || allowed.has(String(r.ma_cum).trim()));
                     }
@@ -1767,9 +1819,18 @@
 
                 bindInput('kpi-personal-month', 'change', () => this.loadPersonalKPIView());
                 bindInput('kpi-personal-keyword', 'input', debounce(() => this.renderPersonalKPITable(), 180));
-                bindInput('weekly-week-start', 'change', () => this.loadWeeklyPlanView());
-                bindInput('market-week-start', 'change', () => this.loadMarketBeatView());
-                bindInput('focus-week-start', 'change', () => this.loadFocusReportView());
+                bindInput('weekly-week-start', 'change', () => {
+                    this.markWeekInputManual_('weekly-week-start');
+                    this.loadWeeklyPlanView();
+                });
+                bindInput('market-week-start', 'change', () => {
+                    this.markWeekInputManual_('market-week-start');
+                    this.loadMarketBeatView();
+                });
+                bindInput('focus-week-start', 'change', () => {
+                    this.markWeekInputManual_('focus-week-start');
+                    this.loadFocusReportView();
+                });
                 bindInput('product-filter-name', 'input', debounce(() => this.applyProductFilters(), 180));
                 bindInput('product-filter-type', 'input', debounce(() => this.applyProductFilters(), 180));
                 bindInput('product-filter-target', 'input', debounce(() => this.applyProductFilters(), 180));
