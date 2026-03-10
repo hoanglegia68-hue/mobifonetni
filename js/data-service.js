@@ -3,7 +3,7 @@
  * Update: Tích hợp xác thực Token, Caching thông minh & Xử lý lỗi
  * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwLWj2Ov-8I0sgo7hEQe2HL8pRwdoXGbGOUho54dxQpdbMV6gYzo9geszvqe3V1ivfihQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz0-HkSslwJvL14nPKFvfIuLZ7vrPvfp_PrfiMcIj3ciQeUGB_IcTmC-EcODiRueavsPw/exec";
 
 const DataService = {
     _cache: null,          // Core data (Users, Stores, BTS...)
@@ -529,6 +529,14 @@ const DataService = {
         });
     },
 
+    async unapproveWeeklyPlan(id, ghiChu = "") {
+        return this.postData({
+            action: 'unapprove_weekly_plan',
+            id: id,
+            ghi_chu: ghiChu
+        });
+    },
+
     async upsertMarketBeat(data) {
         return this.postData({
             action: 'upsert_market',
@@ -591,7 +599,7 @@ const DataService = {
                 if (safePayload.action === 'upsert_bts' && this._cache) {
                     this.invalidateLocalCache_(['bts']);
                 }
-                if (safePayload.action === 'upsert_weekly_plan' || safePayload.action === 'approve_weekly_plan') {
+                if (safePayload.action === 'upsert_weekly_plan' || safePayload.action === 'approve_weekly_plan' || safePayload.action === 'unapprove_weekly_plan') {
                     this.invalidateLocalCache_(['lich_tuan']);
                 }
                 if (safePayload.action === 'upsert_market') {
