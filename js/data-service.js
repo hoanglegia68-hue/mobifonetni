@@ -3,7 +3,7 @@
  * Update: Tích hợp xác thực Token, Caching thông minh & Xử lý lỗi
  * ========================================================================== */
 
-const API_URL = "https://script.google.com/macros/s/AKfycbz0-HkSslwJvL14nPKFvfIuLZ7vrPvfp_PrfiMcIj3ciQeUGB_IcTmC-EcODiRueavsPw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyRfWbAtVKdsaWvWBH-Gq89z5abXAyptUo1gTO5116h9g9V9NQq5hgslKQpXO1bR3gJ6g/exec";
 
 const DataService = {
     _cache: null,          // Core data (Users, Stores, BTS...)
